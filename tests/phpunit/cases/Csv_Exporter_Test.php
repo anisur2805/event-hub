@@ -62,12 +62,19 @@ class Csv_Exporter_Test extends WP_UnitTestCase {
 	/**
 	 * Runs the admin-post handler as a user with a nonce; returns [code, output].
 	 *
-	 * @param int    $user_id User to act as.
-	 * @param string $nonce   Nonce value.
+	 * The nonce is minted AFTER the user switch: nonces are bound to the
+	 * session token of the current user, so ordering matters.
+	 *
+	 * @param int    $user_id   User to act as.
+	 * @param string $nonce     Nonce value ('auto' = mint as $user_id).
 	 * @return array{0:int,1:string}
 	 */
 	private function run_handle( int $user_id, string $nonce ): array {
 		wp_set_current_user( $user_id );
+
+		if ( 'auto' === $nonce ) {
+			$nonce = wp_create_nonce( Csv_Exporter::NONCE_ACTION );
+		}
 
 		$_GET['action']       = Csv_Exporter::ACTION;
 		$_GET['event_id']     = (string) $this->event_id;
@@ -78,7 +85,7 @@ class Csv_Exporter_Test extends WP_UnitTestCase {
 		ob_start();
 
 		try {
-			( new Csv_Exporter() )->handle();
+			( new Csv_Exporter() )->handle_request();
 		} catch ( \WPDieException $e ) {
 			$code = $e->getCode() ? (int) $e->getCode() : 403;
 		}
@@ -96,10 +103,7 @@ class Csv_Exporter_Test extends WP_UnitTestCase {
 		$repo = new Rsvp_Repository();
 		$repo->create( '=CMD|\' + del', 'evil@example.com', 'going', $this->event_id );
 
-		list( $code, $output ) = $this->run_handle(
-			$this->admin_id,
-			wp_create_nonce( Csv_Exporter::NONCE_ACTION )
-		);
+		list( $code, $output ) = $this->run_handle( $this->admin_id, 'auto' );
 
 		$this->assertSame( 200, $code );
 		$this->assertSame( "\xEF\xBB\xBF", substr( $output, 0, 3 ), 'UTF-8 BOM must open the stream.' );
@@ -126,10 +130,7 @@ class Csv_Exporter_Test extends WP_UnitTestCase {
 	 * @return void
 	 */
 	public function test_no_capability_dies(): void {
-		list( $code, $output ) = $this->run_handle(
-			$this->subscriber_id,
-			wp_create_nonce( Csv_Exporter::NONCE_ACTION )
-		);
+		list( $code, $output ) = $this->run_handle( $this->subscriber_id, 'auto' );
 
 		$fake = $this->admin_id; // keep property read for PHPStan.
 		$this->assertGreaterThan( 0, $fake );
@@ -150,7 +151,7 @@ class Csv_Exporter_Test extends WP_UnitTestCase {
 		$_REQUEST['_wpnonce'] = wp_create_nonce( Csv_Exporter::NONCE_ACTION );
 
 		try {
-			( new Csv_Exporter() )->handle();
+			( new Csv_Exporter() )->handle_request();
 			$this->fail( 'Unknown event must wp_die.' );
 		} catch ( \WPDieException $e ) {
 			$this->assertSame( 404, $e->getCode() );

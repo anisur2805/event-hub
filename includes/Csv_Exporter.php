@@ -78,6 +78,18 @@ final class Csv_Exporter {
 	 * @return void
 	 */
 	public function handle(): void {
+		$this->handle_request();
+		exit;
+	}
+
+	/**
+	 * Validates the request and streams the CSV without terminating the
+	 * process — the testable core of handle() (admin-post requires exit;
+	 * PHPUnit must survive a successful export).
+	 *
+	 * @return void
+	 */
+	public function handle_request(): void {
 		if ( ! current_user_can( 'edit_others_posts' ) ) {
 			wp_die(
 				esc_html__( 'You are not allowed to export RSVPs.', 'event-hub' ),
@@ -100,8 +112,6 @@ final class Csv_Exporter {
 		}
 
 		$this->stream( $event_id, get_the_title( $event ) );
-
-		exit;
 	}
 
 	/**

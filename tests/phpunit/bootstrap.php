@@ -45,6 +45,10 @@ tests_add_filter(
 	'muplugins_loaded',
 	static function (): void {
 		require_once dirname( __DIR__, 2 ) . '/event-hub.php';
+
+		// The custom RSVP table migrates on admin_init in production; the
+		// test suite never loads wp-admin, so create it up front.
+		\EventHub\Migrations::maybe_migrate();
 	}
 );
 
