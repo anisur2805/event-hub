@@ -708,16 +708,20 @@ final class Rest_Controller {
 	 */
 	private function serialize_public( array $summary ): array {
 		return array(
-			'id'         => (int) $summary['id'],
-			'title'      => (string) $summary['title'],
-			'excerpt'    => (string) $summary['excerpt'],
-			'start'      => (string) $summary['start'],
-			'end'        => (string) $summary['end'],
-			'venue'      => (string) $summary['venue'],
-			'capacity'   => $summary['capacity'],
-			'counts'     => $summary['counts'],
-			'categories' => $summary['categories'],
-			'rsvpOpen'   => (bool) $summary['rsvpOpen'],
+			'id'            => (int) $summary['id'],
+			'title'         => (string) $summary['title'],
+			// Client-rendered filter cards link with this (a missing value
+			// produced "undefined" hrefs); it is public post data, not PII.
+			'permalink'     => (string) $summary['permalink'],
+			'excerpt'       => (string) $summary['excerpt'],
+			'start'         => (string) $summary['start'],
+			'end'           => (string) $summary['end'],
+			'venue'         => (string) $summary['venue'],
+			'capacity'      => $summary['capacity'],
+			'counts'        => $summary['counts'],
+			'categories'    => $summary['categories'],
+			'categoryNames' => (array) $summary['category_names'],
+			'rsvpOpen'      => (bool) $summary['rsvpOpen'],
 		);
 	}
 

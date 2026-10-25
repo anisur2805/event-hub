@@ -1,144 +1,471 @@
 /**
- * Event Hub — shared front-end styles for the event list, card and RSVP
- * form. Token-based (theme.json presets) with scoped fallbacks (DECISIONS
- * #6); raw values only for pure layout structure (borders, radius, gaps are
- * `rem` based where a preset does not exist).
+ * Event Hub — shared front-end styles for the event list, event card and
+ * RSVP form (PROBLEM-3 redesign).
+ *
+ * Design contract:
+ * - Single source of truth: every rule targets the exact BEM class names the
+ *   PHP renders (.event-hub-card__* etc.). The old .eh-card aliases are gone.
+ * - theme.json inheritance with hard fallbacks: every var() carries a
+ *   fallback so classic themes or absent presets still render legibly.
+ * - Only accessible pairings: pill and bar palettes are fixed ink-on-tint
+ *   pairs (not token math) so contrast holds when a theme overrides tokens.
+ * - Visible focus everywhere via :focus-visible; honors reduced motion.
+ * - Responsive: cards stack (360px), two columns (>=768px), three (>=1280px).
  */
 
-/* Scoped token fallbacks so classic themes without presets stay legible. */
-.eh-event-list,
-.eh-event-card,
-.eh-rsvp {
-	--eh-accent: var( --wp--preset--color--accent, #2563eb );
-	--eh-base: var( --wp--preset--color--base, #ffffff );
-	--eh-contrast: var( --wp--preset--color--contrast, #111827 );
-	--eh-muted: var( --wp--preset--color--contrast, #6b7280 );
-	--eh-border: var( --wp--preset--color--contrast, #e5e7eb );
-	--eh-radius: 0.5rem;
-	--eh-gap: var( --wp--preset--spacing--40, 1.5rem );
-	--eh-font-size: var( --wp--preset--font-size--medium, 1rem );
-	--eh-font-small: var( --wp--preset--font-size--small, 0.875rem );
+/* --------------------------------------------------------------------------
+ * 1. Tokens (theme.json presets with fallbacks)
+ * ----------------------------------------------------------------------- */
 
-	color: var( --eh-contrast );
-	font-size: var( --eh-font-size );
+.event-hub-event-list,
+.event-hub-event-card,
+.event-hub-rsvp,
+.event-hub-rsvp-block,
+.event-hub-event-categories {
+	--eh-accent: var( --wp--preset--color--accent, #2563eb );
+	--eh-surface: var( --wp--preset--color--base, #ffffff );
+	--eh-ink: var( --wp--preset--color--contrast, #111827 );
+	--eh-muted: #475569;
+	--eh-line: color-mix( in srgb, var( --eh-ink ) 14%, transparent );
+	--eh-radius: 0.75rem;
+	--eh-radius-s: 0.375rem;
+	--eh-gap: var( --wp--preset--spacing--40, 1.5rem );
+	--eh-font: var( --wp--preset--font-size--medium, 1rem );
+	--eh-font-s: var( --wp--preset--font-size--small, 0.875rem );
+
+	color: var( --eh-ink );
+	font-size: var( --eh-font );
 }
 
-/* ---- List ---- */
+/* --------------------------------------------------------------------------
+ * 2. List + grid
+ * ----------------------------------------------------------------------- */
 
-.eh-event-list__toolbar {
+.event-hub-event-list__filterform {
 	display: flex;
-	gap: var( --eh-gap );
+	flex-wrap: wrap;
+	align-items: end;
+	gap: 0.75rem;
 	margin-block-end: var( --eh-gap );
 }
 
-.eh-event-list__toolbar select {
-	padding: 0.375rem 0.75rem;
-	border: 1px solid var( --eh-border );
+.event-hub-event-list__filterlabel {
+	display: block;
+	margin-block-end: 0.25rem;
+	font-size: var( --eh-font-s );
+	font-weight: 600;
+}
+
+.event-hub-event-list__filter {
+	min-width: 12rem;
+	padding: 0.5rem 0.75rem;
+	border: 1px solid var( --eh-line );
+	border-radius: var( --eh-radius-s );
+	background: var( --eh-surface );
+	color: var( --eh-ink );
+	font-size: var( --eh-font );
+}
+
+.event-hub-event-list__apply {
+	padding: 0.5rem 1.25rem;
+	border: 1px solid transparent;
+	border-radius: var( --eh-radius-s );
+	background: var( --eh-accent );
+	color: #fff;
+	font-size: var( --eh-font );
+	cursor: pointer;
+}
+
+.event-hub-event-list__found {
+	margin: 0 0 var( --eh-gap );
+	color: var( --eh-muted );
+	font-size: var( --eh-font-s );
+}
+
+.event-hub-event-list__empty {
+	margin: 0;
+	padding: 3rem 1.5rem;
+	border: 1px dashed var( --eh-line );
 	border-radius: var( --eh-radius );
-	font-size: var( --eh-font-size );
+	color: var( --eh-muted );
+	text-align: center;
+}
+
+/* Error state text: #b42318 on white is ~6.5:1. */
+.event-hub-event-list.has-error .event-hub-event-list__found {
+	color: #b42318;
+	font-weight: 600;
+}
+
+.event-hub-event-list.is-busy .event-hub-event-list__grid {
+	opacity: 0.55;
+	transition: opacity 0.15s ease;
 }
 
 .eh-list-grid {
 	display: grid;
 	gap: var( --eh-gap );
+	grid-template-columns: 1fr;
 }
 
-/* ---- Card ---- */
+@media ( min-width: 768px ) {
+	.eh-list-grid {
+		grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	}
+}
 
-.eh-card {
+@media ( min-width: 1280px ) {
+	.eh-list-grid {
+		grid-template-columns: repeat( 3, minmax( 0, 1fr ) );
+	}
+}
+
+/* --------------------------------------------------------------------------
+ * 3. Card
+ * ----------------------------------------------------------------------- */
+
+.event-hub-card {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
 	padding: var( --eh-gap );
-	border: 1px solid var( --eh-border );
+	background: var( --eh-surface );
+	border: 1px solid var( --eh-line );
 	border-radius: var( --eh-radius );
-	background: var( --eh-base );
 }
 
-.eh-card__title {
-	margin: 0 0 0.5rem;
-	font-size: var( --wp--preset--font-size--large, 1.25rem );
-	line-height: 1.3;
+.event-hub-card__layout {
+	display: flex;
+	gap: 1.25rem;
+	align-items: stretch;
 }
 
-.eh-card__title a {
+/* Bold editorial date block: day 2.5rem, month small caps under it. */
+.event-hub-card__date {
+	flex: 0 0 auto;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: flex-start;
+	min-width: 4.25rem;
+	padding: 0.75rem 0.75rem;
+	border-right: 1px solid var( --eh-line );
+}
+
+.event-hub-card__day {
+	color: var( --eh-ink );
+	font-size: 2.5rem;
+	font-weight: 700;
+	line-height: 1;
+	letter-spacing: -0.02em;
+	font-variant-numeric: tabular-nums;
+}
+
+.event-hub-card__month {
+	margin-block-start: 0.4rem;
+	color: var( --eh-muted );
+	font-size: var( --eh-font-s );
+	font-weight: 600;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+
+.event-hub-card__body {
+	display: flex;
+	flex: 1 1 auto;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 0.4rem;
+	min-width: 0;
+}
+
+/* Status pills — fixed accessible pairs (ink on tint), 600 weight. */
+.event-hub-card__pill {
+	margin: 0;
+	display: inline-block;
+	padding: 0.125rem 0.75rem;
+	border-radius: 999px;
+	font-size: var( --eh-font-s );
+	font-weight: 600;
+	letter-spacing: 0.01em;
+}
+
+.event-hub-card__pill--open {
+	background: #eff6ff;
+	color: #1d4ed8;
+}
+
+.event-hub-card__pill--few {
+	background: #fffbeb;
+	color: #92400e;
+}
+
+.event-hub-card__pill--waitlist {
+	background: #eef2ff;
+	color: #4338ca;
+}
+
+.event-hub-card__pill--soldout {
+	background: #f1f5f9;
+	color: #334155;
+}
+
+.event-hub-card__pill--past {
+	background: transparent;
+	color: #64748b;
+	box-shadow: inset 0 0 0 1px #94a3b8;
+}
+
+.event-hub-card__title {
+	margin: 0;
+	font-size: var( --wp--preset--font-size--large, 1.375rem );
+	line-height: 1.25;
+}
+
+.event-hub-card__title a {
 	color: inherit;
 	text-decoration: none;
 }
 
-.eh-card__title a:hover,
-.eh-card__title a:focus {
+/* Underline shows link affordance on hover AND for forced-colors users. */
+.event-hub-card__title a:hover,
+.event-hub-card__title a:focus-visible {
+	text-decoration: underline;
+	text-underline-offset: 0.15em;
+}
+
+.event-hub-card__datetime,
+.event-hub-card__venue {
+	margin: 0;
+	color: var( --eh-muted );
+	font-size: var( --eh-font-s );
+}
+
+.event-hub-card__datetime time {
+	font-variant-numeric: tabular-nums;
+}
+
+.event-hub-card__excerpt {
+	margin: 0 0 0.25rem;
+	max-width: 42ch;
+}
+
+.event-hub-card__categories {
+	margin: 0;
+	color: var( --eh-muted );
+	font-size: var( --eh-font-s );
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+}
+
+/* Capacity bar. */
+.event-hub-card__progress {
+	width: 100%;
+	height: 0.5rem;
+	margin-block-start: 0.25rem;
+	background: #e2e8f0;
+	border-radius: 999px;
+	overflow: hidden;
+}
+
+.event-hub-card__progress-fill {
+	display: block;
+	height: 100%;
+	background: var( --eh-accent );
+	border-radius: 999px;
+	transition: width 0.3s ease;
+}
+
+.event-hub-card--past .event-hub-card__progress-fill {
+	background: #94a3b8;
+}
+
+.event-hub-card__details {
+	margin: 0.25rem 0 0;
+	font-size: var( --eh-font-s );
+}
+
+.event-hub-card__details a {
+	color: var( --eh-accent );
+	font-weight: 600;
+	text-decoration: none;
+}
+
+.event-hub-card__details a:hover,
+.event-hub-card__details a:focus-visible {
 	text-decoration: underline;
 }
 
-.eh-card__meta,
-.eh-card__count {
-	margin: 0 0 0.5rem;
+/* Past cards recede but keep 4.5:1 (ink stays; only decor dims). */
+.event-hub-card--past {
+	background: transparent;
+	border-style: solid;
+}
+
+.event-hub-card--past .event-hub-card__title {
+	color: #334155;
+}
+
+/* --------------------------------------------------------------------------
+ * 4. RSVP form
+ * ----------------------------------------------------------------------- */
+
+.event-hub-rsvp {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 0.6rem;
+	width: 100%;
+	margin-block-start: 0.75rem;
+	padding-block-start: 0.75rem;
+	border-block-start: 1px solid var( --eh-line );
+}
+
+.event-hub-rsvp__count {
+	margin: 0;
 	color: var( --eh-muted );
-	font-size: var( --eh-font-small );
+	font-size: var( --eh-font-s );
 }
 
-.eh-card__excerpt {
-	margin: 0 0 1rem;
+.event-hub-rsvp__form {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	width: 100%;
 }
 
-/* ---- RSVP form ---- */
-
-.eh-rsvp {
-	display: grid;
-	gap: 0.75rem;
-	margin-block-start: 1rem;
-}
-
-.eh-rsvp__field {
-	display: grid;
-	gap: 0.25rem;
-}
-
-.eh-rsvp__label {
-	font-size: var( --eh-font-small );
+.event-hub-rsvp__label {
+	font-size: var( --eh-font-s );
 	font-weight: 600;
 }
 
-.eh-rsvp__input {
+.event-hub-rsvp__input {
 	width: 100%;
-	padding: 0.5rem 0.75rem;
-	border: 1px solid var( --eh-border );
-	border-radius: var( --eh-radius );
-	font-size: var( --eh-font-size );
+	max-width: 26rem;
+	padding: 0.55rem 0.75rem;
+	border: 1px solid var( --eh-line );
+	border-radius: var( --eh-radius-s );
+	background: var( --eh-surface );
+	color: var( --eh-ink );
+	font-size: var( --eh-font );
 }
 
-.eh-rsvp__actions {
-	display: flex;
-	gap: 0.75rem;
-	flex-wrap: wrap;
-	align-items: center;
+.event-hub-rsvp__input:focus-visible,
+.event-hub-event-list__filter:focus-visible,
+.event-hub-event-list__apply:focus-visible {
+	outline: 2px solid var( --eh-accent );
+	outline-offset: 2px;
 }
 
-.eh-rsvp__button {
-	padding: 0.5rem 1.25rem;
+.event-hub-rsvp__button {
+	padding: 0.6rem 1.5rem;
 	border: 1px solid transparent;
-	border-radius: var( --eh-radius );
+	border-radius: var( --eh-radius-s );
 	background: var( --eh-accent );
-	color: var( --eh-base );
-	font-size: var( --eh-font-size );
+	color: #fff;
+	font-size: var( --eh-font );
+	font-weight: 600;
 	cursor: pointer;
+	transition: filter 0.15s ease;
 }
 
-.eh-rsvp__button:disabled {
-	opacity: 0.55;
+.event-hub-rsvp__button:hover {
+	filter: brightness( 0.92 );
+}
+
+/* Outline variant shares the button behavior; contrast pair ink-on-white. */
+.event-hub-rsvp__button--waitlist {
+	background: var( --eh-surface );
+	color: var( --eh-ink );
+	border-color: var( --eh-ink );
+}
+
+.event-hub-rsvp__button:focus-visible {
+	outline: 2px solid var( --eh-ink );
+	outline-offset: 2px;
+	filter: none;
+}
+
+.event-hub-rsvp__button:disabled {
+	opacity: 0.6;
 	cursor: not-allowed;
 }
 
-.eh-rsvp__status {
+.event-hub-rsvp__feedback {
 	margin: 0;
-	font-size: var( --eh-font-small );
-	color: var( --eh-muted );
-}
-
-.eh-rsvp__status--registered {
-	color: var( --eh-accent );
+	min-height: 1.2em;
+	font-size: var( --eh-font-s );
 	font-weight: 600;
 }
 
-.eh-rsvp__feedback {
+.event-hub-rsvp__closed {
 	margin: 0;
-	font-size: var( --eh-font-small );
+	color: var( --eh-muted );
+	font-size: var( --eh-font-s );
+	font-weight: 600;
+}
+
+.event-hub-rsvp__noscript {
+	margin: 0;
+	color: var( --eh-muted );
+	font-size: var( --eh-font-s );
+}
+
+/* --------------------------------------------------------------------------
+ * 5. Categories block + shared a11y/motion
+ * ----------------------------------------------------------------------- */
+
+.event-hub-event-categories ul {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.event-hub-event-categories li {
+	display: inline-block;
+	margin-inline-end: 0.75rem;
+}
+
+.event-hub-event-categories a,
+.event-hub-event-categories span.event-hub-event-categories__link {
+	color: inherit;
+	text-decoration: underline;
+	text-underline-offset: 0.15em;
+}
+
+.event-hub-event-categories__empty {
+	color: var( --eh-muted );
+}
+
+.event-hub-event-categories__count {
+	color: var( --eh-muted );
+	font-variant-numeric: tabular-nums;
+}
+
+.event-hub-event-list :is( a, button, select, input ):focus-visible {
+	outline: 2px solid var( --eh-accent );
+	outline-offset: 2px;
+}
+
+@media ( max-width: 480px ) {
+	.event-hub-card__layout {
+		gap: 1rem;
+	}
+
+	.event-hub-card__date {
+		min-width: 3.25rem;
+		padding: 0.5rem 0.5rem;
+	}
+
+	.event-hub-card__day {
+		font-size: 2rem;
+	}
+}
+
+@media ( prefers-reduced-motion: reduce ) {
+	.event-hub-card__progress-fill,
+	.event-hub-event-list.is-busy .event-hub-event-list__grid,
+	.event-hub-rsvp__button {
+		transition: none;
+	}
 }

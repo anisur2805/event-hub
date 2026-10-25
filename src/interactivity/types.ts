@@ -22,6 +22,7 @@ export interface EventSummary {
 	capacity: number | null;
 	counts: { going: number; waitlist: number };
 	categories: string[];
+	categoryNames: string[];
 	rsvpOpen: boolean;
 }
 
@@ -99,6 +100,8 @@ export interface ListContext {
 	foundText: string;
 	/** True while a filtered fetch is in flight. */
 	busy: boolean;
+	/** True after a failed filter fetch; recolors the announcer text. */
+	hasError: boolean;
 }
 
 /**

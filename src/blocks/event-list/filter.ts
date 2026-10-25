@@ -25,7 +25,18 @@ import {
 
 /** Slot names understood by the card template. */
 type SlotName =
-	'title' | 'titlelink' | 'datetime' | 'venue' | 'excerpt' | 'count' | 'link';
+	| 'title'
+	| 'titlelink'
+	| 'day'
+	| 'month'
+	| 'datetime'
+	| 'venue'
+	| 'excerpt'
+	| 'categories'
+	| 'pill'
+	| 'barfill'
+	| 'count'
+	| 'link';
 
 function slot( card: ParentNode, name: SlotName ): HTMLElement | null {
 	return card.querySelector< HTMLElement >( `[data-eh-slot="${ name }"]` );
@@ -94,6 +105,7 @@ const { state } = store< EventHubStore >( 'event-hub', {
 			}
 
 			ctx.busy = true;
+			ctx.hasError = false;
 			try {
 				const restUrl = state.restUrl ?? '';
 				const base = restUrl.endsWith( '/' )
@@ -113,6 +125,7 @@ const { state } = store< EventHubStore >( 'event-hub', {
 					`${ base }event-hub/v1/events?${ params.toString() }`
 				) ) as Response;
 				if ( ! response.ok ) {
+					ctx.hasError = true;
 					ctx.foundText = __(
 						'Could not load events — please try again.'
 					);
@@ -129,6 +142,7 @@ const { state } = store< EventHubStore >( 'event-hub', {
 					String( events.length )
 				);
 			} catch {
+				ctx.hasError = true;
 				ctx.foundText = __(
 					'Could not load events — please try again.'
 				);
@@ -157,6 +171,12 @@ function renderCard(
 	event: EventSummary,
 	templateContent: DocumentFragment
 ): Node {
+	// Guard against missing/invalid permalinks (would surface as "undefined"
+	// hrefs, Find-1) before cloning anything.
+	if ( ! event.permalink || ! safeHref( event.permalink ) ) {
+		return document.createDocumentFragment();
+	}
+
 	const fragment = templateContent.cloneNode( true ) as DocumentFragment;
 	const card = fragment.firstElementChild;
 	if ( ! card ) {
@@ -176,14 +196,28 @@ function renderCard(
 
 	const title = slot( card, 'title' );
 	const titlelink = slot( card, 'titlelink' );
-	if (
-		titlelink instanceof HTMLAnchorElement &&
-		safeHref( event.permalink )
-	) {
+	if ( titlelink instanceof HTMLAnchorElement ) {
 		titlelink.href = event.permalink;
 	}
 	if ( title ) {
 		title.textContent = event.title;
+	}
+
+	const day = slot( card, 'day' );
+	if ( day ) {
+		day.textContent = datePart( event.start, 'day' );
+	}
+
+	const month = slot( card, 'month' );
+	if ( month ) {
+		month.textContent = datePart( event.start, 'month' );
+	}
+
+	const pill = slot( card, 'pill' );
+	if ( pill ) {
+		const p = pillFor( event );
+		pill.textContent = p.label;
+		pill.classList.add( `event-hub-card__pill--${ p.key }` );
 	}
 
 	const datetime = slot( card, 'datetime' );
@@ -194,14 +228,60 @@ function renderCard(
 	const venue = slot( card, 'venue' );
 	if ( venue ) {
 		venue.textContent = event.venue;
+		// PHP omits the element entirely when empty; drop it here too.
+		if ( ! event.venue ) {
+			venue.remove();
+		}
 	}
 
 	const excerpt = slot( card, 'excerpt' );
 	if ( excerpt ) {
 		excerpt.textContent = event.excerpt;
+		if ( ! event.excerpt ) {
+			excerpt.remove();
+		}
+	}
+
+	const categories = slot( card, 'categories' );
+	if ( categories ) {
+		const names = event.categoryNames ?? [];
+		categories.textContent = names.join( ', ' );
+		if ( names.length === 0 ) {
+			categories.remove();
+		}
 	}
 
 	const going = event.counts?.going ?? 0;
+	const capacity = event.capacity ?? null;
+
+	// Capacity bar: only kept when the PHP side would render one.
+	const fill = slot( card, 'barfill' );
+	const bar = fill?.closest( '.event-hub-card__progress' );
+	if ( bar instanceof HTMLElement ) {
+		if ( capacity === null || capacity <= 0 ) {
+			bar.remove();
+		} else {
+			const pct = Math.min( 100, Math.round( ( going / capacity ) * 100 ) );
+			bar.setAttribute( 'aria-valuemax', String( capacity ) );
+			bar.setAttribute(
+				'aria-valuenow',
+				String( Math.min( going, capacity ) )
+			);
+			bar.setAttribute(
+				'aria-valuetext',
+				sprintf(
+					/* translators: 1: number going, 2: total capacity. */
+					__( '%1$s of %2$s spots filled' ),
+					String( going ),
+					String( capacity )
+				)
+			);
+			if ( fill instanceof HTMLElement ) {
+				fill.style.width = `${ pct }%`;
+			}
+		}
+	}
+
 	const count = slot( card, 'count' );
 	if ( count ) {
 		count.textContent = sprintf(
@@ -212,9 +292,62 @@ function renderCard(
 	}
 
 	const link = slot( card, 'link' );
-	if ( link instanceof HTMLAnchorElement && safeHref( event.permalink ) ) {
+	if ( link instanceof HTMLAnchorElement ) {
 		link.href = event.permalink;
 	}
 
 	return fragment;
+}
+
+/**
+ * One date part of an ISO 8601 value; empty string when absent/invalid.
+ * @param iso
+ * @param part
+ */
+function datePart( iso: string, part: 'day' | 'month' ): string {
+	const parsed = new Date( iso );
+	if ( Number.isNaN( parsed.getTime() ) ) {
+		return '';
+	}
+	if ( part === 'day' ) {
+		return String( parsed.getDate() );
+	}
+	return parsed.toLocaleString( undefined, { month: 'short' } );
+}
+
+/**
+ * Status pill for a REST event; mirrors the PHP status_pill() precedence:
+ * Past > Waitlist (full with list takers) > Sold out (full) > Few spots
+ * left (>=80%) > Open.
+ * @param event
+ */
+function pillFor( event: EventSummary ): {
+	key: string;
+	label: string;
+} {
+	const capacity = event.capacity ?? null;
+	const going = event.counts?.going ?? 0;
+	const waitlist = event.counts?.waitlist ?? 0;
+
+	// Past check: end (or start when no end) before now.
+	const endRef = event.end ? Date.parse( event.end ) : NaN;
+	const endTs = Number.isNaN( endRef )
+		? Date.parse( event.start )
+		: endRef;
+	if ( ! Number.isNaN( endTs ) && endTs < Date.now() ) {
+		return { key: 'past', label: __( 'Past' ) };
+	}
+
+	if ( capacity !== null && going >= capacity ) {
+		if ( waitlist > 0 ) {
+			return { key: 'waitlist', label: __( 'Waitlist' ) };
+		}
+		return { key: 'soldout', label: __( 'Sold out' ) };
+	}
+
+	if ( capacity !== null && capacity > 0 && going / capacity >= 0.8 ) {
+		return { key: 'few', label: __( 'Few spots left' ) };
+	}
+
+	return { key: 'open', label: __( 'Open' ) };
 }

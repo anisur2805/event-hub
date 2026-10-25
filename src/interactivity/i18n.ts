@@ -44,7 +44,9 @@ export function choosePlural(
 }
 
 /**
- * Minimal %-style substitution (%s and %d consumed left to right).
+ * Minimal %-style substitution. Supports bare (%s, %d, consumed left to
+ * right) and numbered (%1$s, %2$d, …) WordPress placeholders; a format
+ * never mixes the two styles.
  *
  * @param format Format string.
  * @param args   Substitution values.
@@ -54,11 +56,20 @@ export function interpolate(
 	format: string,
 	...args: ( string | number )[]
 ): string {
-	return format.replace( /%([sd])/g, ( match: string ) => {
-		const value = args.shift();
-		if ( value === undefined ) {
-			return match;
+	return format.replace(
+		/%(\d+)\$([sd])|%([sd])/g,
+		(
+			match: string,
+			num: string | undefined,
+			numType: string | undefined,
+			plainType: string | undefined
+		) => {
+			if ( num !== undefined && numType !== undefined ) {
+				const positional = args[ parseInt( num, 10 ) - 1 ];
+				return positional === undefined ? match : String( positional );
+			}
+			const sequential = args.shift();
+			return sequential === undefined ? match : String( sequential );
 		}
-		return String( value );
-	} );
+	);
 }

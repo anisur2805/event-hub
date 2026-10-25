@@ -26,27 +26,28 @@ final class Render_Blocks {
 	 * Builds the normalized event summary. Accepts a post ID or WP_Post.
 	 *
 	 * @param int|WP_Post $event Event post ID or object.
-	 * @return array{id:int,title:string,permalink:string,excerpt:string,start:string,end:string,venue:string,capacity:int|null,counts:array{going:int,waitlist:int},rsvpOpen:bool,categories:string[]}
+	 * @return array{id:int,title:string,permalink:string,excerpt:string,start:string,end:string,venue:string,capacity:int|null,counts:array{going:int,waitlist:int},rsvpOpen:bool,categories:string[],category_names:string[]}
 	 */
 	public static function summary( int|WP_Post $event ): array {
 		$post = get_post( $event );
 
 		if ( ! $post instanceof WP_Post ) {
 			return array(
-				'id'         => 0,
-				'title'      => '',
-				'permalink'  => '',
-				'excerpt'    => '',
-				'start'      => '',
-				'end'        => '',
-				'venue'      => '',
-				'capacity'   => null,
-				'counts'     => array(
+				'id'             => 0,
+				'title'          => '',
+				'permalink'      => '',
+				'excerpt'        => '',
+				'start'          => '',
+				'end'            => '',
+				'venue'          => '',
+				'capacity'       => null,
+				'counts'         => array(
 					'going'    => 0,
 					'waitlist' => 0,
 				),
-				'rsvpOpen'   => false,
-				'categories' => array(),
+				'rsvpOpen'       => false,
+				'categories'     => array(),
+				'category_names' => array(),
 			);
 		}
 
@@ -65,32 +66,39 @@ final class Render_Blocks {
 			$rsvp_open = false;
 		}
 
-		$categories = array();
-		$terms      = get_the_terms( $post, 'eh_event_category' );
+		$categories     = array();
+		$category_names = array();
+		$terms          = get_the_terms( $post, 'eh_event_category' );
 
 		if ( is_array( $terms ) ) {
 			foreach ( $terms as $term ) {
-				$categories[] = (string) $term->slug;
+				$categories[]     = (string) $term->slug;
+				$category_names[] = (string) $term->name;
 			}
 		}
 
 		return array(
-			'id'         => (int) $post->ID,
-			'title'      => $title,
-			'permalink'  => $permalink,
-			'excerpt'    => $excerpt,
-			'start'      => self::meta_iso( $post->ID, 'eh_start' ),
-			'end'        => self::meta_iso( $post->ID, 'eh_end' ),
-			'venue'      => $venue,
-			'capacity'   => $capacity,
-			'counts'     => $counts,
-			'rsvpOpen'   => $rsvp_open,
-			'categories' => $categories,
+			'id'             => (int) $post->ID,
+			'title'          => $title,
+			'permalink'      => $permalink,
+			'excerpt'        => $excerpt,
+			'start'          => self::meta_iso( $post->ID, 'eh_start' ),
+			'end'            => self::meta_iso( $post->ID, 'eh_end' ),
+			'venue'          => $venue,
+			'capacity'       => $capacity,
+			'counts'         => $counts,
+			'rsvpOpen'       => $rsvp_open,
+			'categories'     => $categories,
+			'category_names' => $category_names,
 		);
 	}
 
 	/**
 	 * Builds the complete escaped card HTML for one event summary.
+	 *
+	 * Anatomy (PROBLEM-3 editorial design): bold date block (day large, month
+	 * small, aria-hidden — the datetime line repeats the date for screen
+	 * readers), status pill, title, meta, capacity bar, RSVP form.
 	 *
 	 * @param array<string,mixed> $s Render_Blocks::summary() output.
 	 * @return string
@@ -100,28 +108,165 @@ final class Render_Blocks {
 			return '';
 		}
 
+		$day   = self::date_part( (string) $s['start'], 'j' );
+		$month = self::date_part( (string) $s['start'], 'M' );
+		$pill  = self::status_pill( $s );
+		$past  = $pill['past'];
+		$bar   = null !== $s['capacity'] ? self::capacity_bar( $s ) : '';
+		$terms = (array) $s['category_names'];
+
 		ob_start();
 		?>
-		<div class="event-hub-card">
-			<h3 class="event-hub-card__title">
-				<a href="<?php echo esc_url( (string) $s['permalink'] ); ?>"><?php echo esc_html( (string) $s['title'] ); ?></a>
-			</h3>
-			<p class="event-hub-card__datetime">
-				<time datetime="<?php echo esc_attr( (string) $s['start'] ); ?>"><?php echo esc_html( self::human_range( (string) $s['start'], (string) $s['end'] ) ); ?></time>
-			</p>
-			<?php if ( '' !== (string) $s['venue'] ) : ?>
-				<p class="event-hub-card__venue"><?php echo esc_html( (string) $s['venue'] ); ?></p>
-			<?php endif; ?>
-			<?php if ( '' !== (string) $s['excerpt'] ) : ?>
-				<p class="event-hub-card__excerpt"><?php echo esc_html( (string) $s['excerpt'] ); ?></p>
-			<?php endif; ?>
-			<?php
-			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- render_rsvp_button() escapes internally.
-			echo self::render_rsvp_button( (int) $s['id'] );
-			?>
-		</div>
+		<article class="event-hub-card<?php echo $past ? ' event-hub-card--past' : ''; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- constant string. ?>">
+			<div class="event-hub-card__layout">
+				<div class="event-hub-card__date" aria-hidden="true">
+					<span class="event-hub-card__day"><?php echo esc_html( $day ); ?></span>
+					<span class="event-hub-card__month"><?php echo esc_html( $month ); ?></span>
+				</div>
+				<div class="event-hub-card__body">
+					<p class="event-hub-card__pill event-hub-card__pill--<?php echo esc_attr( (string) $pill['key'] ); ?>"><?php echo esc_html( (string) $pill['label'] ); ?></p>
+					<h3 class="event-hub-card__title">
+						<a href="<?php echo esc_url( (string) $s['permalink'] ); ?>"><?php echo esc_html( (string) $s['title'] ); ?></a>
+					</h3>
+					<p class="event-hub-card__datetime">
+						<time datetime="<?php echo esc_attr( (string) $s['start'] ); ?>"><?php echo esc_html( self::human_range( (string) $s['start'], (string) $s['end'] ) ); ?></time>
+					</p>
+					<?php if ( '' !== (string) $s['venue'] ) : ?>
+						<p class="event-hub-card__venue"><?php echo esc_html( (string) $s['venue'] ); ?></p>
+					<?php endif; ?>
+					<?php if ( '' !== (string) $s['excerpt'] ) : ?>
+						<p class="event-hub-card__excerpt"><?php echo esc_html( (string) $s['excerpt'] ); ?></p>
+					<?php endif; ?>
+					<?php if ( array() !== $terms ) : ?>
+						<p class="event-hub-card__categories"><?php echo esc_html( implode( ', ', $terms ) ); ?></p>
+					<?php endif; ?>
+					<?php
+					if ( '' !== $bar ) {
+						// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- capacity_bar() escapes internally.
+						echo $bar;
+					}
+					// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- render_rsvp_button() escapes internally.
+					echo self::render_rsvp_button( (int) $s['id'] );
+					?>
+				</div>
+			</div>
+		</article>
 		<?php
 		return (string) ob_get_clean();
+	}
+
+	/**
+	 * Formats one date part of an ISO 8601 value ('j' day, 'M' month).
+	 * Empty on absent/unparsable input.
+	 *
+	 * @param string $iso    ISO 8601 datetime.
+	 * @param string $format PHP date format character.
+	 * @return string
+	 */
+	private static function date_part( string $iso, string $format ): string {
+		if ( '' === $iso ) {
+			return '';
+		}
+
+		try {
+			return ( new \DateTimeImmutable( $iso ) )->format( $format );
+		} catch ( \Exception $e ) {
+			return '';
+		}
+	}
+
+	/**
+	 * Resolves the card status pill: Past > Waitlist (full, list building) >
+	 * Sold out (full) > Few spots left (>=80% capacity, not full) > Open.
+	 *
+	 * @param array<string,mixed> $s Render_Blocks::summary() output.
+	 * @return array{key:string,label:string,past:bool}
+	 */
+	private static function status_pill( array $s ): array {
+		$past = self::is_past( $s );
+
+		if ( $past ) {
+			return array(
+				'key'   => 'past',
+				'label' => __( 'Past', 'event-hub' ),
+				'past'  => true,
+			);
+		}
+
+		$capacity = null !== $s['capacity'] ? (int) $s['capacity'] : null;
+		$going    = (int) $s['counts']['going'];
+		$waitlist = (int) $s['counts']['waitlist'];
+
+		if ( null !== $capacity && $going >= $capacity ) {
+			// Full: show "Waitlist" once the list has takers, "Sold out" before.
+			if ( $waitlist > 0 ) {
+				return array(
+					'key'   => 'waitlist',
+					'label' => __( 'Waitlist', 'event-hub' ),
+					'past'  => false,
+				);
+			}
+
+			return array(
+				'key'   => 'soldout',
+				'label' => __( 'Sold out', 'event-hub' ),
+				'past'  => false,
+			);
+		}
+
+		if ( null !== $capacity && $capacity > 0 && $going / $capacity >= 0.8 ) {
+			return array(
+				'key'   => 'few',
+				'label' => __( 'Few spots left', 'event-hub' ),
+				'past'  => false,
+			);
+		}
+
+		return array(
+			'key'   => 'open',
+			'label' => __( 'Open', 'event-hub' ),
+			'past'  => false,
+		);
+	}
+
+	/**
+	 * True when the event's end (or start, when no end exists) has passed.
+	 *
+	 * @param array<string,mixed> $s Render_Blocks::summary() output.
+	 * @return bool
+	 */
+	private static function is_past( array $s ): bool {
+		$end_ref = self::iso_to_timestamp( (string) $s['end'] );
+
+		if ( null === $end_ref ) {
+			$end_ref = self::iso_to_timestamp( (string) $s['start'] );
+		}
+
+		return null !== $end_ref && $end_ref < time();
+	}
+
+	/**
+	 * Capacity progress bar (going of capacity spots), ARIA-progressbar
+	 * semantics; percentage capped at 100.
+	 *
+	 * @param array<string,mixed> $s Render_Blocks::summary() output.
+	 * @return string
+	 */
+	private static function capacity_bar( array $s ): string {
+		$capacity = max( 0, (int) $s['capacity'] );
+		$going    = max( 0, (int) $s['counts']['going'] );
+		$pct      = $capacity > 0 ? min( 100, (int) round( ( $going / $capacity ) * 100 ) ) : 100;
+
+		/* translators: 1: number going, 2: total capacity. */
+		$label = sprintf( __( '%1$s of %2$s spots filled', 'event-hub' ), (string) number_format_i18n( $going ), (string) number_format_i18n( $capacity ) );
+
+		return sprintf(
+			'<div class="event-hub-card__progress" role="progressbar" aria-valuemin="0" aria-valuemax="%1$s" aria-valuenow="%2$s" aria-valuetext="%3$s"><span class="event-hub-card__progress-fill" style="width:%4$s%%"></span></div>',
+			esc_attr( (string) $capacity ),
+			esc_attr( (string) min( $going, $capacity ) ),
+			esc_attr( $label ),
+			esc_attr( (string) $pct )
+		);
 	}
 
 	/**
@@ -148,6 +293,7 @@ final class Render_Blocks {
 		$counts   = $summary['counts'];
 		$capacity = $summary['capacity'];
 		$full     = null !== $capacity && $counts['going'] >= $capacity;
+		$past     = self::is_past( $summary );
 
 		$user = wp_get_current_user();
 
@@ -199,42 +345,48 @@ final class Render_Blocks {
 			<p class="event-hub-rsvp__count">
 				<span data-wp-text="context.countText"><?php echo esc_html( $going_text ); ?></span>
 			</p>
-			<?php if ( $summary['rsvpOpen'] ) : ?>
-				<div class="event-hub-rsvp__form">
-					<label class="event-hub-rsvp__label" for="event-hub-name-<?php echo esc_attr( (string) $event_id ); ?>"><?php esc_html_e( 'Name', 'event-hub' ); ?></label>
-					<input
-						id="event-hub-name-<?php echo esc_attr( (string) $event_id ); ?>"
-						class="event-hub-rsvp__input"
-						type="text"
-						name="event_hub_name"
-						autocomplete="name"
-						data-wp-bind--value="context.name"
-						data-wp-on--input="actions.setName"
-					/>
-					<label class="event-hub-rsvp__label" for="event-hub-email-<?php echo esc_attr( (string) $event_id ); ?>"><?php esc_html_e( 'Email', 'event-hub' ); ?></label>
-					<input
-						id="event-hub-email-<?php echo esc_attr( (string) $event_id ); ?>"
-						class="event-hub-rsvp__input"
-						type="email"
-						name="event_hub_email"
-						autocomplete="email"
-						data-wp-bind--value="context.email"
-						data-wp-on--input="actions.setEmail"
-					/>
-				</div>
-			<?php endif; ?>
-			<?php if ( $full ) : ?>
-				<button
-					type="button"
-					class="event-hub-rsvp__button event-hub-rsvp__button--waitlist"
-					data-wp-on--click="actions.rsvpWaitlist"
-				><?php esc_html_e( 'Join waitlist', 'event-hub' ); ?></button>
+			<?php if ( $past ) : ?>
+				<p class="event-hub-rsvp__closed"><?php esc_html_e( 'This event has already taken place.', 'event-hub' ); ?></p>
 			<?php else : ?>
-				<button
-					type="button"
-					class="event-hub-rsvp__button event-hub-rsvp__button--going"
-					data-wp-on--click="actions.rsvpGoing"
-				><?php esc_html_e( 'RSVP', 'event-hub' ); ?></button>
+				<?php if ( $summary['rsvpOpen'] ) : ?>
+					<div class="event-hub-rsvp__form">
+						<label class="event-hub-rsvp__label" for="event-hub-name-<?php echo esc_attr( (string) $event_id ); ?>"><?php esc_html_e( 'Name', 'event-hub' ); ?></label>
+						<input
+							id="event-hub-name-<?php echo esc_attr( (string) $event_id ); ?>"
+							class="event-hub-rsvp__input"
+							type="text"
+							name="event_hub_name"
+							autocomplete="name"
+							data-wp-bind--value="context.name"
+							data-wp-on--input="actions.setName"
+						/>
+						<label class="event-hub-rsvp__label" for="event-hub-email-<?php echo esc_attr( (string) $event_id ); ?>"><?php esc_html_e( 'Email', 'event-hub' ); ?></label>
+						<input
+							id="event-hub-email-<?php echo esc_attr( (string) $event_id ); ?>"
+							class="event-hub-rsvp__input"
+							type="email"
+							name="event_hub_email"
+							autocomplete="email"
+							data-wp-bind--value="context.email"
+							data-wp-on--input="actions.setEmail"
+						/>
+					</div>
+				<?php endif; ?>
+				<?php if ( $full ) : ?>
+					<button
+						type="button"
+						class="event-hub-rsvp__button event-hub-rsvp__button--waitlist"
+						data-wp-bind--disabled="context.busy"
+						data-wp-on--click="actions.rsvpWaitlist"
+					><?php esc_html_e( 'Join waitlist', 'event-hub' ); ?></button>
+				<?php else : ?>
+					<button
+						type="button"
+						class="event-hub-rsvp__button event-hub-rsvp__button--going"
+						data-wp-bind--disabled="context.busy"
+						data-wp-on--click="actions.rsvpGoing"
+					><?php esc_html_e( 'RSVP', 'event-hub' ); ?></button>
+				<?php endif; ?>
 			<?php endif; ?>
 			<p class="event-hub-rsvp__feedback" data-wp-text="context.feedback"></p>
 			<noscript>
@@ -296,6 +448,7 @@ final class Render_Blocks {
 			'postsPerPage' => $per_page,
 			'foundText'    => $found_text,
 			'busy'         => false,
+			'hasError'     => false,
 		);
 
 		$form_action = esc_url(
@@ -310,6 +463,8 @@ final class Render_Blocks {
 			<?php echo get_block_wrapper_attributes( array( 'class' => 'event-hub-event-list' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- core helper output. ?>
 			data-wp-interactive="event-hub"
 			data-wp-router-region="event-hub-list"
+			data-wp-class--is-busy="context.busy"
+			data-wp-class--has-error="context.hasError"
 			<?php echo wp_interactivity_data_wp_context( $context ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- helper-safe attribute output. ?>
 		>
 			<?php if ( $show_filters && array() !== $options ) : ?>
@@ -349,12 +504,23 @@ final class Render_Blocks {
 				<?php // Card skeleton for client-side filtering (filter.ts clones it); slot placeholders only, no live directives. ?>
 				<template data-eh-card-tpl>
 					<article class="event-hub-card event-hub-card--filtered">
-						<h3 class="event-hub-card__title"><a data-eh-slot="titlelink" href="#"><span data-eh-slot="title"></span></a></h3>
-						<p class="event-hub-card__datetime"><time data-eh-slot="datetime"></time></p>
-						<p class="event-hub-card__venue" data-eh-slot="venue"></p>
-						<p class="event-hub-card__excerpt" data-eh-slot="excerpt"></p>
-						<p class="event-hub-rsvp__count"><span data-eh-slot="count"></span></p>
-						<p class="event-hub-card__details"><a data-eh-slot="link" href="#"><?php esc_html_e( 'View details', 'event-hub' ); ?></a></p>
+						<div class="event-hub-card__layout">
+							<div class="event-hub-card__date" aria-hidden="true">
+								<span class="event-hub-card__day" data-eh-slot="day"></span>
+								<span class="event-hub-card__month" data-eh-slot="month"></span>
+							</div>
+							<div class="event-hub-card__body">
+								<p class="event-hub-card__pill" data-eh-slot="pill"></p>
+								<h3 class="event-hub-card__title"><a data-eh-slot="titlelink" href="#"><span data-eh-slot="title"></span></a></h3>
+								<p class="event-hub-card__datetime"><time data-eh-slot="datetime"></time></p>
+								<p class="event-hub-card__venue" data-eh-slot="venue"></p>
+								<p class="event-hub-card__excerpt" data-eh-slot="excerpt"></p>
+								<p class="event-hub-card__categories" data-eh-slot="categories"></p>
+								<div class="event-hub-card__progress" role="progressbar"><span class="event-hub-card__progress-fill" data-eh-slot="barfill"></span></div>
+								<p class="event-hub-rsvp__count"><span data-eh-slot="count"></span></p>
+								<p class="event-hub-card__details"><a data-eh-slot="link" href="#"><?php esc_html_e( 'View details', 'event-hub' ); ?></a></p>
+							</div>
+						</div>
 					</article>
 				</template>
 			<?php endif; ?>
@@ -635,9 +801,16 @@ final class Render_Blocks {
 			/* translators: %s: number of attendees. */
 			'%s people going'                           => __( '%s people going', 'event-hub' ),
 			/* translators: %s: number of events. */
-			'%s event found'                            => __( '%s event found', 'event-hub' ),
+				'%s event found'                        => __( '%s event found', 'event-hub' ),
 			/* translators: %s: number of events. */
 			'%s events found'                           => __( '%s events found', 'event-hub' ),
+			'Open'                                      => __( 'Open', 'event-hub' ),
+			'Few spots left'                            => __( 'Few spots left', 'event-hub' ),
+			'Waitlist'                                  => __( 'Waitlist', 'event-hub' ),
+			'Sold out'                                  => __( 'Sold out', 'event-hub' ),
+			'Past'                                      => __( 'Past', 'event-hub' ),
+			/* translators: 1: number going, 2: total capacity. */
+			'%1$s of %2$s spots filled'                 => __( '%1$s of %2$s spots filled', 'event-hub' ),
 		);
 	}
 }
