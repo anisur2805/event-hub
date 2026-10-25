@@ -199,9 +199,10 @@ final class Plugin {
 	 */
 	public function register_blocks(): void {
 		$blocks = array(
-			'event-list'  => array( Render_Blocks::class, 'render_event_list_block' ),
-			'event-card'  => array( Render_Blocks::class, 'render_event_card_block' ),
-			'rsvp-button' => array( Render_Blocks::class, 'render_rsvp_button_block' ),
+			'event-list'       => array( Render_Blocks::class, 'render_event_list_block' ),
+			'event-card'       => array( Render_Blocks::class, 'render_event_card_block' ),
+			'rsvp-button'      => array( Render_Blocks::class, 'render_rsvp_button_block' ),
+			'event-categories' => array( Render_Blocks::class, 'render_event_categories_block' ),
 		);
 
 		foreach ( $blocks as $slug => $callback ) {

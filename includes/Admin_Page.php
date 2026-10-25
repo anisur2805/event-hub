@@ -124,7 +124,7 @@ final class Admin_Page {
 			// wp_nonce_url() HTML-encodes separators (&amp;) for template
 			// output; this data travels as JSON into a DOM-set href where no
 			// entity decoding happens, so hand the client a literal ampersand.
-			$url = html_entity_decode( Csv_Exporter::export_url( (int) $post->ID ), ENT_QUOTES, 'UTF-8' );
+			$url                        = html_entity_decode( Csv_Exporter::export_url( (int) $post->ID ), ENT_QUOTES, 'UTF-8' );
 			$exports[ (int) $post->ID ] = esc_url_raw( $url );
 		}
 

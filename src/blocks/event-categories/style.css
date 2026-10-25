@@ -1,0 +1,21 @@
+/**
+ * Event Categories block styles. Theme-inheriting tokens only; detailed
+ * visual treatment comes with the Problem-3 design pass.
+ */
+.wp-block-event-hub-event-categories ul {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.wp-block-event-hub-event-categories li {
+	display: inline-block;
+	margin-inline-end: 0.75rem;
+}
+
+.wp-block-event-hub-event-categories a,
+.wp-block-event-hub-event-categories span.event-hub-event-categories__link {
+	color: inherit;
+	text-decoration: underline;
+	text-underline-offset: 0.15em;
+}

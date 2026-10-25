@@ -403,6 +403,52 @@ final class Render_Blocks {
 	}
 
 	/**
+	 * Renders the event-categories block (attribute: showCounts). Term links
+	 * reuse the event-list no-JS filter (?eh_category=slug) so filtering works
+	 * with JS disabled; zero terms renders a sensible empty state.
+	 *
+	 * @param array<string,mixed> $attributes Block attributes.
+	 * @return string
+	 */
+	public static function render_event_categories_block( array $attributes ): string {
+		$show_counts = ! isset( $attributes['showCounts'] ) || (bool) $attributes['showCounts'];
+
+		$terms = get_terms(
+			array(
+				'taxonomy'   => 'eh_event_category',
+				'hide_empty' => true,
+			)
+		);
+
+		$wrapper = get_block_wrapper_attributes( array( 'class' => 'event-hub-event-categories' ) );
+
+		if ( ! is_array( $terms ) || array() === $terms ) {
+			return '<div ' . $wrapper . '><p class="event-hub-event-categories__empty">' .
+				esc_html__( 'No categories yet.', 'event-hub' ) . '</p></div>';
+		}
+
+		$out = '<div ' . $wrapper . '><ul class="event-hub-event-categories__list">';
+
+		foreach ( $terms as $term ) {
+			$url = add_query_arg( 'eh_category', rawurlencode( $term->slug ), home_url( '/' ) );
+
+			$out .= '<li class="event-hub-event-categories__item">';
+			$out .= '<a class="event-hub-event-categories__link" href="' . esc_url( $url ) . '">' . esc_html( $term->name );
+
+			if ( $show_counts ) {
+				/* translators: %s: number of events in the category. */
+				$out .= ' <span class="event-hub-event-categories__count">' . esc_html( sprintf( _x( '(%s)', 'category count wrapper', 'event-hub' ), (string) number_format_i18n( (int) $term->count ) ) ) . '</span>';
+			}
+
+			$out .= '</a></li>';
+		}
+
+		$out .= '</ul></div>';
+
+		return $out;
+	}
+
+	/**
 	 * Human-readable date/time range for a card.
 	 *
 	 * @param string $start_iso ISO 8601 start.
