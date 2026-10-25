@@ -1,0 +1,26 @@
+/**
+ * Event Hub admin screen styles (compiled into build/admin/index.css).
+ */
+
+.event-hub-admin__toolbar {
+	display: flex;
+	gap: 1.5rem;
+	align-items: flex-end;
+	margin-block: 1rem;
+}
+
+.event-hub-admin__toolbar .components-base-control {
+	min-width: 240px;
+}
+
+.event-hub-admin__confirm {
+	display: inline-flex;
+	gap: 0.5rem;
+}
+
+.event-hub-admin__pagination {
+	display: flex;
+	gap: 1rem;
+	align-items: center;
+	margin-block: 1rem;
+}

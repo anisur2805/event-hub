@@ -1,0 +1,9 @@
+/**
+ * Per-block style sources compiled by wp-scripts from the block.json
+ * references (file:./style.css expects style.scss next to block.json).
+ *
+ * All three blocks load the shared component styles, so the actual rules
+ * live in src/styles/blocks.scss and each block gets a thin entry that
+ * forwards to it (wp-scripts inlines/blockifies per-block styles).
+ */
+@use "../../styles/blocks.scss";

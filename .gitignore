@@ -1,0 +1,9 @@
+node_modules/
+vendor/
+build/
+.wp-env.override.json
+artifacts/
+test-results/
+playwright-report/
+.phpunit.result.cache
+package-lock.json.bak
