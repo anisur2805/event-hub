@@ -30,6 +30,32 @@ final class Ics_Exporter {
 	private const FOLD_LIMIT = 75;
 
 	/**
+	 * Whether an event has already ended, given its ISO end from
+	 * Render_Blocks::summary(). Past events are excluded from calendars
+	 * (BUG 3) — the same upcoming contract as Rest_Controller::list_events()
+	 * and the archive. Events without a parseable end never count as ended
+	 * (the no-end contract: indeterminate stay included).
+	 *
+	 * @param string $end_iso ISO 8601 end datetime ('' when absent).
+	 * @return bool
+	 */
+	public static function has_ended( string $end_iso ): bool {
+		if ( '' === trim( $end_iso ) ) {
+			return false;
+		}
+
+		try {
+			$end = new \DateTimeImmutable( $end_iso );
+		} catch ( \Exception $e ) {
+			return false;
+		}
+
+		// DateTime comparison is instant-based: an offset-aware end compares
+		// correctly against the current instant regardless of timezone.
+		return $end < new \DateTimeImmutable();
+	}
+
+	/**
 	 * Builds the full VCALENDAR body for the given event IDs.
 	 *
 	 * @param array<int,int> $event_ids Published event post IDs.
@@ -50,7 +76,12 @@ final class Ics_Exporter {
 				continue;
 			}
 
-			$summary   = Render_Blocks::summary( $event );
+			$summary = Render_Blocks::summary( $event );
+
+			if ( self::has_ended( (string) $summary['end'] ) ) {
+				continue;
+			}
+
 			$dtstamp   = gmdate( 'Ymd\THis\Z' );
 			$uid       = $summary['id'] . '@event-hub.local';
 			$permalink = (string) $summary['permalink'];

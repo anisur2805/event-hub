@@ -610,7 +610,16 @@ final class Rest_Controller {
 			return new WP_Error( 'eh_event_not_found', __( 'No such published event.', 'event-hub' ), array( 'status' => 404 ) );
 		}
 
-		$response = new WP_REST_Response( Render_Blocks::summary( $event ), 200 );
+		$summary = Render_Blocks::summary( $event );
+
+		// Past events leave the calendar (BUG 3) — same upcoming contract as
+		// list_events() and the archive. Ended single events 404 with an
+		// explicit code so calendar clients see why the feed shrank.
+		if ( Ics_Exporter::has_ended( (string) $summary['end'] ) ) {
+			return new WP_Error( 'eh_event_ended', __( 'This event has already ended.', 'event-hub' ), array( 'status' => 404 ) );
+		}
+
+		$response = new WP_REST_Response( $summary, 200 );
 
 		return $this->ics->prepare_response( $response, array( $event_id ), 'event-' . $event_id . '.ics' );
 	}
@@ -624,6 +633,11 @@ final class Rest_Controller {
 	public function all_ics( WP_REST_Request $request ): WP_REST_Response {
 		unset( $request );
 
+		// Upcoming-events contract (BUG 3): exclude ended events in SQL —
+		// same meta_query as list_events(); a PHP-side filter would let past
+		// events consume the calendar silently. No-end events stay included.
+		$now_sql = current_time( 'mysql' );
+
 		$ids = get_posts(
 			array(
 				'post_type'      => 'eh_event',
@@ -635,6 +649,20 @@ final class Rest_Controller {
 				'meta_key'       => 'eh_start',
 				'order'          => 'ASC',
 				'no_found_rows'  => true,
+				// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- the upcoming filter IS the feature.
+				'meta_query'     => array(
+					'relation' => 'OR',
+					array(
+						'key'     => 'eh_end',
+						'value'   => $now_sql,
+						'compare' => '>=',
+						'type'    => 'DATETIME',
+					),
+					array(
+						'key'     => 'eh_end',
+						'compare' => 'NOT EXISTS',
+					),
+				),
 			)
 		);
 

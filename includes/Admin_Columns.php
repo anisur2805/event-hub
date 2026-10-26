@@ -97,7 +97,25 @@ final class Admin_Columns {
 				$capacity = $s['capacity'];
 
 				if ( null === $capacity ) {
-					echo esc_html__( 'Unlimited', 'event-hub' );
+					// Distinguish true unlimited (empty meta, the contract)
+					// from legacy junk the save-time schema now rejects —
+					// junk falls back to unlimited at runtime, and the
+					// operator needs to see that (BUG 5).
+					$raw = trim( (string) get_post_meta( $post_id, 'eh_capacity', true ) );
+
+					if ( '' === $raw ) {
+						echo esc_html__( 'Unlimited', 'event-hub' );
+					} else {
+						echo '<span style="color:#b32d2e;">';
+						echo esc_html(
+							sprintf(
+								/* translators: %s: invalid stored capacity value. */
+								__( 'Invalid (%s) — treated as Unlimited', 'event-hub' ),
+								$raw
+							)
+						);
+						echo '</span>';
+					}
 					break;
 				}
 

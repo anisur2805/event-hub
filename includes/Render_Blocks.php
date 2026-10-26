@@ -898,6 +898,24 @@ final class Render_Blocks {
 	private static function capacity( int $post_id ): ?int {
 		$raw = (string) get_post_meta( $post_id, 'eh_capacity', true );
 
+		return self::parse_capacity( $raw );
+	}
+
+	/**
+	 * Parses an eh_capacity meta string into a capacity integer. The single
+	 * source of truth for "what is a valid capacity", shared with
+	 * Rsvp_Repository (SQL side uses the same [0-9]+ REGEXP contract).
+	 *
+	 * Contract (BUG 5): '' / missing = unlimited (null); a digit-only string
+	 * = that number; anything else (junk, negative, "12abc") = unlimited
+	 * with the admin list-table warning the operator instead (the meta is
+	 * rejected at save-time by the registration schema; legacy junk keeps
+	 * the historical unlimited meaning rather than silently re-meaning it).
+	 *
+	 * @param string $raw Raw meta value.
+	 * @return int|null Capacity, or null for unlimited/invalid.
+	 */
+	public static function parse_capacity( string $raw ): ?int {
 		if ( '' === trim( $raw ) || 1 !== preg_match( '/^[0-9]+$/', $raw ) ) {
 			return null;
 		}
@@ -915,6 +933,12 @@ final class Render_Blocks {
 	private static function capacity_label( array $s ): string {
 		$capacity = max( 0, (int) $s['capacity'] );
 		$going    = max( 0, (int) $s['counts']['going'] );
+
+		// Over-capacity legacy data (capacity reduced after publish): public
+		// surfaces clamp to "N of N spots filled" so the wording can't claim
+		// the impossible "45 of 40" (BUG 6/7). Admin surfaces (list table,
+		// CSV export) keep the true counts.
+		$going = min( $going, $capacity );
 
 		/* translators: 1: number going, 2: total capacity. */
 		return sprintf( __( '%1$s of %2$s spots filled', 'event-hub' ), (string) number_format_i18n( $going ), (string) number_format_i18n( $capacity ) );

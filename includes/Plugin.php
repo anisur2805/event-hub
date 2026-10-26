@@ -200,9 +200,24 @@ final class Plugin {
 			array(
 				'type'          => 'string',
 				'single'        => true,
-				'show_in_rest'  => true,
 				'description'   => __( 'Going capacity. Empty = unlimited (docs/ARCHITECTURE.md).', 'event-hub' ),
 				'auth_callback' => static fn ( bool $allowed, string $meta_key, int $post_id ): bool => current_user_can( 'edit_post', $post_id ),
+
+				/*
+				 * BUG 5: reject non-numeric, non-empty capacities at save
+				 * time (REST meta update → 400). The pattern must live in
+				 * show_in_rest['schema'] — core's WP_REST_Meta_Fields
+				 * validates against that schema only (verified in
+				 * get_registered_fields() → rest_validate_value_from_schema()).
+				 * The empty string stays legal: '' = unlimited contract.
+				 */
+				'show_in_rest'  => array(
+					'schema' => array(
+						'type'    => 'string',
+						'pattern' => '^$|^[0-9]+$',
+						'default' => '',
+					),
+				),
 			)
 		);
 	}
