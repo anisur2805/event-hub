@@ -203,4 +203,50 @@ class Phase0_Fixes_Test extends WP_UnitTestCase {
 		$this->assertStringContainsString( 'name="event_hub_name"', $out );
 		$this->assertStringContainsString( 'name="event_hub_email"', $out );
 	}
+
+	/**
+	 * Past events render inert markup: closed notice + count line (when the
+	 * event drew attendees), but NO interactive region, form or feedback slot
+	 * (the old markup painted a stray outlined box on past cards —
+	 * user-reported).
+	 */
+	public function test_past_event_rsvp_renders_inert_markup(): void {
+		$attended = self::make_event( '2020-05-01 18:00:00', '2020-05-01 20:00:00', '40' );
+
+		// Rsvp_Repository::create() rightly refuses ended events
+		// (eh_event_passed 409 — make_event()'s counts seeding is declined),
+		// so simulate legacy attendee rows directly, as the BUG 6/7 test does.
+		global $wpdb;
+		$table = $wpdb->prefix . 'eh_rsvps';
+		foreach (
+			array(
+				array( 'A', 'a-att@example.com', 'going' ),
+				array( 'B', 'b-att@example.com', 'going' ),
+				array( 'C', 'c-att@example.com', 'waitlist' ),
+			) as $row
+		) {
+			$wpdb->insert( $table, array( // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery -- test-only seed into plugin table.
+				'event_id'   => $attended,
+				'name'       => $row[0],
+				'email'      => $row[1],
+				'status'     => $row[2],
+				'created_at' => current_time( 'mysql' ),
+			) );
+		}
+
+		$out = Render_Blocks::render_rsvp_button( $attended );
+
+		$this->assertStringContainsString( 'This event has already taken place.', $out );
+		$this->assertStringContainsString( '2 going · 1 waitlisted', $out );
+		$this->assertStringNotContainsString( 'data-wp-interactive', $out );
+		$this->assertStringNotContainsString( 'event_hub_name', $out );
+		$this->assertStringNotContainsString( 'event-hub-rsvp__feedback', $out );
+
+		$empty = self::make_event( '2020-05-01 18:00:00', '2020-05-01 20:00:00', '' );
+
+		$out2 = Render_Blocks::render_rsvp_button( $empty );
+
+		$this->assertStringContainsString( 'This event has already taken place.', $out2 );
+		$this->assertStringNotContainsString( 'event-hub-rsvp__count', $out2 );
+	}
 }

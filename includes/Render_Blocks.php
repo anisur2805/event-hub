@@ -332,6 +332,21 @@ final class Render_Blocks {
 
 		self::seed_interactivity_state( $user );
 
+		if ( $past ) {
+			// Past events are inert: plain markup only — the count line (when
+			// the event drew attendees) plus the closed notice. No iAPI region,
+			// no form, no feedback slot: the interactive region's top border +
+			// empty feedback painted a stray outlined box on past cards.
+			ob_start();
+			?>
+			<?php if ( '' !== $going_text ) : ?>
+				<p class="event-hub-rsvp__count"><?php echo esc_html( $going_text ); ?></p>
+			<?php endif; ?>
+			<p class="event-hub-rsvp__closed"><?php esc_html_e( 'This event has already taken place.', 'event-hub' ); ?></p>
+			<?php
+			return (string) ob_get_clean();
+		}
+
 		ob_start();
 		?>
 		<div
@@ -344,11 +359,8 @@ final class Render_Blocks {
 					<span data-wp-text="context.countText"><?php echo esc_html( $going_text ); ?></span>
 				</p>
 			<?php endif; ?>
-			<?php if ( $past ) : ?>
-				<p class="event-hub-rsvp__closed"><?php esc_html_e( 'This event has already taken place.', 'event-hub' ); ?></p>
-			<?php else : ?>
-				<?php if ( $summary['rsvpOpen'] || $full ) : ?>
-					<div class="event-hub-rsvp__form">
+			<?php if ( $summary['rsvpOpen'] || $full ) : ?>
+				<div class="event-hub-rsvp__form">
 						<label class="event-hub-rsvp__label" for="event-hub-name-<?php echo esc_attr( (string) $event_id ); ?>"><?php esc_html_e( 'Name', 'event-hub' ); ?></label>
 						<input
 							id="event-hub-name-<?php echo esc_attr( (string) $event_id ); ?>"
@@ -386,7 +398,6 @@ final class Render_Blocks {
 						data-wp-on--click="actions.rsvpGoing"
 					><?php esc_html_e( 'RSVP', 'event-hub' ); ?></button>
 				<?php endif; ?>
-			<?php endif; ?>
 			<p class="event-hub-rsvp__feedback" data-wp-text="context.feedback"></p>
 			<noscript>
 				<p class="event-hub-rsvp__noscript"><?php esc_html_e( 'Enable JavaScript to RSVP.', 'event-hub' ); ?></p>

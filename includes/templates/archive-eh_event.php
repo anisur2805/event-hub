@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 get_header();
 
 ?>
-<main id="primary" class="site-main">
+<main id="primary" class="site-main event-hub-archive">
 	<?php if ( have_posts() ) : ?>
 		<header class="page-header event-hub-archive__header">
 			<h1 class="page-title"><?php echo esc_html( wp_strip_all_tags( (string) get_the_archive_title() ) ); ?></h1>

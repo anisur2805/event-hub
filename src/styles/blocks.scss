@@ -22,7 +22,12 @@
 .event-hub-rsvp,
 .event-hub-rsvp-block,
 .event-hub-event-categories,
-.event-hub-single {
+.event-hub-single,
+/* Fallback archive/grid render bare .event-hub-card without a block
+ * wrapper — tokens must live on the card itself for those pages. */
+.event-hub-card,
+.event-hub-archive,
+.event-hub-archive__grid {
 	--eh-accent: var( --wp--preset--color--accent, #2563eb );
 	--eh-surface: var( --wp--preset--color--base, #ffffff );
 	--eh-ink: var( --wp--preset--color--contrast, #111827 );
@@ -33,9 +38,13 @@
 	--eh-gap: var( --wp--preset--spacing--40, 1.5rem );
 	--eh-font: var( --wp--preset--font-size--medium, 1rem );
 	--eh-font-s: var( --wp--preset--font-size--small, 0.875rem );
+	/* Explicit sans stack: themes style content h3/h4 with heading faces
+	 * (the serif card titles read as broken); plugin output stays sans. */
+	--eh-sans: var( --wp--preset--font-family--body, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif );
 
 	color: var( --eh-ink );
 	font-size: var( --eh-font );
+	font-family: var( --eh-sans );
 }
 
 /* --------------------------------------------------------------------------
@@ -133,12 +142,34 @@
 	background: var( --eh-surface );
 	border: 1px solid var( --eh-line );
 	border-radius: var( --eh-radius );
+	box-shadow: 0 1px 2px rgb( 15 23 42 / 0.04 ), 0 4px 12px rgb( 15 23 42 / 0.04 );
+	transition: box-shadow 0.15s ease, translate 0.15s ease;
+	box-sizing: border-box;
+}
+
+/* Quiet lift on hover — except past cards, which stay inert. */
+.event-hub-card:hover {
+	box-shadow: 0 2px 4px rgb( 15 23 42 / 0.05 ), 0 10px 24px rgb( 15 23 42 / 0.08 );
+	translate: 0 -2px;
+}
+
+.event-hub-card--past {
+	box-shadow: none;
+	translate: none;
+}
+
+.event-hub-card--past:hover {
+	box-shadow: none;
+	translate: none;
 }
 
 .event-hub-card__layout {
 	display: flex;
 	gap: 1.25rem;
-	align-items: stretch;
+	/* Top-align the columns: stretch made the date tile balloon into a
+	 * full-height stripe down the card (the tall accent column seen on the
+	 * archive). The tile hugs the day/month content instead. */
+	align-items: flex-start;
 }
 
 /* Featured image: compact square column ahead of the date block; collapses
@@ -157,7 +188,9 @@
 	border-radius: var( --eh-radius );
 }
 
-/* Bold editorial date block: day 2.5rem, month small caps under it. */
+/* Bold editorial date block: day 2.5rem, month small caps under it.
+ * Accent-tinted tile (10% accent wash) — echoes the single-hero date block
+ * without stealing its saturated fill. */
 .event-hub-card__date {
 	flex: 0 0 auto;
 	display: flex;
@@ -166,7 +199,8 @@
 	justify-content: flex-start;
 	min-width: 4.25rem;
 	padding: 0.75rem 0.75rem;
-	border-right: 1px solid var( --eh-line );
+	background: color-mix( in srgb, var( --eh-accent ) 10%, var( --eh-surface ) );
+	border-radius: var( --eh-radius-s );
 }
 
 .event-hub-card__day {
@@ -235,8 +269,13 @@
 
 .event-hub-card__title {
 	margin: 0;
+	font-family: var( --eh-sans );
 	font-size: var( --wp--preset--font-size--large, 1.375rem );
 	line-height: 1.25;
+}
+
+.event-hub-single__title {
+	font-family: var( --eh-sans );
 }
 
 .event-hub-card__title a {
@@ -265,6 +304,13 @@
 .event-hub-card__excerpt {
 	margin: 0 0 0.25rem;
 	max-width: 42ch;
+	/* Two-line clamp: long bodies must not balloon card heights (the grid
+	 * stretches rows to the tallest card). */
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+	line-clamp: 2;
+	overflow: hidden;
 }
 
 .event-hub-card__categories {
@@ -357,14 +403,19 @@
 }
 
 .event-hub-rsvp__input {
+	/* Themes without a global border-box reset: content-box + width:100%
+	 * paints the input's padding past its container (the clipped inputs on
+	 * the archive cards). */
+	box-sizing: border-box;
 	width: 100%;
 	max-width: 26rem;
-	padding: 0.55rem 0.75rem;
+	padding: 0.45rem 0.65rem;
 	border: 1px solid var( --eh-line );
 	border-radius: var( --eh-radius-s );
 	background: var( --eh-surface );
 	color: var( --eh-ink );
-	font-size: var( --eh-font );
+	font-size: var( --eh-font-s );
+	font-family: inherit;
 }
 
 .event-hub-rsvp__input:focus-visible,
@@ -375,15 +426,32 @@
 }
 
 .event-hub-rsvp__button {
-	padding: 0.6rem 1.5rem;
+	padding: 0.55rem 1.25rem;
 	border: 1px solid transparent;
 	border-radius: var( --eh-radius-s );
 	background: var( --eh-accent );
 	color: #fff;
-	font-size: var( --eh-font );
+	font-size: var( --eh-font-s );
 	font-weight: 600;
+	font-family: inherit;
 	cursor: pointer;
 	transition: filter 0.15s ease;
+}
+
+/* Full-width in card context; the single view overrides back to natural
+ * width via .event-hub-single .event-hub-rsvp__button. The card body is
+ * align-items:flex-start (so the pill keeps its hug), so the region must
+ * opt back into stretching across the card. */
+.event-hub-card .event-hub-rsvp {
+	align-self: stretch;
+}
+
+.event-hub-card .event-hub-rsvp__button {
+	width: 100%;
+}
+
+.event-hub-single .event-hub-rsvp__button {
+	width: auto;
 }
 
 .event-hub-rsvp__button:hover {
@@ -505,10 +573,77 @@
  * 7. Event archive fallback template
  * ----------------------------------------------------------------------- */
 
+/* Container: the fallback archive prints a bare <main> the theme gives no
+ * width — without this the card grid runs full-bleed to the viewport edges.
+ * 72rem content column, centered, with a side gutter at every width. */
+.event-hub-archive {
+	max-width: 72rem;
+	margin-inline: auto;
+	padding-inline: 1.25rem;
+}
+
+/* Archive header: title belongs to the plugin's sans voice, not the theme's
+ * heading face; the description inherits the muted treatment. */
+.event-hub-archive .page-title {
+	font-family: var( --eh-sans );
+	letter-spacing: -0.01em;
+}
+
+.event-hub-archive .archive-description {
+	margin-block-start: 0.5rem;
+	color: var( --eh-muted );
+	font-size: var( --eh-font );
+}
+
+.event-hub-archive__header {
+	margin-block: var( --eh-gap ) calc( var( --eh-gap ) * 1.5 );
+}
+
 .event-hub-archive__grid {
 	display: grid;
 	grid-template-columns: repeat( auto-fill, minmax( 20rem, 1fr ) );
 	gap: var( --eh-gap, 1.5rem );
+}
+
+/* Posts pagination: theme renders bare .nav-links links; scoped pill-style
+ * so empty archive pages with paging still look owned. */
+.event-hub-archive .navigation.pagination {
+	margin-block-start: calc( var( --eh-gap ) * 1.5 );
+}
+
+.event-hub-archive .nav-links {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.375rem;
+	justify-content: center;
+}
+
+.event-hub-archive .nav-links > * {
+	display: inline-block;
+	min-width: 2.25rem;
+	padding: 0.4rem 0.75rem;
+	border: 1px solid transparent;
+	border-radius: var( --eh-radius-s );
+	color: var( --eh-ink );
+	font-size: var( --eh-font-s );
+	font-weight: 600;
+	line-height: 1.5;
+	text-align: center;
+	text-decoration: none;
+	font-variant-numeric: tabular-nums;
+}
+
+.event-hub-archive .nav-links > *:hover,
+.event-hub-archive .nav-links > *:focus-visible {
+	border-color: var( --eh-line );
+	text-decoration: none;
+	background: color-mix( in srgb, var( --eh-accent ) 10%, var( --eh-surface ) );
+}
+
+.event-hub-archive .nav-links .current {
+	border-color: var( --eh-line );
+	background: var( --eh-accent );
+	color: #fff;
 }
 
 
@@ -674,6 +809,12 @@
 }
 
 @media ( prefers-reduced-motion: reduce ) {
+	.event-hub-card,
+	.event-hub-card:hover {
+		transition: none;
+		translate: none;
+	}
+
 	.event-hub-card__progress-fill,
 	.event-hub-event-list.is-busy .event-hub-event-list__grid,
 	.event-hub-rsvp__button {
