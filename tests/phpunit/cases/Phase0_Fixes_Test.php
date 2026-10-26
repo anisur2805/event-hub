@@ -183,4 +183,24 @@ class Phase0_Fixes_Test extends WP_UnitTestCase {
 		$this->assertStringContainsString( 'Invalid', $cell );
 		$this->assertStringContainsString( 'somewhere-between', $cell );
 	}
+
+	/**
+	 * Full event: the waitlist button is accompanied by the name/email
+	 * inputs (regression: inputs rendered only when rsvpOpen, so "Join
+	 * waitlist" had nothing to type into — user-reported).
+	 */
+	public function test_waitlist_button_renders_name_email_inputs(): void {
+		$event_id = self::make_event(
+			'2099-05-01 18:00:00',
+			'2099-05-01 20:00:00',
+			'2',
+			array( 'going' => 2, 'waitlist' => 1 )
+		);
+
+		$out = Render_Blocks::render_rsvp_button( $event_id );
+
+		$this->assertStringContainsString( 'Join waitlist', $out );
+		$this->assertStringContainsString( 'name="event_hub_name"', $out );
+		$this->assertStringContainsString( 'name="event_hub_email"', $out );
+	}
 }

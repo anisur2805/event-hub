@@ -344,7 +344,7 @@ final class Render_Blocks {
 			<?php if ( $past ) : ?>
 				<p class="event-hub-rsvp__closed"><?php esc_html_e( 'This event has already taken place.', 'event-hub' ); ?></p>
 			<?php else : ?>
-				<?php if ( $summary['rsvpOpen'] ) : ?>
+				<?php if ( $summary['rsvpOpen'] || $full ) : ?>
 					<div class="event-hub-rsvp__form">
 						<label class="event-hub-rsvp__label" for="event-hub-name-<?php echo esc_attr( (string) $event_id ); ?>"><?php esc_html_e( 'Name', 'event-hub' ); ?></label>
 						<input
