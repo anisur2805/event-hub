@@ -9,6 +9,7 @@
 import { store, getContext } from '@wordpress/interactivity';
 import {
 	translate as __,
+	translate,
 	choosePlural as _n,
 	interpolate as sprintf,
 } from './i18n';
@@ -114,17 +115,7 @@ function* rsvp(
 			ctx.mine = body.rsvp.status;
 			if ( body.counts ) {
 				ctx.counts = body.counts;
-				// context.countText is the directive-bound, SSR-safe rendering
-				// target (DECISIONS.md #30); keep it in sync client-side.
-				ctx.countText = sprintf(
-					/* translators: %s: number of attendees. */
-					_n(
-						'%s person going',
-						'%s people going',
-						body.counts.going
-					),
-					String( body.counts.going )
-				);
+				syncCountText( ctx );
 				if ( null !== ctx.capacity ) {
 					ctx.full = body.counts.going >= ctx.capacity;
 				}
@@ -139,6 +130,7 @@ function* rsvp(
 		const failure = body as RestFailure;
 		if ( failure.counts ) {
 			ctx.counts = failure.counts;
+			syncCountText( ctx );
 		}
 		switch ( failure.code ) {
 			case 'eh_capacity_full':
@@ -164,4 +156,34 @@ function* rsvp(
 	} finally {
 		ctx.busy = false;
 	}
+}
+
+/**
+ * Rebuilds context.countText from context.counts — the client-side twin of
+ * PHP Render_Blocks::count_text(), same vocabulary, same past rule. Called
+ * after every response that carries fresh counts (success and failure), so
+ * the line can never drift from the server numbers (user-reported bug:
+ * waitlist signup left the old "2 going · 0 waitlisted" or a waitlist-blind
+ * "N people going").
+ *
+ * @param ctx The RSVP region context.
+ */
+function syncCountText( ctx: RsvpContext ): void {
+	const { going, waitlist } = ctx.counts;
+
+	if ( ctx.past && going < 1 && waitlist < 1 ) {
+		ctx.countText = '';
+		return;
+	}
+
+	if ( going < 1 && waitlist < 1 ) {
+		ctx.countText = __( 'Be the first to RSVP.' );
+		return;
+	}
+
+	ctx.countText = sprintf(
+		translate( '%1$s going · %2$s waitlisted' ),
+		String( going ),
+		String( waitlist )
+	);
 }

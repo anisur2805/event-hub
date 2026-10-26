@@ -310,7 +310,7 @@ final class Render_Blocks {
 		// Directive-safe state: every data-wp-text/bind target must resolve in
 		// PHP too (the server processor replaces JS-only getters with null and
 		// wipes server-rendered content — DECISIONS.md #30).
-		$going_text = self::count_text( (int) $counts['going'], (int) $counts['waitlist'] );
+		$going_text = self::count_text( (int) $counts['going'], (int) $counts['waitlist'], $past );
 
 		$context = array(
 			'eventId'   => $event_id,
@@ -324,6 +324,7 @@ final class Render_Blocks {
 			'feedback'  => '',
 			'full'      => $full,
 			'rsvpOpen'  => (bool) $summary['rsvpOpen'],
+			'past'      => $past,
 			'countText' => $going_text,
 			'name'      => 0 !== $user->ID ? $user->display_name : '',
 			'email'     => 0 !== $user->ID ? $user->user_email : '',
@@ -338,9 +339,11 @@ final class Render_Blocks {
 			data-wp-interactive="event-hub"
 			<?php echo wp_interactivity_data_wp_context( $context ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- helper-safe attribute output. ?>
 		>
-			<p class="event-hub-rsvp__count">
-				<span data-wp-text="context.countText"><?php echo esc_html( $going_text ); ?></span>
-			</p>
+			<?php if ( '' !== $going_text ) : ?>
+				<p class="event-hub-rsvp__count">
+					<span data-wp-text="context.countText"><?php echo esc_html( $going_text ); ?></span>
+				</p>
+			<?php endif; ?>
 			<?php if ( $past ) : ?>
 				<p class="event-hub-rsvp__closed"><?php esc_html_e( 'This event has already taken place.', 'event-hub' ); ?></p>
 			<?php else : ?>
@@ -748,7 +751,11 @@ final class Render_Blocks {
 	 * @param int $waitlist Waitlist count.
 	 * @return string
 	 */
-	private static function count_text( int $going, int $waitlist ): string {
+		private static function count_text( int $going, int $waitlist, bool $past = false ): string {
+		if ( $past && $going < 1 && $waitlist < 1 ) {
+			return '';
+		}
+
 		if ( $going < 1 && $waitlist < 1 ) {
 			return __(
 				'Be the first to RSVP.',
@@ -981,6 +988,9 @@ final class Render_Blocks {
 			'This event has already taken place.'       => __( 'This event has already taken place.', 'event-hub' ),
 			'Something went wrong — please try again.'  => __( 'Something went wrong — please try again.', 'event-hub' ),
 			'Could not load events — please try again.' => __( 'Could not load events — please try again.', 'event-hub' ),
+			/* translators: 1: number going, 2: number waitlisted. */
+			'%1$s going · %2$s waitlisted'              => _x( '%1$s going · %2$s waitlisted', 'event count line', 'event-hub' ),
+			'Be the first to RSVP.'                     => __( 'Be the first to RSVP.', 'event-hub' ),
 			/* translators: %s: number of attendees. */
 			'%s person going'                           => __( '%s person going', 'event-hub' ),
 			/* translators: %s: number of attendees. */

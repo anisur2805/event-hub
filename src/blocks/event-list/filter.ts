@@ -284,11 +284,24 @@ function renderCard(
 
 	const count = slot( card, 'count' );
 	if ( count ) {
-		count.textContent = sprintf(
-			/* translators: %s: number of attendees. */
-			_n( '%s person going', '%s people going', going ),
-			String( going )
-		);
+		// Same vocabulary + past rule as PHP count_text(): the "N people
+		// going" variant dropped the waitlist count and past zero-count
+		// events invited visitors to RSVP (user-reported bugs).
+		const going = event.counts?.going ?? 0;
+		const waitlist = event.counts?.waitlist ?? 0;
+		const isPast = 'past' === pillFor( event ).key;
+
+		if ( isPast && going < 1 && waitlist < 1 ) {
+			count.remove();
+		} else if ( going < 1 && waitlist < 1 ) {
+			count.textContent = __( 'Be the first to RSVP.' );
+		} else {
+			count.textContent = sprintf(
+				__( '%1$s going · %2$s waitlisted' ),
+				String( going ),
+				String( waitlist )
+			);
+		}
 	}
 
 	const link = slot( card, 'link' );

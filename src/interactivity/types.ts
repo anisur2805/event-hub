@@ -52,6 +52,8 @@ export interface RsvpContext {
 	full: boolean;
 	/** Server-side open/closed flag; false also hides the name/email inputs. */
 	rsvpOpen: boolean;
+	/** True when the event is over; drives past-aware count-line text. */
+	past: boolean;
 	/** Name typed by the visitor; kept in context via actions.setName. */
 	name: string;
 	/** Email typed by the visitor; kept in context via actions.setEmail. */
