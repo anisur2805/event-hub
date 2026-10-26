@@ -256,9 +256,7 @@ final class Render_Blocks {
 		$capacity = max( 0, (int) $s['capacity'] );
 		$going    = max( 0, (int) $s['counts']['going'] );
 		$pct      = $capacity > 0 ? min( 100, (int) round( ( $going / $capacity ) * 100 ) ) : 100;
-
-		/* translators: 1: number going, 2: total capacity. */
-		$label = sprintf( __( '%1$s of %2$s spots filled', 'event-hub' ), (string) number_format_i18n( $going ), (string) number_format_i18n( $capacity ) );
+		$label    = self::capacity_label( $s );
 
 		return sprintf(
 			'<div class="event-hub-card__progress" role="progressbar" aria-valuemin="0" aria-valuemax="%1$s" aria-valuenow="%2$s" aria-valuetext="%3$s"><span class="event-hub-card__progress-fill" style="width:%4$s%%"></span></div>',
@@ -551,6 +549,80 @@ final class Render_Blocks {
 	}
 
 	/**
+	 * Renders the event-details view for the plugin's single-event fallback
+	 * template (single eh_event posts on themes without their own template).
+	 * Reuses the card vocabulary — status pill, capacity bar, category chips
+	 * (links to the ?eh_category list filter), RSVP form — at single-page
+	 * scale. Add-to-calendar ships with PROBLEM-4.
+	 *
+	 * @param WP_Post $post The single event post.
+	 * @return string
+	 */
+	public static function render_single_event( WP_Post $post ): string {
+		$s = self::summary( $post );
+
+		if ( empty( $s['id'] ) ) {
+			return '';
+		}
+
+		$day   = self::date_part( (string) $s['start'], 'j' );
+		$month = self::date_part( (string) $s['start'], 'M' );
+		$pill  = self::status_pill( $s );
+		$bar   = null !== $s['capacity'] ? self::capacity_bar( $s ) : '';
+		$terms = (array) $s['category_names'];
+
+		ob_start();
+		?>
+		<article class="event-hub-single<?php echo $pill['past'] ? ' event-hub-single--past' : ''; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- constant string. ?>">
+			<header class="event-hub-single__hero">
+				<?php if ( '' !== $day ) : ?>
+					<div class="event-hub-single__date" aria-hidden="true">
+						<span class="event-hub-single__day"><?php echo esc_html( $day ); ?></span>
+						<span class="event-hub-single__month"><?php echo esc_html( $month ); ?></span>
+					</div>
+				<?php endif; ?>
+				<div class="event-hub-single__heading">
+					<p class="event-hub-single__pill event-hub-card__pill event-hub-card__pill--<?php echo esc_attr( (string) $pill['key'] ); ?>"><?php echo esc_html( (string) $pill['label'] ); ?></p>
+					<?php the_title( '<h1 class="event-hub-single__title">', '</h1>' ); ?>
+					<p class="event-hub-single__datetime">
+						<time datetime="<?php echo esc_attr( (string) $s['start'] ); ?>"><?php echo esc_html( self::human_range( (string) $s['start'], (string) $s['end'] ) ); ?></time>
+					</p>
+					<?php if ( '' !== (string) $s['venue'] ) : ?>
+						<p class="event-hub-single__venue"><?php echo esc_html( (string) $s['venue'] ); ?></p>
+					<?php endif; ?>
+				</div>
+			</header>
+			<?php if ( array() !== $terms ) : ?>
+				<ul class="event-hub-single__categories event-hub-event-categories">
+					<?php foreach ( $s['categories'] as $i => $slug ) : ?>
+						<li>
+							<a href="<?php echo esc_url( add_query_arg( 'eh_category', rawurlencode( (string) $slug ), home_url( '/' ) ) ); ?>"><?php echo esc_html( (string) $terms[ $i ] ); ?></a>
+						</li>
+					<?php endforeach; ?>
+				</ul>
+			<?php endif; ?>
+			<?php if ( '' !== $bar ) : ?>
+				<div class="event-hub-single__capacity">
+					<?php
+					// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- capacity_bar() escapes internally.
+					echo $bar;
+					?>
+					<p class="event-hub-single__capacity-label"><?php echo esc_html( self::capacity_label( $s ) ); ?></p>
+				</div>
+			<?php endif; ?>
+			<div class="event-hub-single__content">
+				<?php the_content(); ?>
+			</div>
+			<?php
+			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- render_rsvp_button() escapes internally.
+			echo self::render_rsvp_button( (int) $s['id'] );
+			?>
+		</article>
+		<?php
+		return (string) ob_get_clean();
+	}
+
+	/**
 	 * Renders the rsvp-button block (attribute: eventId).
 	 *
 	 * @param array<string,mixed> $attributes Block attributes.
@@ -757,6 +829,21 @@ final class Render_Blocks {
 		}
 
 		return (int) $raw;
+	}
+
+	/**
+	 * Translated "X of Y spots filled" text shared by the bar's ARIA label
+	 * and the single-event visible caption.
+	 *
+	 * @param array<string,mixed> $s Render_Blocks::summary() output.
+	 * @return string
+	 */
+	private static function capacity_label( array $s ): string {
+		$capacity = max( 0, (int) $s['capacity'] );
+		$going    = max( 0, (int) $s['counts']['going'] );
+
+		/* translators: 1: number going, 2: total capacity. */
+		return sprintf( __( '%1$s of %2$s spots filled', 'event-hub' ), (string) number_format_i18n( $going ), (string) number_format_i18n( $capacity ) );
 	}
 
 	/**

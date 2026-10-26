@@ -1,1 +1,23 @@
-{"$schema": "https://schemas.wp.org/trunk/block.json", "apiVersion": 3, "name": "event-hub/rsvp-button", "version": "1.0.0", "title": "RSVP Button", "category": "widgets", "description": "Capacity-aware RSVP button with live count.", "textdomain": "event-hub", "attributes": {"eventId": {"type": "number", "default": 0}}, "supports": {"interactivity": true, "html": false}, "editorScript": "file:./index.js", "viewScriptModule": "file:./view.js", "style": "file:./style.css"}
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "event-hub/rsvp-button",
+  "version": "1.0.0",
+  "title": "RSVP Button",
+  "category": "widgets",
+  "description": "Capacity-aware RSVP button with live count.",
+  "textdomain": "event-hub",
+  "attributes": {
+    "eventId": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "supports": {
+    "interactivity": true,
+    "html": false
+  },
+  "editorScript": "file:./index.js",
+  "viewScriptModule": "file:./view.js",
+  "style": "event-hub-blocks"
+}

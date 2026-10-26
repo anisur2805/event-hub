@@ -76,6 +76,8 @@ final class Plugin {
 		add_action( 'init', array( $this, 'register_patterns' ) );
 		add_action( 'init', array( $this, 'load_textdomain' ) );
 
+		add_action( 'wp_enqueue_scripts', array( $this, 'register_front_styles' ) );
+
 		add_action( 'admin_init', array( Migrations::class, 'maybe_migrate' ) );
 		add_action( 'rest_api_init', array( $this, 'register_rest_routes' ) );
 
@@ -85,6 +87,9 @@ final class Plugin {
 
 		$csv_exporter = new Csv_Exporter( $this->repository );
 		$csv_exporter->boot();
+
+		$single_template = new Single_Template();
+		$single_template->boot();
 
 		/*
 		 * WP-CLI migration command. Registered as a closure so the command
@@ -186,6 +191,28 @@ final class Plugin {
 				'description'   => __( 'Going capacity. Empty = unlimited (docs/ARCHITECTURE.md).', 'event-hub' ),
 				'auth_callback' => static fn ( bool $allowed, string $meta_key, int $post_id ): bool => current_user_can( 'edit_post', $post_id ),
 			)
+		);
+	}
+
+	/**
+	 * Registers the shared front-end stylesheet. The four block.json files
+	 * reference this handle as their `style`, so WordPress enqueues it when
+	 * any Event Hub block renders and dedupes across multiple blocks; the
+	 * single-event template enqueues it directly.
+	 *
+	 * @return void
+	 */
+	public function register_front_styles(): void {
+		$css = EVENT_HUB_DIR . 'build/css/event-hub.css';
+		if ( ! is_readable( $css ) ) {
+			return; // Graceful degradation when the build has not run.
+		}
+
+		wp_register_style(
+			'event-hub-blocks',
+			EVENT_HUB_URL . 'build/css/event-hub.css',
+			array(),
+			EVENT_HUB_VERSION
 		);
 	}
 

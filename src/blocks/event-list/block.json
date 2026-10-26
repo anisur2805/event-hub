@@ -1,1 +1,31 @@
-{"$schema": "https://schemas.wp.org/trunk/block.json", "apiVersion": 3, "name": "event-hub/event-list", "version": "1.0.0", "title": "Event List", "category": "widgets", "description": "Filterable grid of upcoming events with live RSVP counts.", "textdomain": "event-hub", "attributes": {"categoryId": {"type": "string", "default": ""}, "postsPerPage": {"type": "number", "default": 6}, "showFilters": {"type": "boolean", "default": true}}, "supports": {"interactivity": true, "html": false}, "editorScript": "file:./index.js", "viewScriptModule": "file:./view.js", "style": "file:./style.css"}
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "event-hub/event-list",
+  "version": "1.0.0",
+  "title": "Event List",
+  "category": "widgets",
+  "description": "Filterable grid of upcoming events with live RSVP counts.",
+  "textdomain": "event-hub",
+  "attributes": {
+    "categoryId": {
+      "type": "string",
+      "default": ""
+    },
+    "postsPerPage": {
+      "type": "number",
+      "default": 6
+    },
+    "showFilters": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "supports": {
+    "interactivity": true,
+    "html": false
+  },
+  "editorScript": "file:./index.js",
+  "viewScriptModule": "file:./view.js",
+  "style": "event-hub-blocks"
+}

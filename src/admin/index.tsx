@@ -55,6 +55,18 @@ function AdminApp(): ReactElement {
 
 	/* eslint-disable react-hooks/rules-of-hooks */
 	useEffect( () => {
+		if ( ! eventId ) {
+			// Index state ("Select an event"): the REST contract rejects
+			// eventId=0 with 400, so no request is sent — the prompt renders.
+			setRows( [] );
+			setTotal( 0 );
+			setTotalPages( 1 );
+			setError( null );
+			setConfirmingId( null );
+			setLoading( false );
+			return;
+		}
+
 		let alive = true;
 		setLoading( true );
 		setError( null );
