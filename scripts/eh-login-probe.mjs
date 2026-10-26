@@ -1,0 +1,18 @@
+import { chromium } from '@playwright/test';
+const base = 'http://localhost:10078';
+const browser = await chromium.launch();
+const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, ignoreHTTPSErrors: true });
+await page.goto(`${base}/wp-login.php`, { waitUntil: 'load' });
+console.log('form present:', await page.locator('#loginform').count(), 'url:', page.url());
+await page.fill('#user_login', 'eh-test-admin');
+await page.fill('#user_pass', 'eh-test-pass-2026');
+await page.click('#wp-submit');
+await page.waitForLoadState('load').catch(() => {});
+await page.waitForTimeout(4000);
+console.log('after-submit url:', page.url());
+const err = await page.locator('#login_error').count();
+if (err) console.log('login error text:', (await page.locator('#login_error').textContent())?.trim().slice(0, 200));
+const adminBar = await page.locator('#wpadminbar, #wp-admin-bar-my-account').count();
+console.log('admin bar present:', adminBar);
+await page.screenshot({ path: '/tmp/eh-login-probe.png' });
+await browser.close();

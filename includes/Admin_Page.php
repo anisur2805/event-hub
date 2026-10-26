@@ -115,7 +115,10 @@ final class Admin_Page {
 			$events
 		);
 
-		$initial = array() !== $event_ids ? $event_ids[0] : 0;
+		// Deep link from the Events list-table "RSVPs" action: ?event=ID
+		// selects that event when it exists. Read-only GET, no state change.
+		$requested = isset( $_GET['event'] ) ? absint( wp_unslash( (string) $_GET['event'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only GET filter, no state change.
+		$initial   = in_array( $requested, $event_ids, true ) ? $requested : ( array() !== $event_ids ? $event_ids[0] : 0 );
 
 		// Complete export URLs are built server-side (BUG-1 fix): JS only
 		// picks the one matching the selected event; no URL concatenation.

@@ -5,7 +5,11 @@ const defaults = require( '@wordpress/scripts/config/webpack.config' );
 // build (view.js modules for the Interactivity API). Only WordPress scripts
 // (editor/admin) may live in [0]; module entries in [1] may import ONLY
 // script modules. The admin React screen is a classic script -> config [0].
-const adminEntry = { 'admin/index': './src/admin/index.tsx' };
+const adminEntry = {
+	'admin/index': './src/admin/index.tsx',
+	// "Event details" sidebar panel for the eh_event block editor.
+	'admin/event-details': './src/admin/event-details.tsx',
+};
 
 // Shared front-end stylesheet for all Event Hub blocks (one handle, one set
 // of rules; WP dedupes when several blocks appear on the same page). Built

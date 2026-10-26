@@ -54,6 +54,14 @@ final class Rsvp_Repository {
 			return new WP_Error( 'eh_invalid_status', __( 'Status must be either going or waitlist.', 'event-hub' ), array( 'status' => 400 ) );
 		}
 
+		// VARCHAR(191) storage cap: a longer address would be truncated
+		// silently by MySQL while the API still answered 201 (stage-4 BUG 4 —
+		// a 212-char address persisted as 191 bytes). Reject past 190 before
+		// the INSERT so no data is corrupted.
+		if ( strlen( $email ) > 190 ) {
+			return new WP_Error( 'eh_invalid_email', __( 'Please provide a valid email address.', 'event-hub' ), array( 'status' => 400 ) );
+		}
+
 		$event = get_post( $event_id );
 
 		if ( ! $event instanceof \WP_Post || 'eh_event' !== $event->post_type || 'publish' !== $event->post_status ) {
@@ -107,8 +115,8 @@ final class Rsvp_Repository {
 		// Assemble the statement first; phpcs:ignore below sits on the query
 		// line that holds the $table variable (value from $wpdb->prefix, never
 		// user input). All values remain placeholders.
-		$insert_query = 'INSERT INTO ' . $table . " (event_id, name, email, status)
-			SELECT %d, %s, %s, %s FROM DUAL
+		$insert_query = 'INSERT INTO ' . $table . " (event_id, name, email, status, created_at)
+			SELECT %d, %s, %s, %s, %s FROM DUAL
 			WHERE %s = 'waitlist'
 			   OR ( (SELECT COUNT(*) FROM " . $table . " WHERE event_id = %d AND status = 'going')
 			        < COALESCE( (SELECT CAST(m.meta_value AS UNSIGNED) FROM {$wpdb->postmeta} m
@@ -121,6 +129,7 @@ final class Rsvp_Repository {
 			$name,
 			$email,
 			$status,
+			current_time( 'mysql' ),
 			$status,
 			$event_id,
 			$event_id

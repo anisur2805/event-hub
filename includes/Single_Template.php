@@ -31,15 +31,23 @@ final class Single_Template {
 	}
 
 	/**
-	 * Takes over single-event rendering only on the theme's index.php
-	 * fallback. Runs before wp_head, so the wp_enqueue_scripts hook added
-	 * here still fires normally.
+	 * Takes over rendering only when WordPress resolved to the theme's
+	 * index.php last-resort fallback: single events AND the CPT archive /
+	 * category term archives (both dumped raw post bodies through index.php
+	 * before — front-end gap found in review). A theme's own dedicated
+	 * template always wins: the filter never fires when one exists.
+	 *
+	 * Runs before wp_head, so the wp_enqueue_scripts hook added here still
+	 * fires normally.
 	 *
 	 * @param string $template Resolved template path.
 	 * @return string
 	 */
 	public function maybe_render( string $template ): string {
-		if ( ! is_singular( 'eh_event' ) ) {
+		$is_single  = is_singular( 'eh_event' );
+		$is_archive = ( is_post_type_archive( 'eh_event' ) || is_tax( 'eh_event_category' ) );
+
+		if ( ! $is_single && ! $is_archive ) {
 			return $template;
 		}
 
@@ -49,7 +57,11 @@ final class Single_Template {
 
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue' ) );
 
-		return EVENT_HUB_DIR . 'includes/templates/single-eh_event.php';
+		if ( $is_single ) {
+			return EVENT_HUB_DIR . 'includes/templates/single-eh_event.php';
+		}
+
+		return EVENT_HUB_DIR . 'includes/templates/archive-eh_event.php';
 	}
 
 	/**

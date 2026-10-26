@@ -10,6 +10,7 @@ declare( strict_types=1 );
 namespace EventHub;
 
 use WP_Post;
+use WP_User;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -114,11 +115,22 @@ final class Render_Blocks {
 		$past  = $pill['past'];
 		$bar   = null !== $s['capacity'] ? self::capacity_bar( $s ) : '';
 		$terms = (array) $s['category_names'];
+		$thumb = get_the_post_thumbnail(
+			(int) $s['id'],
+			'medium',
+			array(
+				'loading' => 'lazy',
+				'class'   => 'event-hub-card__img',
+			)
+		);
 
 		ob_start();
 		?>
 		<article class="event-hub-card<?php echo $past ? ' event-hub-card--past' : ''; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- constant string. ?>">
 			<div class="event-hub-card__layout">
+				<?php if ( '' !== $thumb ) : ?>
+					<figure class="event-hub-card__thumb"><?php echo $thumb; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- get_the_post_thumbnail() returns safe core HTML. ?></figure>
+				<?php endif; ?>
 				<div class="event-hub-card__date" aria-hidden="true">
 					<span class="event-hub-card__day"><?php echo esc_html( $day ); ?></span>
 					<span class="event-hub-card__month"><?php echo esc_html( $month ); ?></span>
@@ -317,21 +329,7 @@ final class Render_Blocks {
 			'email'     => 0 !== $user->ID ? $user->user_email : '',
 		);
 
-		// Server state (restUrl/nonce/user/i18n) per docs/ARCHITECTURE.md.
-		// Module-side JS cannot import @wordpress/i18n (not a script module in
-		// WP 7.1.3), so PHP pre-translates every view-side string here.
-		wp_interactivity_state(
-			'event-hub',
-			array(
-				'restUrl' => esc_url_raw( rest_url() ),
-				'nonce'   => wp_create_nonce( 'wp_rest' ),
-				'user'    => 0 !== $user->ID ? array(
-					'name'  => $user->display_name,
-					'email' => $user->user_email,
-				) : null,
-				'i18n'    => self::view_strings(),
-			)
-		);
+		self::seed_interactivity_state( $user );
 
 		ob_start();
 		?>
@@ -455,6 +453,8 @@ final class Render_Blocks {
 			)
 		);
 
+		self::seed_interactivity_state( wp_get_current_user() );
+
 		ob_start();
 		?>
 		<div
@@ -570,10 +570,21 @@ final class Render_Blocks {
 		$pill  = self::status_pill( $s );
 		$bar   = null !== $s['capacity'] ? self::capacity_bar( $s ) : '';
 		$terms = (array) $s['category_names'];
+		$thumb = get_the_post_thumbnail(
+			$post,
+			'large',
+			array(
+				'loading' => 'lazy',
+				'class'   => 'event-hub-single__img',
+			)
+		);
 
 		ob_start();
 		?>
 		<article class="event-hub-single<?php echo $pill['past'] ? ' event-hub-single--past' : ''; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- constant string. ?>">
+			<?php if ( '' !== $thumb ) : ?>
+				<figure class="event-hub-single__image"><?php echo $thumb; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- get_the_post_thumbnail() returns safe core HTML. ?></figure>
+			<?php endif; ?>
 			<header class="event-hub-single__hero">
 				<?php if ( '' !== $day ) : ?>
 					<div class="event-hub-single__date" aria-hidden="true">
@@ -687,7 +698,10 @@ final class Render_Blocks {
 	}
 
 	/**
-	 * Human-readable date/time range for a card.
+	 * Human-readable date/time range. Same-day events (the common case) show
+	 * "date · start–end"; multi-day events show "start date, time – end date,
+	 * time" so the FE always exposes the end date (front-end gap found in
+	 * review: an overnight/multi-day event displayed only the start date).
 	 *
 	 * @param string $start_iso ISO 8601 start.
 	 * @param string $end_iso   ISO 8601 end.
@@ -697,18 +711,31 @@ final class Render_Blocks {
 		$format_date = get_option( 'date_format' );
 		$format_time = get_option( 'time_format' );
 
+		$format_date = is_string( $format_date ) ? $format_date : 'F j, Y';
+		$format_time = is_string( $format_time ) ? $format_time : 'g:i a';
+
+		if ( '' === $start_iso ) {
+			return '';
+		}
+
 		try {
-			$start = new \DateTimeImmutable( '' !== $start_iso ? $start_iso : 'now' );
+			$start = new \DateTimeImmutable( $start_iso );
 			$end   = '' !== $end_iso ? new \DateTimeImmutable( $end_iso ) : null;
 		} catch ( \Exception $e ) {
 			return '';
 		}
 
-		$label = $start->format( is_string( $format_date ) ? $format_date : 'F j, Y' );
+		$label = $start->format( $format_date );
+
+		if ( $end instanceof \DateTimeImmutable && $end->format( 'Y-m-d' ) !== $start->format( 'Y-m-d' ) ) {
+			// Different calendar days: both dates, each with its time.
+			return $start->format( $format_date . ', ' . $format_time )
+				. ' – ' . $end->format( $format_date . ', ' . $format_time );
+		}
 
 		if ( $end instanceof \DateTimeImmutable ) {
-			$label .= ' · ' . $start->format( is_string( $format_time ) ? $format_time : 'g:i a' );
-			$label .= '–' . $end->format( is_string( $format_time ) ? $format_time : 'g:i a' );
+			$label .= ' · ' . $start->format( $format_time );
+			$label .= '–' . $end->format( $format_time );
 		}
 
 		return $label;
@@ -738,13 +765,46 @@ final class Render_Blocks {
 	}
 
 	/**
+	 * Seeds the global Interactivity state once per request. Both the list
+	 * block and the RSVP button call it: an all-past grid renders no RSVP
+	 * buttons, and without this call the client filter would fetch an empty
+	 * base URL (the /event-hub/v1 404 observed in testing). Merges are cheap —
+	 * wp_interactivity_state() deep-merges repeated calls.
+	 *
+	 * @param WP_User $user Current user (from render_rsvp_button()'s fetch).
+	 * @return void
+	 */
+	private static function seed_interactivity_state( WP_User $user ): void {
+		wp_interactivity_state(
+			'event-hub',
+			array(
+				'restUrl' => esc_url_raw( rest_url() ),
+				'nonce'   => wp_create_nonce( 'wp_rest' ),
+				'user'    => 0 !== $user->ID ? array(
+					'name'  => $user->display_name,
+					'email' => $user->user_email,
+				) : null,
+				'i18n'    => self::view_strings(),
+			)
+		);
+	}
+
+	/**
 	 * Loads upcoming published events as summaries, start ASC, end >= now.
+	 *
+	 * The past filter runs in SQL (meta_query), not PHP: with many past
+	 * events heading the start-ASC order, a PHP-only filter let them exhaust
+	 * the limit and blank the list (stage-4 BUG 1 — "4 fetched, 0 future"
+	 * with 180 upcoming events live). Events with no end meta stay included
+	 * (conservative: never silently hide an event on missing data).
 	 *
 	 * @param int               $limit      Max events.
 	 * @param array<int,string> $categories Optional category slugs.
 	 * @return array<int,array<string,mixed>>
 	 */
 	public static function upcoming_events( int $limit, array $categories = array() ): array {
+		$now_sql = current_time( 'mysql' );
+
 		$query_args = array(
 			'post_type'      => 'eh_event',
 			'post_status'    => 'publish',
@@ -754,6 +814,20 @@ final class Render_Blocks {
 			'meta_key'       => 'eh_start',
 			'order'          => 'ASC',
 			'no_found_rows'  => true,
+			// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- the upcoming filter IS the feature.
+			'meta_query'     => array(
+				'relation' => 'OR',
+				array(
+					'key'     => 'eh_end',
+					'value'   => $now_sql,
+					'compare' => '>=',
+					'type'    => 'DATETIME',
+				),
+				array(
+					'key'     => 'eh_end',
+					'compare' => 'NOT EXISTS',
+				),
+			),
 		);
 
 		if ( array() !== $categories ) {

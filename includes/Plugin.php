@@ -88,6 +88,12 @@ final class Plugin {
 		$csv_exporter = new Csv_Exporter( $this->repository );
 		$csv_exporter->boot();
 
+		$admin_columns = new Admin_Columns();
+		$admin_columns->boot();
+
+		$editor_panel = new Editor_Panel();
+		$editor_panel->boot();
+
 		$single_template = new Single_Template();
 		$single_template->boot();
 
@@ -129,7 +135,14 @@ final class Plugin {
 				'rest_base'       => 'events-cpt',
 				'menu_icon'       => 'dashicons-calendar-alt',
 				'menu_position'   => 25,
-				'supports'        => array( 'title', 'editor', 'excerpt', 'thumbnail' ),
+
+				/*
+				 * 'custom-fields' is required for the registered eh_* meta
+				 * (show_in_rest) to appear in the REST item schema — without
+				 * it the Posts controller never adds the 'meta' property and
+				 * the editor panel has nothing to bind to.
+				 */
+				'supports'        => array( 'title', 'editor', 'excerpt', 'thumbnail', 'custom-fields' ),
 				'has_archive'     => true,
 				'rewrite'         => array(
 					'slug'       => 'events',

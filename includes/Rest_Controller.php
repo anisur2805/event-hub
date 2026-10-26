@@ -454,6 +454,12 @@ final class Rest_Controller {
 			$categories = array_filter( array_map( 'sanitize_title', explode( ',', $params['categories'] ) ) );
 		}
 
+		// Past events are excluded in SQL (same reasoning as
+		// Render_Blocks::upcoming_events()): a PHP-only filter let the 41
+		// past events heading the start-ASC order consume perPage and return
+		// 9 items of 50 (stage-4 BUG 1). No-end events stay included.
+		$now_sql = current_time( 'mysql' );
+
 		$query_args = array(
 			'post_type'      => 'eh_event',
 			'post_status'    => 'publish',
@@ -463,6 +469,20 @@ final class Rest_Controller {
 			'meta_key'       => 'eh_start',
 			'order'          => 'ASC',
 			'no_found_rows'  => true,
+			// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- the upcoming filter IS the feature.
+			'meta_query'     => array(
+				'relation' => 'OR',
+				array(
+					'key'     => 'eh_end',
+					'value'   => $now_sql,
+					'compare' => '>=',
+					'type'    => 'DATETIME',
+				),
+				array(
+					'key'     => 'eh_end',
+					'compare' => 'NOT EXISTS',
+				),
+			),
 		);
 
 		if ( array() !== $categories ) {
