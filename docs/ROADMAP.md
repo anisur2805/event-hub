@@ -16,6 +16,8 @@ Standing constraints that bound every idea below:
 
 ## 0. Known deferred fixes (do first — small, already analyzed)
 
+> **Done in Phase 0 (2026-10):** BUG 3 (ICS excludes ended events), BUG 5 contract (parse_capacity + admin warning), BUG 6/7 (clamped labels). Kept here one release for reference.
+
 | Ref | Item | Files |
 |---|---|---|
 | BUG 3 | ICS feed serves past events (should filter `eh_end >= now`, matching the archive/REST rule) | `Ics_Exporter.php`, `Rest_Controller.php` |
@@ -34,11 +36,8 @@ Emit schema.org `Event` markup (name, startDate/endDate, location, eventStatus,
 **Accept:** Rich Results test passes on a live event; past events emit correct `eventStatus`.
 
 ### 1.2 RSVP abuse hardening (honeypot + time trap + per-IP throttle)
-The public RSVP endpoint is currently protected only by the per-email UNIQUE key —
-bots can flood distinct emails up to capacity. Add: hidden honeypot field, min-fill-time
-trap, and a transients-based per-IP cap on `create_rsvp`. No schema change.
-**Files:** `Rest_Controller.php` (`create_rsvp`), rsvp-button view JS, `THREAT-MODEL.md`.
-**Accept:** curl flood from one IP gets 429-class rejections; honest browser flow unaffected.
+
+> **Done in Phase 1 (2026-10).** Baseline correction: a per-IP transient throttle (10 POSTs / 10 min / IP, `eh_rate_limited` 429 + `Retry-After`) already existed when this phase started — the original "endpoint is protected only by the per-email UNIQUE key" claim was outdated. The Phase 1 delta was the honeypot field + stateless HMAC time-trap token (`Form_Guard`), wired through Render_Blocks → store.ts → Rest_Controller, with tests in `Phase1_Hardening_Test`. See THREAT-MODEL T15, API.md form-guard notes.
 
 ### 1.3 Waitlist auto-promotion
 When an RSVP is deleted (admin REST `DELETE` route already exists), promote the earliest

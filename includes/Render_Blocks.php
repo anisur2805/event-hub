@@ -381,6 +381,24 @@ final class Render_Blocks {
 							data-wp-bind--value="context.email"
 							data-wp-on--input="actions.setEmail"
 						/>
+						<?php
+						// Honeypot + time-trap token (T15, Form_Guard). The trap
+						// field is visually hidden (CSS clip); the token is opaque.
+						?>
+						<input
+							type="text"
+							name="<?php echo esc_attr( Form_Guard::HONEYPOT_FIELD ); ?>"
+							value=""
+							class="event-hub-rsvp__hp"
+							tabindex="-1"
+							autocomplete="off"
+							aria-hidden="true"
+						/>
+						<input
+							type="hidden"
+							name="<?php echo esc_attr( Form_Guard::TOKEN_FIELD ); ?>"
+							value="<?php echo esc_attr( Form_Guard::issue_token( $event_id ) ); ?>"
+						/>
 					</div>
 				<?php endif; ?>
 				<?php if ( $full ) : ?>
@@ -758,11 +776,12 @@ final class Render_Blocks {
 	/**
 	 * Builds the live count line ("X going · Y waitlisted").
 	 *
-	 * @param int $going    Going count.
-	 * @param int $waitlist Waitlist count.
+	 * @param int  $going    Going count.
+	 * @param int  $waitlist Waitlist count.
+	 * @param bool $past     Past events with zero rows render no count line.
 	 * @return string
 	 */
-		private static function count_text( int $going, int $waitlist, bool $past = false ): string {
+	private static function count_text( int $going, int $waitlist, bool $past = false ): string {
 		if ( $past && $going < 1 && $waitlist < 1 ) {
 			return '';
 		}

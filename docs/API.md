@@ -8,7 +8,7 @@ Every route: `permission_callback` explicit, permission_headers etc. All respons
 
 ## Authentication
 
-- Public endpoints: no auth. The POST /rsvp endpoint accepts a nonce (`X-WP-Nonce` or `_eh_nonce` field) created with action `wp_rest` for CSRF mitigation on cookie-authenticated browsers; unauthenticated clients (no cookie) may POST without nonce. Additionally IP-based rate limiting applies (see THREAT-MODEL.md).
+- Public endpoints: no auth. The POST /rsvp endpoint accepts a nonce (`X-WP-Nonce` header or `_wpnonce` field) created with action `wp_rest` for CSRF mitigation on cookie-authenticated browsers. Additionally IP-based rate limiting applies (see THREAT-MODEL.md). Since Phase 1 every POST — with or without cookies — must also carry a server-rendered `formToken` (honeypot empty); the guard notes under the RSVP route are normative (see THREAT-MODEL.md T15).
 - Gated endpoints require WP auth cookie or Application Password, capability `edit_others_posts` (decision #2).
 
 ## Routes
@@ -23,6 +23,8 @@ Request `application/json` (or form-encoded):
 | name | string | 1..100 chars after trim, else `400` `eh_invalid_name` |
 | email | string | `sanitize_email()` result must be valid, else `400` `eh_invalid_email` |
 | status | string | optional; `going` (default) or `waitlist`, else `400` `eh_invalid_status` |
+| formToken | string | **required.** `{timestamp}.{hmac}` token rendered into the RSVP form (`event_hub_form_ts` hidden input, HMAC-signed with the nonce salt, bound to the event). Must be `3s..24h` old at submit, else `400` `eh_form_token` |
+| honeypot | string | must be empty/absent; any non-empty value = bot, `400` `eh_honeypot` (checked before formToken and before the rate meter) |
 
 Success `201`:
 
@@ -41,6 +43,8 @@ Error codes:
 | `eh_event_passed` | 409 | event end datetime in the past |
 | `eh_duplicate` | 409 | same email already RSVP'd to this event |
 | `eh_capacity_full` | 409 | going-capacity exhausted; body includes `counts` |
+| `eh_honeypot` | 400 | honeypot field non-empty (bot classifier; message is deliberately generic) |
+| `eh_form_token` | 400 | token missing/forged/wrong-event/too-fast (<3s)/stale (>24h) — one code for every failure mode (no oracle) |
 | `eh_rate_limited` | 429 | > 10 RSVP POSTs / 10 min / IP (transient) |
 
 Retry-After: 600 header on 429.
@@ -84,6 +88,8 @@ Also `GET /?eh_export=rsvps&event_id=...&_wpnonce=...` **admin-only** CSV export
 ## Pagination / rate limit notes
 
 Rate limit counts POST /rsvp only, keyed by IP via transients (network LWPD... see threat model). Gated GET/DELETE unlimited (logs, admin).
+
+Form guard (Phase 1): the honeypot + formToken checks run in this order inside POST /rsvp: event-independent validation (400s) → honeypot → formToken → per-IP meter. Tokens are stateless (`event-hub/v1` has no storage). Reusing a token inside its 24h window is allowed; the meter, not the token, caps volume. Cookie-less clients (curl) must send formToken too — it replaced the old "unauthenticated clients may POST without nonce" allowance.
 
 ## Versioning
 

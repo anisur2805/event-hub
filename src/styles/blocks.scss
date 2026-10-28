@@ -496,6 +496,18 @@
 	font-size: var( --eh-font-s );
 }
 
+/* Honeypot trap field (T15): in the DOM for bots, clipped away
+ * (-9999px + 1px box + no pointer events) so humans can never see or
+ * reach it. display:none would push some autofillers to skip it. */
+.event-hub-rsvp__hp {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	left: -9999px;
+	overflow: hidden;
+	pointer-events: none;
+}
+
 /* --------------------------------------------------------------------------
  * 5. Categories block + shared a11y/motion
  * ----------------------------------------------------------------------- */

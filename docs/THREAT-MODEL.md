@@ -29,9 +29,11 @@ Trust boundary 1: anonymous internet ↔ REST public routes. Boundary 2: authent
 | T12 | Privilege escalation via meta registration | `auth_callback` on every meta → `current_user_can('edit_post', $post_id)`; no meta shown in public REST |
 | T13 | Unicode/malformed JSON abuse | `wp_json_decode` failure → 400; mb-safe validation (grapheme-aware length) |
 | T14 | Uninstall leftovers | uninstall.php drops table + options + posts + transients |
+| T15 | Scripted form floods (bots POST distinct emails up to capacity; form auto-fill bots hitting the public POST) | Honeypot field (hidden, any non-empty value = bot → generic 400 `eh_honeypot`) + stateless time-trap token: HMAC(nonce salt)-signed, event-bound, must be 3s–24h old → 400 `eh_form_token` (one code, no oracle). Both checked BEFORE the per-IP meter; meter (T8) stays the volume control. Token reuse within 24h allowed — anti-spam, not anti-automation-Volume |
 
 ## Open items for Phase 6 attack pass
 - verify T8 fix claim (no XFF trust)
 - verify no email in any public payload incl. `/` REST index & search fields
 - ICS folding + escaping fuzz; CSV with hostile cells
 - concurrent duplicate + overbooking (also Phase 5)
+- T15 pass: verify generic honeypot message leaks nothing; check token refs across page caches (TTL interplay with full-page cache plugins)

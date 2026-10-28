@@ -29,6 +29,27 @@ interface RestFailure {
 	counts?: { going: number; waitlist: number };
 }
 
+/**
+ * Pulls the form-guard hidden inputs (honeypot + time-trap token) from the
+ * RSVP region containing `el`. Render_Blocks renders them server-side; the
+ * body of every RSVP POST echoes them back for the T15 checks.
+ * @param el Trigger element.
+ */
+function guardFields( el: Element | null ): {
+	honeypot: string;
+	formToken: string;
+} {
+	const region = el?.closest( '.event-hub-rsvp' );
+	return {
+		honeypot:
+			( region?.querySelector( 'input[name="event_hub_website"]' ) as HTMLInputElement | null )
+				?.value ?? '',
+		formToken:
+			( region?.querySelector( 'input[name="event_hub_form_ts"]' ) as HTMLInputElement | null )
+				?.value ?? '',
+	};
+}
+
 const { state } = store< EventHubStore >( 'event-hub', {
 	actions: {
 		/**
@@ -53,11 +74,11 @@ const { state } = store< EventHubStore >( 'event-hub', {
 			}
 			getContext< RsvpContext >().email = input.value;
 		},
-		*rsvpGoing(): Generator< unknown, void, unknown > {
-			yield* rsvp( 'going' );
+		*rsvpGoing( event: Event ): Generator< unknown, void, unknown > {
+			yield* rsvp( 'going', event?.currentTarget ?? null );
 		},
-		*rsvpWaitlist(): Generator< unknown, void, unknown > {
-			yield* rsvp( 'waitlist' );
+		*rsvpWaitlist( event: Event ): Generator< unknown, void, unknown > {
+			yield* rsvp( 'waitlist', event?.currentTarget ?? null );
 		},
 	},
 } );
@@ -66,9 +87,11 @@ const { state } = store< EventHubStore >( 'event-hub', {
  * One RSVP POST. Generator so the iAPI runtime restores the correct
  * context scope around every await point.
  * @param status
+ * @param triggerEl Button that started the request (scopes guard-field lookup).
  */
 function* rsvp(
-	status: 'going' | 'waitlist'
+	status: 'going' | 'waitlist',
+	triggerEl: Element | null
 ): Generator< unknown, void, unknown > {
 	const ctx = getContext< RsvpContext >();
 	const name = ( ctx.name ?? '' ).trim();
@@ -101,6 +124,7 @@ function* rsvp(
 				name,
 				email,
 				status,
+				...guardFields( triggerEl ),
 			} ),
 		} ) ) as Response;
 
@@ -143,6 +167,12 @@ function* rsvp(
 			case 'eh_rate_limited':
 				ctx.feedback = __(
 					'Too many attempts — try again in a few minutes.'
+				);
+				break;
+			case 'eh_honeypot':
+			case 'eh_form_token':
+				ctx.feedback = __(
+					'This RSVP form has expired — please reload the page and try again.'
 				);
 				break;
 			case 'eh_event_passed':

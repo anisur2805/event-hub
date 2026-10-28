@@ -394,6 +394,19 @@ final class Rest_Controller {
 			return new WP_Error( 'eh_invalid_status', __( 'Status must be either going or waitlist.', 'event-hub' ), array( 'status' => 400 ) );
 		}
 
+		// Form-guard checks run BEFORE the rate limit: a scripted flood should
+		// burn the honeypot/token 400s, not the IP's 10-post budget (T15).
+		if ( Form_Guard::is_bot_honeypot( $params[ Form_Guard::HONEYPOT_PARAM ] ?? null ) ) {
+			return new WP_Error( 'eh_honeypot', __( 'RSVP could not be saved.', 'event-hub' ), array( 'status' => 400 ) );
+		}
+
+		$token    = $params[ Form_Guard::TOKEN_PARAM ] ?? null;
+		$verified = Form_Guard::verify_token( is_string( $token ) ? $token : '', $event_id );
+
+		if ( true !== $verified ) {
+			return $verified;
+		}
+
 		$limited = $this->rate_limit_check();
 
 		if ( $limited instanceof WP_Error ) {
