@@ -40,6 +40,13 @@ Emit schema.org `Event` markup (name, startDate/endDate, location, eventStatus,
 > **Done in Phase 1 (2026-10).** Baseline correction: a per-IP transient throttle (10 POSTs / 10 min / IP, `eh_rate_limited` 429 + `Retry-After`) already existed when this phase started — the original "endpoint is protected only by the per-email UNIQUE key" claim was outdated. The Phase 1 delta was the honeypot field + stateless HMAC time-trap token (`Form_Guard`), wired through Render_Blocks → store.ts → Rest_Controller, with tests in `Phase1_Hardening_Test`. See THREAT-MODEL T15, API.md form-guard notes.
 
 ### 1.3 Waitlist auto-promotion
+
+> **Done in Phase 2 (2026-11).** `Rsvp_Repository::delete_and_promote()` — delete +
+> guarded promotion in one advisory-lock window; earliest waitlist row (FIFO) flips
+> to `going` only while `going < capacity` re-checked inside the UPDATE (shrunken
+> capacity safe). `event_hub_rsvp_promoted` fires after lock release; REST DELETE
+> response gains additive `promoted` row (admin-gated). Tests: `Waitlist_Promotion_Test`.
+
 When an RSVP is deleted (admin REST `DELETE` route already exists), promote the earliest
 `waitlist` row to `going` atomically — inside the same transaction window as the delete —
 and hook an action (`event_hub_rsvp_promoted`) for anything downstream.
@@ -113,8 +120,8 @@ parked unless explicitly requested.
 
 ## Suggested order
 
-1. BUG 3 / 5 / 6-7 cleanups (§0) — closes known rough edges.
-2. §1.2 hardening — the public endpoint is the one currently-abusable surface.
-3. §1.3 waitlist promotion — tiny, sets up cancellation.
-4. §1.1 JSON-LD — independent, can slot anywhere.
-5. Then pick by need: 2.1 (email flow) or 2.2 (check-in) first; 2.3 (seats) only with fresh capacity tests.
+1. BUG 3 / 5 / 6-7 cleanups (§0) — **done, Phase 0**.
+2. §1.2 hardening — **done, Phase 1**.
+3. §1.3 waitlist promotion — **done, Phase 2**.
+4. §1.1 JSON-LD — next; independent, can slot anywhere.
+5. Then pick by need: 2.1 (email flow; its cancellation now feeds §1.3's promotion) or 2.2 (check-in) first; 2.3 (seats) only with fresh capacity tests.

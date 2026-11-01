@@ -256,29 +256,117 @@ final class Rsvp_Repository {
 	}
 
 	/**
-	 * Deletes an RSVP row.
+	 * Deletes an RSVP row and, once a going seat is free, promotes the
+	 * earliest waitlist row (docs/ROADMAP.md §1.3). Delete and promotion share
+	 * the advisory lock that serializes all same-event writes (#14) and the
+	 * promotion keeps the write single-statement: its WHERE clause re-counts
+	 * `going` against the current eh_capacity meta, so a capacity lowered
+	 * below the existing going count blocks the flip exactly like create()'s
+	 * INSERT guard.
+	 *
+	 * Fires `event_hub_rsvp_promoted` (promoted row, event ID) after the lock
+	 * releases, so listeners may email or log without holding the event lock.
 	 *
 	 * @param int $id RSVP row ID.
-	 * @return array<string,mixed>|null The previous row, or null when absent.
+	 * @return array{deleted:array<string,mixed>|null,promoted:array<string,mixed>|null}|WP_Error
+	 *               `deleted === null` means no row with that ID; nothing ran.
 	 */
-	public function delete( int $id ): ?array {
+	public function delete_and_promote( int $id ) {
 		global $wpdb;
 
 		$previous = $this->get( $id );
 
 		if ( null === $previous ) {
-			return null;
+			return array(
+				'deleted'  => null,
+				'promoted' => null,
+			);
 		}
 
-		$table = $this->table();
+		$event_id = (int) $previous['event_id'];
+		$lock     = 'eh_rsvp_' . $event_id;
+		$table    = $this->table();
 
-		$delete_query = "DELETE FROM {$table} WHERE id = %d";
-
-		$wpdb->query(
-			$wpdb->prepare( $delete_query, $id ) // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $table from $wpdb->prefix.
+		$acquired = $wpdb->get_var(
+			$wpdb->prepare( 'SELECT GET_LOCK( %s, 2 )', $lock )
 		);
 
-		return $previous;
+		if ( '1' !== (string) $acquired ) {
+			return new WP_Error( 'eh_busy', __( 'The event is busy processing another RSVP. Please retry.', 'event-hub' ), array( 'status' => 409 ) );
+		}
+
+		$result = array(
+			'deleted'  => null,
+			'promoted' => null,
+		);
+
+		try {
+			// Re-read inside the lock: a concurrent delete may have removed
+			// the row between the pre-check and lock acquisition.
+			$previous = $this->get( $id );
+
+			if ( null === $previous ) {
+				return $result;
+			}
+
+			$delete_query = "DELETE FROM {$table} WHERE id = %d";
+
+			$wpdb->query(
+				$wpdb->prepare( $delete_query, $id ) // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $table from $wpdb->prefix.
+			);
+
+			$result['deleted'] = $previous;
+
+			// Pick the earliest waitlist row (FIFO, id tiebreak) and flip it
+			// in one guarded UPDATE: the capacity subquery is evaluated while
+			// the delete above already freed the seat, and the outer
+			// status re-check makes a concurrent steal impossible (no other
+			// event write can run under this event's advisory lock).
+			$pick_query = "SELECT id FROM {$table} WHERE event_id = %d AND status = 'waitlist' ORDER BY created_at ASC, id ASC LIMIT 1";
+
+			$pick_id = absint(
+				(string) $wpdb->get_var(
+					$wpdb->prepare( $pick_query, $event_id ) // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $table from $wpdb->prefix.
+				)
+			);
+
+			if ( $pick_id > 0 ) {
+				// The going-count subquery targets the same table as the
+				// UPDATE — MySQL rejects that directly (error 1093), so the
+				// COUNT lives inside a derived table, which materializes
+				// against the post-delete state before the update applies.
+				// The guard still re-checks capacity inside the statement,
+				// exactly like create()'s INSERT...SELECT predicate.
+				$promote_query = "UPDATE {$table} SET status = 'going'
+					WHERE id = %d AND status = 'waitlist'
+					  AND ( (SELECT gc.going FROM (SELECT COUNT(*) AS going FROM {$table} WHERE event_id = %d AND status = 'going') AS gc)
+					        < COALESCE( (SELECT CAST(m.meta_value AS UNSIGNED) FROM {$wpdb->postmeta} m
+					                     WHERE m.post_id = %d AND m.meta_key = 'eh_capacity'
+					                       AND m.meta_value REGEXP '^[0-9]+$'), 999999999 ) )";
+
+				$updated = $wpdb->query(
+					$wpdb->prepare( $promote_query, $pick_id, $event_id, $event_id ) // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $table derives from $wpdb->prefix.
+				);
+
+				if ( $updated ) {
+					$result['promoted'] = $this->get( $pick_id );
+				}
+			}
+		} finally {
+			$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK( %s )', $lock ) );
+		}
+
+		if ( null !== $result['promoted'] ) {
+			/**
+			 * A waitlisted attendee was promoted to going after a deletion.
+			 *
+			 * @param array<string,mixed> $promoted Promoted RSVP row.
+			 * @param int                 $event_id Event post ID.
+			 */
+			do_action( 'event_hub_rsvp_promoted', $result['promoted'], $event_id );
+		}
+
+		return $result;
 	}
 
 	/**

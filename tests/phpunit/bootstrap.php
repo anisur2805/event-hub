@@ -30,10 +30,18 @@ if ( '' === $_eh_tests_dir || null === $_eh_tests_dir ) {
 
 /*
  * The WP test suite needs a wp-tests-config.php; we generate one pointing at a
- * dedicated test database (see bin/run-tests.sh).
+ * dedicated test database (see bin/run-tests.sh). The runner exports the path
+ * as an env var (EH_TEST_WORK_DIR-selectable); fall back to the original
+ * workspace for backwards compatibility.
  */
 if ( ! defined( 'WP_TESTS_CONFIG_FILE_PATH' ) ) {
-	define( 'WP_TESTS_CONFIG_FILE_PATH', '/private/tmp/eh-wp-tests/wp-tests-config.php' );
+	$_eh_config_env = getenv( 'WP_TESTS_CONFIG_FILE_PATH' );
+	define(
+		'WP_TESTS_CONFIG_FILE_PATH',
+		( is_string( $_eh_config_env ) && '' !== $_eh_config_env && file_exists( $_eh_config_env ) )
+			? $_eh_config_env
+			: '/private/tmp/eh-wp-tests/wp-tests-config.php'
+	);
 }
 
 require_once getcwd() . '/vendor/yoast/phpunit-polyfills/phpunitpolyfills-autoload.php';

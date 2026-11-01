@@ -586,6 +586,10 @@ final class Rest_Controller {
 	/**
 	 * DELETE /rsvps/{id}.
 	 *
+	 * Deletes the row and auto-promotes the earliest waitlist row when a
+	 * going seat is free (docs/ROADMAP.md §1.3). Emails are admin-gated here;
+	 * the promoted echo uses the private serializer.
+	 *
 	 * @param WP_REST_Request $request Incoming request.
 	 * @return WP_REST_Response|WP_Error
 	 */
@@ -593,16 +597,21 @@ final class Rest_Controller {
 		$params = $this->request_params( $request );
 		$id     = absint( $params['id'] ?? 0 );
 
-		$previous = $this->repository->delete( $id );
+		$result = $this->repository->delete_and_promote( $id );
 
-		if ( null === $previous ) {
+		if ( $result instanceof WP_Error ) {
+			return $result;
+		}
+
+		if ( null === $result['deleted'] ) {
 			return new WP_Error( 'eh_rsvp_not_found', __( 'No RSVP found with that ID.', 'event-hub' ), array( 'status' => 404 ) );
 		}
 
 		return new WP_REST_Response(
 			array(
 				'deleted'  => true,
-				'previous' => $this->serialize_private( $previous ),
+				'previous' => $this->serialize_private( $result['deleted'] ),
+				'promoted' => isset( $result['promoted'] ) ? $this->serialize_private( $result['promoted'] ) : null,
 			),
 			200
 		);

@@ -71,8 +71,18 @@ Errors: `400 eh_missing_event` when eventId missing; `403 rest_forbidden` when l
 
 ### DELETE `/event-hub/v1/rsvps/{id}` — capability `edit_others_posts`
 
-Success `200`: `{ "deleted": true, "previous": { "id", "eventId", "name", "email", "status", "createdAt" } }`.
-Errors: `404 eh_rsvp_not_found`; `403 rest_forbidden`.
+Success `200`: `{ "deleted": true, "previous": { "id", "eventId", "name", "email", "status", "createdAt" }, "promoted": { … } | null }`.
+
+Waitlist auto-promotion (ROADMAP §1.3): when the deleted row was `going` and
+capacity allows, the earliest `waitlist` row (FIFO by `created_at`, id
+tiebreak) is promoted to `going` inside the same advisory-lock window; the
+response echoes it as `promoted` (same shape as `previous`, admin-gated) and
+`event_hub_rsvp_promoted` fires with `(promoted_row, event_id)` for
+downstream listeners. `promoted` is `null` when nothing was promoted —
+waitlisted row deleted, no waiters, or capacity exhausted/shrunken.
+
+Errors: `404 eh_rsvp_not_found`; `403 rest_forbidden`; `409 eh_busy` when the
+event is mid-write (advisory-lock timeout).
 
 ### GET `/event-hub/v1/events/{id}/counts` — public
 
