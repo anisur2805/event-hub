@@ -81,6 +81,12 @@ final class Plugin {
 		add_action( 'admin_init', array( Migrations::class, 'maybe_migrate' ) );
 		add_action( 'rest_api_init', array( $this, 'register_rest_routes' ) );
 
+		/*
+		 * Cascade: permanent deletion of an event removes its RSVP rows
+		 * (trash keeps them; restore brings the event back with its list).
+		 */
+		add_action( 'before_delete_post', array( $this, 'maybe_delete_event_rsvps' ) );
+
 		$admin_page = new Admin_Page();
 		add_action( 'admin_menu', array( $admin_page, 'register' ) );
 		add_action( 'admin_enqueue_scripts', array( $admin_page, 'enqueue_assets' ) );
@@ -344,5 +350,32 @@ final class Plugin {
 	public function register_rest_routes(): void {
 		$controller = new Rest_Controller( $this->repository );
 		$controller->register_routes();
+	}
+
+	/**
+	 * Permanent event deletion cleanup: hard-deleting an eh_event post removes
+	 * its RSVP rows via the before_delete_post hook (ROADMAP hygiene;
+	 * DECISIONS #35). Anything else — other post types, revisions, trash —
+	 * exits without a query.
+	 *
+	 * @param int|string $post_id Post ID (core passes an int; defensive string cast).
+	 * @return void
+	 */
+	public function maybe_delete_event_rsvps( $post_id ): void {
+		$post_id = absint( $post_id );
+
+		if ( $post_id < 1 ) {
+			return;
+		}
+
+		$post = get_post( $post_id );
+
+		// The eh_event gate alone excludes revisions (type 'revision'), plain
+		// posts and every other post type; no second type check needed.
+		if ( ! $post instanceof \WP_Post || 'eh_event' !== $post->post_type ) {
+			return;
+		}
+
+		$this->repository->delete_all_for_event( $post_id );
 	}
 }

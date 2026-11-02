@@ -403,6 +403,33 @@ final class Rsvp_Repository {
 	}
 
 	/**
+	 * Deletes every RSVP row for one event. Runs on the event post's
+	 * permanent deletion (before_delete_post) so the eh_rsvps table never
+	 * accumulates orphaned rows pointing at dead post IDs.
+	 *
+	 * @param int $event_id Event post ID.
+	 * @return int Rows removed.
+	 */
+	public function delete_all_for_event( int $event_id ): int {
+		global $wpdb;
+
+		$table = $this->table();
+
+		// Graceful degradation: on a fresh install where wp-admin (and the
+		// migration hook) never ran, the table may not exist — a hard delete
+		// of an event must not fatal then. phpcs ignore: status filter is a
+		// fixed fragment, not user input.
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $table derives from $wpdb->prefix; no user values.
+		if ( 0 !== $wpdb->query( 'SHOW TABLES LIKE "' . $table . '"' ) ) {
+			return (int) $wpdb->query(
+				$wpdb->prepare( "DELETE FROM {$table} WHERE event_id = %d", $event_id ) // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $table from $wpdb->prefix.
+			);
+		}
+
+		return 0;
+	}
+
+	/**
 	 * Fetches one RSVP row.
 	 *
 	 * @param int $id RSVP row ID.
