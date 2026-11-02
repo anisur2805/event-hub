@@ -139,7 +139,21 @@ function AdminApp(): ReactElement {
 				return;
 			}
 			if ( ! response.ok ) {
-				throw new Error( String( response.status ) );
+				// Prefer the server's message (e.g. eh_busy "The event is
+				// busy processing another RSVP") over a generic string; the
+				// body is the WP REST error shape { code, message, data }.
+				const body = ( await response.json().catch( () => null ) ) as {
+					message?: string;
+				} | null;
+				setError(
+					body?.message && '' !== body.message
+						? body.message
+						: __(
+								'Could not delete the RSVP — please try again.',
+								'event-hub'
+							)
+				);
+				return;
 			}
 			setRows( ( current ) =>
 				current.filter( ( row ) => row.id !== id )
