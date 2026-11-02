@@ -266,6 +266,8 @@ final class Rsvp_Repository {
 	 *
 	 * Fires `event_hub_rsvp_promoted` (promoted row, event ID) after the lock
 	 * releases, so listeners may email or log without holding the event lock.
+	 * Failed writes surface as WP_Error `eh_db_error` (500) instead of
+	 * silently reporting success.
 	 *
 	 * @param int $id RSVP row ID.
 	 * @return array{deleted:array<string,mixed>|null,promoted:array<string,mixed>|null}|WP_Error
@@ -300,6 +302,8 @@ final class Rsvp_Repository {
 			'promoted' => null,
 		);
 
+		$suppress = $wpdb->suppress_errors( true );
+
 		try {
 			// Re-read inside the lock: a concurrent delete may have removed
 			// the row between the pre-check and lock acquisition.
@@ -311,9 +315,21 @@ final class Rsvp_Repository {
 
 			$delete_query = "DELETE FROM {$table} WHERE id = %d";
 
-			$wpdb->query(
+			$deleted_rows = (int) $wpdb->query(
 				$wpdb->prepare( $delete_query, $id ) // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $table from $wpdb->prefix.
 			);
+
+			// A failed DELETE (disk full, lock wait, corruption) must not masquerade
+			// as success: the admin would see a deleted row that is still there.
+			$delete_error = $wpdb->last_error;
+
+			if ( $deleted_rows < 1 && '' !== $delete_error ) {
+				return new WP_Error(
+					'eh_db_error',
+					__( 'The RSVP could not be deleted due to a database error.', 'event-hub' ),
+					array( 'status' => 500 )
+				);
+			}
 
 			$result['deleted'] = $previous;
 
@@ -344,15 +360,32 @@ final class Rsvp_Repository {
 					                     WHERE m.post_id = %d AND m.meta_key = 'eh_capacity'
 					                       AND m.meta_value REGEXP '^[0-9]+$'), 999999999 ) )";
 
-				$updated = $wpdb->query(
+				$promotion_error = '';
+
+				$updated = (int) $wpdb->query(
 					$wpdb->prepare( $promote_query, $pick_id, $event_id, $event_id ) // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $table derives from $wpdb->prefix.
 				);
 
-				if ( $updated ) {
+				$promotion_error = (string) $wpdb->last_error;
+
+				// rows_affected 0 has two meanings: the guard blocked the flip
+				// (legitimate), or the statement failed outright. Only
+				// $wpdb->last_error distinguishes them, so it was captured
+				// under suppress_errors before reset.
+				if ( 0 === $updated && '' !== $promotion_error ) {
+					return new WP_Error(
+						'eh_db_error',
+						__( 'The waitlist promotion failed due to a database error.', 'event-hub' ),
+						array( 'status' => 500 )
+					);
+				}
+
+				if ( $updated > 0 ) {
 					$result['promoted'] = $this->get( $pick_id );
 				}
 			}
 		} finally {
+			$wpdb->suppress_errors( $suppress );
 			$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK( %s )', $lock ) );
 		}
 

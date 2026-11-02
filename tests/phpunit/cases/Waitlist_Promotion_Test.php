@@ -326,4 +326,91 @@ class Waitlist_Promotion_Test extends WP_UnitTestCase {
 		$this->assertSame( 404, $response->get_status() );
 		$this->assertSame( 'eh_rsvp_not_found', $response->get_data()['code'] );
 	}
+
+	/* ---------------------------------------------------------------------
+	 * DB-failure surfacing (fails via the `query` filter).
+	 * ------------------------------------------------------------------- */
+
+	/**
+	 * The promotion UPDATE failing (real DB error, not a guard block) must
+	 * surface as eh_db_error — never as a silent success with counts lying.
+	 *
+	 * @global \wpdb $wpdb
+	 */
+	public function test_failing_promotion_update_returns_db_error(): void {
+		global $wpdb;
+
+		$event_id = self::make_event( '1' );
+		$going    = self::seed( $event_id, 'going', 1 );
+		self::seed( $event_id, 'waitlist', 1 );
+
+		// The `query` filter swaps the SQL for a statement that actually
+		// fails (missing table), so $wpdb->last_error becomes non-empty —
+		// exactly the failure shape the repository must detect.
+		$failing = static function ( string $query ) use ( $wpdb ) {
+			if ( 0 === stripos( ltrim( $query ), 'UPDATE ' ) && false !== stripos( $query, "SET status = 'going'" ) ) {
+				return 'SELECT * FROM ' . $wpdb->prefix . 'eh_rsvps_missing_table_abc';
+			}
+
+			return $query;
+		};
+
+		add_filter( 'query', $failing );
+
+		$result = Plugin::instance()->repository()->delete_and_promote( (int) $going[0] );
+
+		remove_filter( 'query', $failing );
+
+		$this->assertWPError( $result, 'A failed promotion UPDATE must surface as WP_Error.' );
+		$this->assertSame( 'eh_db_error', $result->get_error_code() );
+		$this->assertSame(
+			array(
+				'going'    => 0,
+				'waitlist' => 1,
+			),
+			Plugin::instance()->repository()->counts( $event_id ),
+			'Delete committed, promotion failed: counts report reality.'
+		);
+		$this->assertSame( array(), self::$captured_actions, 'No action on failed promotion.' );
+	}
+
+	/**
+	 * A failed DELETE surfaces as eh_db_error and the row stays intact —
+	 * success is never faked.
+	 *
+	 * @global \wpdb $wpdb
+	 */
+	public function test_failing_delete_returns_db_error_and_keeps_row(): void {
+		global $wpdb;
+
+		$event_id = self::make_event( '1' );
+		$going    = self::seed( $event_id, 'going', 1 );
+		self::seed( $event_id, 'waitlist', 1 );
+
+		$failing = static function ( string $query ) use ( $wpdb ) {
+			if ( 0 === stripos( ltrim( $query ), 'DELETE FROM ' . $wpdb->prefix . 'eh_rsvps' ) ) {
+				return 'DELETE FROM ' . $wpdb->prefix . 'eh_rsvps_missing_table_xyz WHERE id = 1';
+			}
+
+			return $query;
+		};
+
+		add_filter( 'query', $failing );
+
+		$result = Plugin::instance()->repository()->delete_and_promote( (int) $going[0] );
+
+		remove_filter( 'query', $failing );
+
+		$this->assertWPError( $result, 'A failed DELETE must surface as WP_Error.' );
+		$this->assertSame( 'eh_db_error', $result->get_error_code() );
+
+		// The row still exists: nothing was masked.
+		$this->assertSame(
+			array(
+				'going'    => 1,
+				'waitlist' => 1,
+			),
+			Plugin::instance()->repository()->counts( $event_id )
+		);
+	}
 }
