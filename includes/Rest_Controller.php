@@ -208,6 +208,29 @@ final class Rest_Controller {
 
 		register_rest_route(
 			self::NAMESPACE_V1,
+			'/rsvps/(?P<id>[0-9]+)/check-in',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( $this, 'check_in_rsvp' ),
+				'permission_callback' => array( $this, 'admin_permission' ),
+				'args'                => array(
+					'id'        => array(
+						'required'          => true,
+						'type'              => 'integer',
+						'sanitize_callback' => static fn ( $value ): int => absint( $value ),
+					),
+					'checkedIn' => array(
+						'required'          => false,
+						'default'           => true,
+						'type'              => 'boolean',
+						'sanitize_callback' => static fn ( $value ): bool => (bool) rest_sanitize_boolean( is_scalar( $value ) ? $value : true ),
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE_V1,
 			'/event/(?P<id>[0-9]+)/calendar\.ics',
 			array(
 				'methods'             => WP_REST_Server::READABLE,
@@ -618,6 +641,45 @@ final class Rest_Controller {
 	}
 
 	/**
+	 * POST /rsvps/{id}/check-in (ROADMAP §2.2). Organizer-only attendance
+	 * stamp; never touches `status` or any capacity state.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function check_in_rsvp( WP_REST_Request $request ) {
+		$params   = $this->request_params( $request );
+		$id       = absint( $params['id'] ?? 0 );
+		$checked  = $params['checkedIn'] ?? true;
+		$checked  = is_scalar( $checked ) ? (bool) rest_sanitize_boolean( $checked ) : true;
+		$previous = $this->repository->get( $id );
+
+		if ( null === $previous ) {
+			return new WP_Error( 'eh_rsvp_not_found', __( 'No RSVP found with that ID.', 'event-hub' ), array( 'status' => 404 ) );
+		}
+
+		$result = $this->repository->set_checked_in( $id, $checked );
+
+		if ( null === $result ) {
+			// The stamp ran but the row vanished before read-back (concurrent
+			// delete) — report it like the pre-check, not a silent 200.
+			return new WP_Error( 'eh_rsvp_not_found', __( 'No RSVP found with that ID.', 'event-hub' ), array( 'status' => 404 ) );
+		}
+
+		if ( $result instanceof WP_Error ) {
+			return $result;
+		}
+
+		return new WP_REST_Response(
+			array(
+				'updated' => true,
+				'rsvp'    => $this->serialize_private( $result ),
+			),
+			200
+		);
+	}
+
+	/**
 	 * GET /event/{id}/calendar.ics.
 	 *
 	 * @param WP_REST_Request $request Incoming request.
@@ -803,12 +865,15 @@ final class Rest_Controller {
 	 */
 	private function serialize_private( array $row ): array {
 		return array(
-			'id'        => (int) ( $row['id'] ?? 0 ),
-			'eventId'   => (int) ( $row['event_id'] ?? 0 ),
-			'name'      => (string) ( $row['name'] ?? '' ),
-			'email'     => (string) ( $row['email'] ?? '' ),
-			'status'    => (string) ( $row['status'] ?? '' ),
-			'createdAt' => self::to_iso8601( (string) ( $row['created_at'] ?? '' ) ),
+			'id'          => (int) ( $row['id'] ?? 0 ),
+			'eventId'     => (int) ( $row['event_id'] ?? 0 ),
+			'name'        => (string) ( $row['name'] ?? '' ),
+			'email'       => (string) ( $row['email'] ?? '' ),
+			'status'      => (string) ( $row['status'] ?? '' ),
+			'createdAt'   => self::to_iso8601( (string) ( $row['created_at'] ?? '' ) ),
+			'checkedInAt' => isset( $row['checked_in_at'] )
+				? self::to_iso8601( (string) $row['checked_in_at'] )
+				: null,
 		);
 	}
 

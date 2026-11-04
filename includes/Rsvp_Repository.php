@@ -175,17 +175,19 @@ final class Rsvp_Repository {
 	}
 
 	/**
-	 * Counts going and waitlist rows for an event.
+	 * Counts going and waitlist rows for an event, plus how many of the going
+	 * rows are checked in (ROADMAP §2.2).
 	 *
 	 * @param int $event_id Event post ID.
-	 * @return array{going:int,waitlist:int}
+	 * @return array{going:int,waitlist:int,checkedIn:int}
 	 */
 	public function counts( int $event_id ): array {
 		global $wpdb;
 
 		$table = $this->table();
 
-		$query = "SELECT status, COUNT(*) AS total FROM {$table} WHERE event_id = %d GROUP BY status";
+		$query = "SELECT status, COUNT(*) AS total, SUM( CASE WHEN checked_in_at IS NOT NULL THEN 1 ELSE 0 END ) AS checked
+			FROM {$table} WHERE event_id = %d GROUP BY status";
 
 		$rows = $wpdb->get_results(
 			$wpdb->prepare( $query, $event_id ), // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $table from $wpdb->prefix.
@@ -193,8 +195,9 @@ final class Rsvp_Repository {
 		);
 
 		$counts = array(
-			'going'    => 0,
-			'waitlist' => 0,
+			'going'     => 0,
+			'waitlist'  => 0,
+			'checkedIn' => 0,
 		);
 
 		if ( is_array( $rows ) ) {
@@ -205,6 +208,12 @@ final class Rsvp_Repository {
 					$counts[ $status ] = (int) $row['total'];
 				}
 			}
+
+			$checked_query = "SELECT COUNT(*) FROM {$table} WHERE event_id = %d AND checked_in_at IS NOT NULL";
+
+			$counts['checkedIn'] = (int) $wpdb->get_var(
+				$wpdb->prepare( $checked_query, $event_id ) // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $table from $wpdb->prefix.
+			);
 		}
 
 		return $counts;
@@ -403,6 +412,67 @@ final class Rsvp_Repository {
 	}
 
 	/**
+	 * Sets or clears an RSVP's check-in timestamp (ROADMAP §2.2).
+	 *
+	 * Plain single-column UPDATE by primary key. No advisory lock and no
+	 * capacity predicate: this writes/reads only `checked_in_at`, which no
+	 * capacity computation consumes — the lock in create()/delete_and_promote()
+	 * exists to serialize `going`-count transitions, and this is not one.
+	 *
+	 * @param int  $id         RSVP row ID.
+	 * @param bool $checked_in True to stamp now, false to clear.
+	 * @return array<string,mixed>|WP_Error|null Updated row; `null` when the
+	 *                                           row vanished (unknown ID or
+	 *                                           concurrent delete); `eh_db_error` 500
+	 *                                           on statement failure.
+	 */
+	public function set_checked_in( int $id, bool $checked_in ) {
+		global $wpdb;
+
+		$table = $this->table();
+
+		// Two statements because %s placeholders cannot bind SQL NULL; the
+		// clear is its own literal-NULL query rather than a conditional string.
+		$update_query = $checked_in
+			? "UPDATE {$table} SET checked_in_at = %s WHERE id = %d"
+			: "UPDATE {$table} SET checked_in_at = NULL WHERE id = %d";
+
+		$suppress = $wpdb->suppress_errors( true );
+
+		try {
+			$raw = false === $checked_in
+				? $wpdb->query(
+					$wpdb->prepare( $update_query, $id ) // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $table from $wpdb->prefix.
+				)
+				: $wpdb->query(
+					$wpdb->prepare( $update_query, current_time( 'mysql' ), $id ) // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $table from $wpdb->prefix.
+				);
+
+			$error = $wpdb->last_error;
+		} finally {
+			$wpdb->suppress_errors( $suppress );
+		}
+
+		// query() returns false only on failure; 0 affected rows is a legal
+		// no-op (already stamped / already null) and must not read as an error.
+		if ( false === $raw && '' !== $error ) {
+			return new WP_Error(
+				'eh_db_error',
+				__( 'The check-in could not be saved due to a database error.', 'event-hub' ),
+				array( 'status' => 500 )
+			);
+		}
+
+		$row = $this->get( $id );
+
+		if ( null === $row ) {
+			return null;
+		}
+
+		return $row;
+	}
+
+	/**
 	 * Deletes every RSVP row for one event. Runs on the event post's
 	 * permanent deletion (before_delete_post) so the eh_rsvps table never
 	 * accumulates orphaned rows pointing at dead post IDs.
@@ -482,12 +552,15 @@ final class Rsvp_Repository {
 	 */
 	private function normalize_row( array $row ): array {
 		return array(
-			'id'         => (int) ( $row['id'] ?? 0 ),
-			'event_id'   => (int) ( $row['event_id'] ?? 0 ),
-			'name'       => (string) ( $row['name'] ?? '' ),
-			'email'      => (string) ( $row['email'] ?? '' ),
-			'status'     => (string) ( $row['status'] ?? '' ),
-			'created_at' => (string) ( $row['created_at'] ?? '' ),
+			'id'            => (int) ( $row['id'] ?? 0 ),
+			'event_id'      => (int) ( $row['event_id'] ?? 0 ),
+			'name'          => (string) ( $row['name'] ?? '' ),
+			'email'         => (string) ( $row['email'] ?? '' ),
+			'status'        => (string) ( $row['status'] ?? '' ),
+			'created_at'    => (string) ( $row['created_at'] ?? '' ),
+			'checked_in_at' => isset( $row['checked_in_at'] )
+				? (string) $row['checked_in_at']
+				: null,
 		);
 	}
 

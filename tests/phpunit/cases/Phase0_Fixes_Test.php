@@ -194,7 +194,7 @@ class Phase0_Fixes_Test extends WP_UnitTestCase {
 			'2099-05-01 18:00:00',
 			'2099-05-01 20:00:00',
 			'2',
-			array( 'going' => 2, 'waitlist' => 1 )
+			array( 'going' => 2, 'waitlist' => 1, 'checkedIn' => 0 )
 		);
 
 		$out = Render_Blocks::render_rsvp_button( $event_id );

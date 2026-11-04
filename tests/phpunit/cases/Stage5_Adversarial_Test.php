@@ -117,6 +117,7 @@ class Stage5_Adversarial_Test extends WP_UnitTestCase {
 			array(
 				'going'    => 0,
 				'waitlist' => 2,
+			'checkedIn' => 0,
 			),
 			Plugin::instance()->repository()->counts( $b )
 		);
@@ -166,6 +167,7 @@ class Stage5_Adversarial_Test extends WP_UnitTestCase {
 			array(
 				'going'    => 1,
 				'waitlist' => 2,
+			'checkedIn' => 0,
 			),
 			Plugin::instance()->repository()->counts( $event_id )
 		);
@@ -228,6 +230,7 @@ class Stage5_Adversarial_Test extends WP_UnitTestCase {
 			array(
 				'going'    => 0,
 				'waitlist' => 1,
+			'checkedIn' => 0,
 			),
 			$repo->counts( $e1 )
 		);
@@ -257,6 +260,7 @@ class Stage5_Adversarial_Test extends WP_UnitTestCase {
 			array(
 				'going'    => 1,
 				'waitlist' => 0,
+			'checkedIn' => 0,
 			),
 			$repo->counts( $e3 ),
 			'No fatal on absurd capacity; states stay exact.'
@@ -282,7 +286,7 @@ class Stage5_Adversarial_Test extends WP_UnitTestCase {
 		$this->assertIsArray( $result );
 		$this->assertNotNull( $result['deleted'] );
 		$this->assertSame(
-			$result['promoted'] ? array( 'going' => 1, 'waitlist' => 0 ) : array( 'going' => 0, 'waitlist' => 1 ),
+			$result['promoted'] ? array( 'going' => 1, 'waitlist' => 0, 'checkedIn' => 0 ) : array( 'going' => 0, 'waitlist' => 1, 'checkedIn' => 0 ),
 			Plugin::instance()->repository()->counts( $event_id )
 		);
 	}
@@ -314,7 +318,7 @@ class Stage5_Adversarial_Test extends WP_UnitTestCase {
 
 		// State must be committed despite the listener bomb.
 		$this->assertSame(
-			array( 'going' => 1, 'waitlist' => 0 ),
+			array( 'going' => 1, 'waitlist' => 0, 'checkedIn' => 0 ),
 			Plugin::instance()->repository()->counts( $event_id )
 		);
 	}

@@ -63,10 +63,11 @@ name VARCHAR(191) NOT NULL,
 email VARCHAR(191) NOT NULL,
 status VARCHAR(20) NOT NULL DEFAULT 'going',
 created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+checked_in_at DATETIME NULL DEFAULT NULL,
 PRIMARY KEY  (id),
 UNIQUE KEY uniq_event_email (event_id, email)
 ```
-No standalone `event_id` key: `uniq_event_email`'s leftmost column covers per-event lookups.
+No standalone `event_id` key: `uniq_event_email`'s leftmost column covers per-event lookups. `checked_in_at` (DB 1.2.0, ROADMAP §2.2) is written only by `set_checked_in()` — no capacity predicate, no advisory lock (nothing consumes it in capacity math).
 
 ### Capacity-safe write (Rsvp_Repository::create)
 One statement + advisory lock (decision #14):

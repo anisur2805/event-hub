@@ -26,6 +26,8 @@ export interface RsvpRow {
 	email: string;
 	status: 'going' | 'waitlist';
 	createdAt: string;
+	/** ISO 8601 check-in stamp; null until the organizer checks the row in. */
+	checkedInAt: string | null;
 }
 
 /** Payload of GET /event-hub/v1/rsvps. */

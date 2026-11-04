@@ -121,7 +121,6 @@ function AdminApp(): ReactElement {
 	/* eslint-enable react-hooks/rules-of-hooks */
 
 	const deleteRsvp = async ( id: number ): Promise< void > => {
-		setError( null );
 		try {
 			const response = await fetch(
 				`${ boot.restUrl }event-hub/v1/rsvps/${ id }`,
@@ -163,6 +162,63 @@ function AdminApp(): ReactElement {
 			setError(
 				__(
 					'Could not delete the RSVP — please try again.',
+					'event-hub'
+				)
+			);
+		}
+	};
+
+	const setCheckIn = async (
+		id: number,
+		checkedIn: boolean
+	): Promise< void > => {
+		setError( null );
+		try {
+			const response = await fetch(
+				`${ boot.restUrl }event-hub/v1/rsvps/${ id }/check-in`,
+				{
+					method: 'POST',
+					headers: {
+						'X-WP-Nonce': boot.nonce,
+						'Content-Type': 'application/json',
+					},
+					body: JSON.stringify( { checkedIn } ),
+				}
+			);
+			if ( response.status === 404 ) {
+				// Row vanished under us — drop it from the list.
+				setRows( ( current ) =>
+					current.filter( ( row ) => row.id !== id )
+				);
+				setTotal( ( current ) => Math.max( 0, current - 1 ) );
+				return;
+			}
+			if ( ! response.ok ) {
+				const body = ( await response.json().catch( () => null ) ) as {
+					message?: string;
+				} | null;
+				setError(
+					body?.message && '' !== body.message
+						? body.message
+						: __(
+								'Could not save the check-in — please try again.',
+								'event-hub'
+							)
+				);
+				return;
+			}
+			const data = ( await response.json() ) as {
+				rsvp: RsvpRow;
+			};
+			setRows( ( current ) =>
+				current.map( ( row ) =>
+					row.id === id ? ( data.rsvp ?? row ) : row
+				)
+			);
+		} catch {
+			setError(
+				__(
+					'Could not save the check-in — please try again.',
 					'event-hub'
 				)
 			);
@@ -233,6 +289,9 @@ function AdminApp(): ReactElement {
 							<th scope="col">{ __( 'Name', 'event-hub' ) }</th>
 							<th scope="col">{ __( 'Email', 'event-hub' ) }</th>
 							<th scope="col">{ __( 'Status', 'event-hub' ) }</th>
+							<th scope="col">
+								{ __( 'Checked in', 'event-hub' ) }
+							</th>
 							<th scope="col">{ __( 'Date', 'event-hub' ) }</th>
 							<th scope="col">
 								<span className="screen-reader-text">
@@ -244,7 +303,7 @@ function AdminApp(): ReactElement {
 					<tbody>
 						{ ! eventId && (
 							<tr>
-								<td colSpan={ 5 }>
+								<td colSpan={ 6 }>
 									{ __(
 										'Select an event to see its RSVPs.',
 										'event-hub'
@@ -254,7 +313,7 @@ function AdminApp(): ReactElement {
 						) }
 						{ eventId && rows.length === 0 && (
 							<tr>
-								<td colSpan={ 5 }>
+								<td colSpan={ 6 }>
 									{ __( 'No RSVPs yet.', 'event-hub' ) }
 								</td>
 							</tr>
@@ -266,11 +325,37 @@ function AdminApp(): ReactElement {
 									<td>{ row.email }</td>
 									<td>{ row.status }</td>
 									<td>
+										{ row.checkedInAt
+											? new Date(
+													row.checkedInAt
+												).toLocaleString()
+											: __( '—', 'event-hub' ) }
+									</td>
+									<td>
 										{ new Date(
 											row.createdAt
 										).toLocaleString() }
 									</td>
 									<td>
+										<Button
+											variant="tertiary"
+											onClick={ () =>
+												setCheckIn(
+													row.id,
+													! row.checkedInAt
+												)
+											}
+										>
+											{ row.checkedInAt
+												? __(
+														'Undo check-in',
+														'event-hub'
+													)
+												: __(
+														'Check in',
+														'event-hub'
+													) }
+										</Button>
 										{ confirmingId === row.id ? (
 											<span className="event-hub-admin__confirm">
 												<Button

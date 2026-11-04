@@ -72,6 +72,7 @@ final class Migrations {
 	email VARCHAR(191) NOT NULL,
 	status VARCHAR(20) NOT NULL DEFAULT 'going',
 	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	checked_in_at DATETIME NULL DEFAULT NULL,
 	PRIMARY KEY  (id),
 	UNIQUE KEY uniq_event_email (event_id, email)
 ) {$charset_collate};";

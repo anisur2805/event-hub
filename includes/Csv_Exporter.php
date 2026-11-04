@@ -164,7 +164,7 @@ final class Csv_Exporter {
 			$handle,
 			array_map(
 				array( $this, 'neutralize' ),
-				array( 'Event ID', 'Event Title', 'Name', 'Email', 'Status', 'Registered At' )
+				array( 'Event ID', 'Event Title', 'Name', 'Email', 'Status', 'Registered At', 'Checked In At' )
 			),
 			',',
 			'"',
@@ -182,6 +182,10 @@ final class Csv_Exporter {
 			}
 
 			foreach ( $result['rsvps'] as $rsvp ) {
+				$checked_in_at = isset( $rsvp['checked_in_at'] )
+					? Rest_Controller::to_iso8601( (string) $rsvp['checked_in_at'] )
+					: '';
+
 				fputcsv(
 					$handle,
 					array(
@@ -191,6 +195,7 @@ final class Csv_Exporter {
 						$this->neutralize( (string) ( $rsvp['email'] ?? '' ) ),
 						$this->neutralize( (string) ( $rsvp['status'] ?? '' ) ),
 						$this->neutralize( Rest_Controller::to_iso8601( (string) ( $rsvp['created_at'] ?? '' ) ) ),
+						$this->neutralize( $checked_in_at ),
 					),
 					',',
 					'"',

@@ -178,7 +178,7 @@ class Phase1_Hardening_Test extends WP_UnitTestCase {
 
 		// Nothing was written.
 		$this->assertSame(
-			array( 'going' => 0, 'waitlist' => 0 ),
+			array( 'going' => 0, 'waitlist' => 0, 'checkedIn' => 0 ),
 			Plugin::instance()->repository()->counts( $event_id )
 		);
 	}
@@ -203,7 +203,7 @@ class Phase1_Hardening_Test extends WP_UnitTestCase {
 		$this->assertSame( 400, $hit->get_status() );
 		$this->assertSame( 'eh_honeypot', $hit->get_data()['code'] );
 		$this->assertSame(
-			array( 'going' => 0, 'waitlist' => 0 ),
+			array( 'going' => 0, 'waitlist' => 0, 'checkedIn' => 0 ),
 			Plugin::instance()->repository()->counts( $event_id )
 		);
 	}
@@ -233,7 +233,7 @@ class Phase1_Hardening_Test extends WP_UnitTestCase {
 		);
 
 		$this->assertSame( 201, $ok->get_status(), (string) wp_json_encode( $ok->get_data() ) );
-		$this->assertSame( array( 'going' => 1, 'waitlist' => 0 ), $ok->get_data()['counts'] );
+		$this->assertSame( array( 'going' => 1, 'waitlist' => 0, 'checkedIn' => 0 ), $ok->get_data()['counts'] );
 
 		// No email in the 201 body (standing PII rule).
 		$this->assertStringNotContainsString( 'honest@example.com', (string) wp_json_encode( $ok->get_data() ) );

@@ -22,6 +22,8 @@ auto-promotion, and zero-JQuery Interactivity API blocks.
   publicly; responses are aggregates only.
 - **Abuse hardening** — honeypot + HMAC time-trap token, per-IP rate limiting.
 - **Exports & feeds** — CSV export per event (admin), ICS calendar feed.
+- **Check-in tracking** — organizer "Check in" action per RSVP (REST-gated),
+  `checkedIn` count surfaced separately, column in the CSV export.
 - **Editor panel** — event meta (dates, venue, capacity) edited in a dedicated
   sidebar panel; admin list-table columns + deep links to each event's RSVPs.
 - **WP-CLI** — `wp event-hub-migrate` for the custom-table migration.

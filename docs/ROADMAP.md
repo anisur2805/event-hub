@@ -76,11 +76,13 @@ attendee's own address; nothing public changes.
 column via DB 1.1.0 migration, `Rest_Controller.php` cancel route, template.
 **Depends on:** decision — opt-in settings page toggle ("send confirmations") in `Admin_Page.php`.
 
-### 2.2 Check-in / attendance tracking
-Add `checked_in_at DATETIME NULL` (DB 1.2.0); admin list-table quick-action
-"Check in" per RSVP row, counts surface "checked in" separate from "going"; CSV
+### 2.2 Check-in / attendance tracking — **Done (2026-11-04, DB 1.2.0)**
+Add `checked_in_at DATETIME NULL` (DB 1.2.0); admin quick-action
+"Check in" per RSVP row (in the React admin app over `POST /rsvps/{id}/check-in`
+— the roadmap's "list table" predates the React admin), counts surface
+"checked in" separate from "going" (`checkedIn` third key in `counts()`), CSV
 exporter gains the column; ICS unaffected.
-**Files:** `Migrations.php`, `Rsvp_Repository.php`, `Admin_Page.php`, `Csv_Exporter.php`, `Admin_Columns.php`.
+**Files:** `Migrations.php`, `event-hub.php`, `Rsvp_Repository.php`, `Rest_Controller.php`, `Csv_Exporter.php`, `src/admin/{types.ts,index.tsx}`.
 **Accept:** check-in survives on plain post-type CRUD (no HPOS surface); counts endpoint returns 3 numbers.
 
 ### 2.3 Guests / seats per RSVP
@@ -134,4 +136,4 @@ parked unless explicitly requested.
 2. §1.2 hardening — **done, Phase 1**.
 3. §1.3 waitlist promotion — **done, Phase 2**.
 4. §1.1 JSON-LD — **done (2026-11-04)**; was independent, slotted after Phase 2.
-5. Then pick by need: 2.1 (email flow; its cancellation now feeds §1.3's promotion) or 2.2 (check-in) first; 2.3 (seats) only with fresh capacity tests.
+5. Then pick by need: 2.1 (email flow; its cancellation now feeds §1.3's promotion) or ~~2.2 (check-in)~~ **done (2026-11-04)**; 2.3 (seats) only with fresh capacity tests.

@@ -114,6 +114,7 @@ class Waitlist_Promotion_Test extends WP_UnitTestCase {
 			array(
 				'going'    => 2,
 				'waitlist' => 2,
+			'checkedIn' => 0,
 			),
 			Plugin::instance()->repository()->counts( $event_id ),
 			'Promotion must refill the freed seat exactly.'
@@ -153,6 +154,7 @@ class Waitlist_Promotion_Test extends WP_UnitTestCase {
 			array(
 				'going'    => 1,
 				'waitlist' => 2,
+			'checkedIn' => 0,
 			),
 			Plugin::instance()->repository()->counts( $event_id )
 		);
@@ -209,6 +211,7 @@ class Waitlist_Promotion_Test extends WP_UnitTestCase {
 			array(
 				'going'    => 1,
 				'waitlist' => 2,
+			'checkedIn' => 0,
 			),
 			Plugin::instance()->repository()->counts( $event_id )
 		);
@@ -229,6 +232,7 @@ class Waitlist_Promotion_Test extends WP_UnitTestCase {
 			array(
 				'going'    => 2,
 				'waitlist' => 2,
+			'checkedIn' => 0,
 			),
 			Plugin::instance()->repository()->counts( $event_id )
 		);
@@ -367,6 +371,7 @@ class Waitlist_Promotion_Test extends WP_UnitTestCase {
 			array(
 				'going'    => 0,
 				'waitlist' => 1,
+			'checkedIn' => 0,
 			),
 			Plugin::instance()->repository()->counts( $event_id ),
 			'Delete committed, promotion failed: counts report reality.'
@@ -409,6 +414,7 @@ class Waitlist_Promotion_Test extends WP_UnitTestCase {
 			array(
 				'going'    => 1,
 				'waitlist' => 1,
+			'checkedIn' => 0,
 			),
 			Plugin::instance()->repository()->counts( $event_id )
 		);

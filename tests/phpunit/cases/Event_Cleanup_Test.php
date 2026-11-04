@@ -66,6 +66,7 @@ class Event_Cleanup_Test extends WP_UnitTestCase {
 			array(
 				'going'    => 2,
 				'waitlist' => 1,
+			'checkedIn' => 0,
 			),
 			Plugin::instance()->repository()->counts( $a )
 		);
@@ -76,6 +77,7 @@ class Event_Cleanup_Test extends WP_UnitTestCase {
 			array(
 				'going'    => 0,
 				'waitlist' => 0,
+			'checkedIn' => 0,
 			),
 			Plugin::instance()->repository()->counts( $a ),
 			'Deleted event must leave zero rows.'
@@ -84,6 +86,7 @@ class Event_Cleanup_Test extends WP_UnitTestCase {
 			array(
 				'going'    => 2,
 				'waitlist' => 1,
+			'checkedIn' => 0,
 			),
 			Plugin::instance()->repository()->counts( $b ),
 			'Other events keep their rows.'
@@ -103,6 +106,7 @@ class Event_Cleanup_Test extends WP_UnitTestCase {
 			array(
 				'going'    => 2,
 				'waitlist' => 1,
+			'checkedIn' => 0,
 			),
 			Plugin::instance()->repository()->counts( $event_id ),
 			'Trash must keep the RSVP rows.'
@@ -114,6 +118,7 @@ class Event_Cleanup_Test extends WP_UnitTestCase {
 			array(
 				'going'    => 2,
 				'waitlist' => 1,
+			'checkedIn' => 0,
 			),
 			Plugin::instance()->repository()->counts( $event_id ),
 			'Untrash keeps rows too.'
@@ -135,6 +140,7 @@ class Event_Cleanup_Test extends WP_UnitTestCase {
 			array(
 				'going'    => 2,
 				'waitlist' => 1,
+			'checkedIn' => 0,
 			),
 			Plugin::instance()->repository()->counts( $event_id ),
 			'Non-event deletes must not touch RSVP rows.'
@@ -148,6 +154,7 @@ class Event_Cleanup_Test extends WP_UnitTestCase {
 			array(
 				'going'    => 2,
 				'waitlist' => 1,
+			'checkedIn' => 0,
 			),
 			Plugin::instance()->repository()->counts( $event_id )
 		);
@@ -171,6 +178,7 @@ class Event_Cleanup_Test extends WP_UnitTestCase {
 			array(
 				'going'    => 0,
 				'waitlist' => 0,
+			'checkedIn' => 0,
 			),
 			$repo->counts( $a )
 		);

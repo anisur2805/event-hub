@@ -65,9 +65,22 @@ Response `200`: array of published, upcoming events (end >= now... see below), e
 
 Query: `eventId` (required), `page` >=1, `perPage` 1..100 (default 20), `status` (`going|waitlist`).
 
-Response `200`: `{ "rsvps": [ { "id", "eventId", "name", "email", "status", "createdAt" } ], "total", "totalPages" }`. Emails allowed here (gated).
+Response `200`: `{ "rsvps": [ { "id", "eventId", "name", "email", "status", "createdAt", "checkedInAt": string|null } ], "total", "totalPages" }`. Emails allowed here (gated).
 
 Errors: `400 eh_missing_event` when eventId missing; `403 rest_forbidden` when lacking cap.
+
+### POST `/event-hub/v1/rsvps/{id}/check-in` — capability `edit_others_posts`
+
+Organizer attendance stamp (ROADMAP §2.2). Body: `checkedIn` (bool, default
+`true`; `false` clears). Success `200`: `{ "updated": true, "rsvp": { … } }`
+with the gated row shape above (`checkedInAt` ISO 8601 or `null`).
+
+Never touches `status` or any capacity state; attendance is not status-bound
+(a waitlist row can carry a check-in stamp in queries, though the admin UI
+only stamps from the list). No advisory lock: the write touches only
+`checked_in_at`, which no capacity computation consumes.
+
+Errors: `404 eh_rsvp_not_found`; `403 rest_forbidden`; `500 eh_db_error`.
 
 ### DELETE `/event-hub/v1/rsvps/{id}` — capability `edit_others_posts`
 
@@ -87,7 +100,7 @@ fails (delete or promotion) — the row's state is reported, never masked.
 
 ### GET `/event-hub/v1/events/{id}/counts` — public
 
-`200 { "eventId": 55, "counts": { "going": 41, "waitlist": 3 } }` or `404 eh_event_not_found`.
+`200 { "eventId": 55, "counts": { "going": 41, "waitlist": 3, "checkedIn": 12 } }` or `404 eh_event_not_found`. `checkedIn` counts rows with a check-in stamp across statuses (since DB 1.2.0).
 
 ## Non-REST endpoints
 
