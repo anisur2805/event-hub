@@ -20,7 +20,6 @@ import {
 	PanelRow,
 	TextControl,
 	ToggleControl,
-	__experimentalNumberControl as NumberControl,
 } from '@wordpress/components';
 import type { ReactElement, ReactNode } from 'react';
 
@@ -122,7 +121,11 @@ function EventDetailsFields(): ReactElement {
 		'postType',
 		'eh_event',
 		'meta'
-	) as [ EventHubEventMeta | undefined, ( next: EventHubEventMeta ) => void, unknown ];
+	) as [
+		EventHubEventMeta | undefined,
+		( next: EventHubEventMeta ) => void,
+		unknown,
+	];
 
 	// useEntityProp resolves the edited record asynchronously: meta is
 	// undefined while a freshly mounted editor fetches its REST record.
@@ -143,9 +146,7 @@ function EventDetailsFields(): ReactElement {
 	const startStorage = toStorageValue( toPickerValue( startRaw ) );
 	const endStorage = toStorageValue( toPickerValue( endRaw ) );
 	const reversed =
-		'' !== startStorage &&
-		'' !== endStorage &&
-		endStorage < startStorage;
+		'' !== startStorage && '' !== endStorage && endStorage < startStorage;
 
 	// The picker assumes a 12-hour clock from the site time format (an "a"
 	// meridiem token); fall back to 24h when wp.date is unavailable.
@@ -163,7 +164,9 @@ function EventDetailsFields(): ReactElement {
 			</PanelRow>
 			<DateTimePicker
 				currentDate={ toPickerValue( startRaw ) }
-				onChange={ ( next ) => update( 'eh_start', toStorageValue( next ) ) }
+				onChange={ ( next ) =>
+					update( 'eh_start', toStorageValue( next ) )
+				}
 				is12Hour={ twelveHour }
 			/>
 			<PanelRow>
@@ -171,21 +174,32 @@ function EventDetailsFields(): ReactElement {
 			</PanelRow>
 			<DateTimePicker
 				currentDate={ toPickerValue( endRaw ) }
-				onChange={ ( next ) => update( 'eh_end', toStorageValue( next ) ) }
+				onChange={ ( next ) =>
+					update( 'eh_end', toStorageValue( next ) )
+				}
 				is12Hour={ twelveHour }
 			/>
 			{ reversed && (
 				<Notice status="warning" isDismissible={ false }>
-					{ __( 'The end time is before the start time.', 'event-hub' ) }
+					{ __(
+						'The end time is before the start time.',
+						'event-hub'
+					) }
 				</Notice>
 			) }
 			<PanelRow>
 				<TextControl
 					label={ __( 'Venue', 'event-hub' ) }
 					value={ venue }
-					placeholder={ __( 'e.g. Hall B, 12 Mercer St', 'event-hub' ) }
+					placeholder={ __(
+						'e.g. Hall B, 12 Mercer St',
+						'event-hub'
+					) }
 					onChange={ ( next ) => update( 'eh_venue', next ) }
-					help={ __( 'Shown on the event page and event cards.', 'event-hub' ) }
+					help={ __(
+						'Shown on the event page and event cards.',
+						'event-hub'
+					) }
 				/>
 			</PanelRow>
 			<PanelRow>
@@ -194,14 +208,23 @@ function EventDetailsFields(): ReactElement {
 					checked={ limited }
 					help={
 						limited
-							? __( 'Attendees above this number are waitlisted.', 'event-hub' )
-							: __( 'Leave off for unlimited spots.', 'event-hub' )
+							? __(
+									'Attendees above this number are waitlisted.',
+									'event-hub'
+								)
+							: __(
+									'Leave off for unlimited spots.',
+									'event-hub'
+								)
 					}
 					onChange={ ( checked ) => {
 						if ( checked ) {
 							// Re-enter editing with the previous number; a brand-new
 							// limit starts empty and commits on first valid entry.
-							update( 'eh_capacity', limited ? capacityRaw : '1' );
+							update(
+								'eh_capacity',
+								limited ? capacityRaw : '1'
+							);
 							return;
 						}
 
@@ -213,8 +236,9 @@ function EventDetailsFields(): ReactElement {
 			</PanelRow>
 			{ limited && (
 				<PanelRow>
-					<NumberControl
+					<TextControl
 						label={ __( 'Capacity', 'event-hub' ) }
+						type="number"
 						min={ 1 }
 						step={ 1 }
 						value={ capacityRaw }
@@ -224,7 +248,10 @@ function EventDetailsFields(): ReactElement {
 							// Commit only valid limits; intermediate empties leave
 							// the stored limit untouched so capacity never silently
 							// becomes unlimited while the toggle reads ON.
-							if ( CAPACITY_PATTERN.test( value ) && parseInt( value, 10 ) >= 1 ) {
+							if (
+								CAPACITY_PATTERN.test( value ) &&
+								parseInt( value, 10 ) >= 1
+							) {
 								update( 'eh_capacity', value );
 							}
 						} }

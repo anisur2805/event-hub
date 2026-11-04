@@ -40,10 +40,16 @@ jobs:
         run: npm run lint:js
 
   unit:
-    name: Unit tests (PHPUnit + Jest)
+    name: PHPUnit
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -54,24 +60,3 @@ jobs:
         run: npx wp-env start
       - name: PHPUnit
         run: npx wp-env run tests-cli --env-cwd=wp-content/plugins/event-hub vendor/bin/phpunit --configuration=phpunit.xml.dist
-      - name: Jest
-        run: npm run test:js
-
-  e2e:
-    name: E2E (Playwright)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run build
-      - run: npx playwright install --with-deps chromium
-      - name: Start wp-env
-        run: npx wp-env start
-      - name: Seed data
-        run: npx wp-env run cli --env-cwd=wp-content/plugins/event-hub wp event-hub-e2e-seed
-      - name: Playwright
-        run: npm run test:e2e

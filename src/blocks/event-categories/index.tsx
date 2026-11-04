@@ -31,7 +31,15 @@ function Edit( { attributes }: EditProps ): ReactElement {
 
 	const terms: Term[] | null = useSelect(
 		( select ) =>
-			select( coreStore ).getEntityRecords( 'taxonomy', 'eh_event_category', {
+			(
+				select( coreStore ) as {
+					getEntityRecords: (
+						kind: string,
+						name: string,
+						query: Record< string, unknown >
+					) => Term[] | null | undefined;
+				}
+			 ).getEntityRecords( 'taxonomy', 'eh_event_category', {
 				per_page: -1,
 				hide_empty: true,
 			} ) as Term[] | null,
@@ -59,7 +67,9 @@ function Edit( { attributes }: EditProps ): ReactElement {
 												/* translators: %s: number of events. */
 												sprintf(
 													'(%s)',
-													Number( term.count ).toLocaleString()
+													Number(
+														term.count
+													).toLocaleString()
 												)
 											}
 										</span>
@@ -72,7 +82,7 @@ function Edit( { attributes }: EditProps ): ReactElement {
 			) }
 			<p className="event-hub-event-categories__hint">
 				{ sprintf(
-					/* translators: %s: number of categories. Use plural form. */
+					/* translators: %d: number of categories. Use plural form. */
 					_n(
 						'Shows %d category and links it to the event list filter.',
 						'Shows %d categories and links them to the event list filter.',

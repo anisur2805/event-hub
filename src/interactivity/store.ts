@@ -7,12 +7,7 @@
  * and renders a context object per wrapper region (see types.ts for the shape).
  */
 import { store, getContext } from '@wordpress/interactivity';
-import {
-	translate as __,
-	translate,
-	choosePlural as _n,
-	interpolate as sprintf,
-} from './i18n';
+import { translate as __, translate, interpolate as sprintf } from './i18n';
 import { type EventHubStore, type RsvpContext } from './types';
 
 /**
@@ -42,11 +37,17 @@ function guardFields( el: Element | null ): {
 	const region = el?.closest( '.event-hub-rsvp' );
 	return {
 		honeypot:
-			( region?.querySelector( 'input[name="event_hub_website"]' ) as HTMLInputElement | null )
-				?.value ?? '',
+			(
+				region?.querySelector(
+					'input[name="event_hub_website"]'
+				) as HTMLInputElement | null
+			 )?.value ?? '',
 		formToken:
-			( region?.querySelector( 'input[name="event_hub_form_ts"]' ) as HTMLInputElement | null )
-				?.value ?? '',
+			(
+				region?.querySelector(
+					'input[name="event_hub_form_ts"]'
+				) as HTMLInputElement | null
+			 )?.value ?? '',
 	};
 }
 
@@ -75,10 +76,18 @@ const { state } = store< EventHubStore >( 'event-hub', {
 			getContext< RsvpContext >().email = input.value;
 		},
 		*rsvpGoing( event: Event ): Generator< unknown, void, unknown > {
-			yield* rsvp( 'going', event?.currentTarget ?? null );
+			const el =
+				event?.currentTarget instanceof Element
+					? event.currentTarget
+					: null;
+			yield* rsvp( 'going', el );
 		},
 		*rsvpWaitlist( event: Event ): Generator< unknown, void, unknown > {
-			yield* rsvp( 'waitlist', event?.currentTarget ?? null );
+			const el =
+				event?.currentTarget instanceof Element
+					? event.currentTarget
+					: null;
+			yield* rsvp( 'waitlist', el );
 		},
 	},
 } );

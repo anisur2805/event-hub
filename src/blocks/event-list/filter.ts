@@ -261,7 +261,10 @@ function renderCard(
 		if ( capacity === null || capacity <= 0 ) {
 			bar.remove();
 		} else {
-			const pct = Math.min( 100, Math.round( ( going / capacity ) * 100 ) );
+			const pct = Math.min(
+				100,
+				Math.round( ( going / capacity ) * 100 )
+			);
 			bar.setAttribute( 'aria-valuemax', String( capacity ) );
 			bar.setAttribute(
 				'aria-valuenow',
@@ -286,8 +289,8 @@ function renderCard(
 	if ( count ) {
 		// Same vocabulary + past rule as PHP count_text(): the "N people
 		// going" variant dropped the waitlist count and past zero-count
-		// events invited visitors to RSVP (user-reported bugs).
-		const going = event.counts?.going ?? 0;
+		// events invited visitors to RSVP (user-reported bugs). `going` is
+		// the outer const (same event, same read).
 		const waitlist = event.counts?.waitlist ?? 0;
 		const isPast = 'past' === pillFor( event ).key;
 
@@ -297,6 +300,7 @@ function renderCard(
 			count.textContent = __( 'Be the first to RSVP.' );
 		} else {
 			count.textContent = sprintf(
+				/* translators: 1: number going, 2: number waitlisted. */
 				__( '%1$s going · %2$s waitlisted' ),
 				String( going ),
 				String( waitlist )
@@ -344,9 +348,7 @@ function pillFor( event: EventSummary ): {
 
 	// Past check: end (or start when no end) before now.
 	const endRef = event.end ? Date.parse( event.end ) : NaN;
-	const endTs = Number.isNaN( endRef )
-		? Date.parse( event.start )
-		: endRef;
+	const endTs = Number.isNaN( endRef ) ? Date.parse( event.start ) : endRef;
 	if ( ! Number.isNaN( endTs ) && endTs < Date.now() ) {
 		return { key: 'past', label: __( 'Past' ) };
 	}

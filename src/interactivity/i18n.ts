@@ -61,8 +61,7 @@ export function interpolate(
 		(
 			match: string,
 			num: string | undefined,
-			numType: string | undefined,
-			plainType: string | undefined
+			numType: string | undefined
 		) => {
 			if ( num !== undefined && numType !== undefined ) {
 				const positional = args[ parseInt( num, 10 ) - 1 ];

@@ -417,12 +417,14 @@ final class Rsvp_Repository {
 
 		// Graceful degradation: on a fresh install where wp-admin (and the
 		// migration hook) never ran, the table may not exist — a hard delete
-		// of an event must not fatal then. phpcs ignore: status filter is a
-		// fixed fragment, not user input.
-		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $table derives from $wpdb->prefix; no user values.
+		// of an event must not fatal then. $table derives from $wpdb->prefix;
+		// no user values.
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- identifier interpolation, see above.
 		if ( 0 !== $wpdb->query( 'SHOW TABLES LIKE "' . $table . '"' ) ) {
+			$delete_query = "DELETE FROM {$table} WHERE event_id = %d";
+
 			return (int) $wpdb->query(
-				$wpdb->prepare( "DELETE FROM {$table} WHERE event_id = %d", $event_id ) // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $table from $wpdb->prefix.
+				$wpdb->prepare( $delete_query, $event_id ) // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $table from $wpdb->prefix.
 			);
 		}
 
