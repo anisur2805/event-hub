@@ -26,6 +26,16 @@ auto-promotion, and zero-JQuery Interactivity API blocks.
   sidebar panel; admin list-table columns + deep links to each event's RSVPs.
 - **WP-CLI** — `wp event-hub-migrate` for the custom-table migration.
 
+## Screenshots
+
+| Single event page | Events archive |
+|---|---|
+| ![Single event page with the capacity-aware RSVP form](docs/assets/single-event.png) | ![Events archive with event cards and category badges](docs/assets/events-archive.png) |
+
+| Editor sidebar panel | Admin RSVP manager |
+|---|---|
+| ![Event meta panel in the block editor sidebar](docs/assets/editor-panel.png) | ![RSVP list table in the admin](docs/assets/admin-rsvps.png) |
+
 ## Documentation
 
 | Doc | Contents |
@@ -39,7 +49,7 @@ auto-promotion, and zero-JQuery Interactivity API blocks.
 ## Development
 
 ```bash
-npm install          # JS deps (wp-scripts, Playwright, Jest)
+npm install          # JS deps (wp-scripts, Playwright, TypeScript)
 composer install     # PHP deps (PHPCS, PHPStan, PHPUnit)
 npm run build        # Build blocks (webpack via wp-scripts)
 npm run typecheck    # tsc --noEmit
@@ -52,9 +62,10 @@ vendor/bin/phpstan   # PHP: level 6 static analysis (needs --memory-limit=1G)
 
 - **PHPUnit** — integration suite against a WordPress core test install:
   `bin/run-tests.sh` (provisions WP + a dedicated DB locally; wp-env in CI).
-- **Jest** — `npm run test:js` (frontend store units).
-- **Playwright** — e2e specs are not written yet (config exists in
-  `tests/e2e/`; the CI e2e job is therefore not enabled yet).
+- **JS checks** — `npm run test` runs the TypeScript typecheck and ESLint
+  together (what the CI `js-static` job runs). Jest unit suites and e2e specs
+  are not written yet (`tests/e2e/` config exists but is unused; CI enables
+  no e2e job).
 
 ## Contributing
 
