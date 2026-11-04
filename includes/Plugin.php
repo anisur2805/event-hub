@@ -103,6 +103,9 @@ final class Plugin {
 		$single_template = new Single_Template();
 		$single_template->boot();
 
+		$structured_data = new Structured_Data();
+		$structured_data->boot();
+
 		/*
 		 * WP-CLI migration command. Registered as a closure so the command
 		 * class list stays minimal (docs/ARCHITECTURE.md step 3).

@@ -29,6 +29,16 @@ Standing constraints that bound every idea below:
 ## 1. Shortlist (recommended next slice — highest value per effort)
 
 ### 1.1 Event JSON-LD structured data (SEO)
+
+> **Done (2026-11-04).** `Structured_Data` class on `wp_head` (covers both theme
+> templates and the plugin fallback — see docs/DECISIONS.md #36). Reuses
+> `Render_Blocks::summary()`; emits schema.org `Event` with startDate/endDate,
+> Place location, featured image, excerpt description, `eventStatus: EventScheduled`,
+> and (upcoming only) an `Offer` with `availability` InStock/SoldOut plus
+> `maximumAttendeeCapacity`/`remainingAttendeeCapacity` on capacity-set events.
+> No price/organizer fabricated; no emails (counts only). Start-less events print
+> nothing. Tests: `Structured_Data_Test` (7 cases).
+
 Emit schema.org `Event` markup (name, startDate/endDate, location, eventStatus,
 `offers` with availability + capacity) on single-event pages. Zero privacy risk
 (no emails, aggregates only). Cheap, measurable win for an events plugin.
@@ -123,5 +133,5 @@ parked unless explicitly requested.
 1. BUG 3 / 5 / 6-7 cleanups (§0) — **done, Phase 0**.
 2. §1.2 hardening — **done, Phase 1**.
 3. §1.3 waitlist promotion — **done, Phase 2**.
-4. §1.1 JSON-LD — next; independent, can slot anywhere.
+4. §1.1 JSON-LD — **done (2026-11-04)**; was independent, slotted after Phase 2.
 5. Then pick by need: 2.1 (email flow; its cancellation now feeds §1.3's promotion) or 2.2 (check-in) first; 2.3 (seats) only with fresh capacity tests.
