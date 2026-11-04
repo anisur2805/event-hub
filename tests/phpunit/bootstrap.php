@@ -29,19 +29,23 @@ if ( '' === $_eh_tests_dir || null === $_eh_tests_dir ) {
 }
 
 /*
- * The WP test suite needs a wp-tests-config.php; we generate one pointing at a
- * dedicated test database (see bin/run-tests.sh). The runner exports the path
- * as an env var (EH_TEST_WORK_DIR-selectable); fall back to the original
- * workspace for backwards compatibility.
+ * The WP test suite needs a wp-tests-config.php. The local runner
+ * (bin/run-tests.sh) exports the path of its generated config; define the
+ * core constant only when that file actually exists. Inside wp-env nothing
+ * is exported: wp-env writes wp-tests-config.php next to the mounted test
+ * suite (/wordpress-phpunit), which the WP core bootstrap resolves on its
+ * own — defining the constant with a guessed path here (as this file once
+ * did) is what broke the CI unit job ("wp-tests-config.php is missing").
  */
-if ( ! defined( 'WP_TESTS_CONFIG_FILE_PATH' ) ) {
-	$_eh_config_env = getenv( 'WP_TESTS_CONFIG_FILE_PATH' );
-	define(
-		'WP_TESTS_CONFIG_FILE_PATH',
-		( is_string( $_eh_config_env ) && '' !== $_eh_config_env && file_exists( $_eh_config_env ) )
-			? $_eh_config_env
-			: '/private/tmp/eh-wp-tests/wp-tests-config.php'
-	);
+$_eh_config_env = getenv( 'WP_TESTS_CONFIG_FILE_PATH' );
+
+if ( is_string( $_eh_config_env ) && '' !== $_eh_config_env && file_exists( $_eh_config_env ) ) {
+	define( 'WP_TESTS_CONFIG_FILE_PATH', $_eh_config_env );
+} elseif ( file_exists( $_eh_tests_dir . '/wp-tests-config.php' ) ) {
+	// wp-env layout: the config is generated inside the mounted tests dir
+	// (/wordpress-phpunit/wp-tests-config.php). The core fallback would look
+	// one directory ABOVE the tests dir, which is wrong for that mount point.
+	define( 'WP_TESTS_CONFIG_FILE_PATH', $_eh_tests_dir . '/wp-tests-config.php' );
 }
 
 require_once getcwd() . '/vendor/yoast/phpunit-polyfills/phpunitpolyfills-autoload.php';

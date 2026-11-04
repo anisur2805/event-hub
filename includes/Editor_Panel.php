@@ -51,17 +51,8 @@ final class Editor_Panel {
 			return;
 		}
 
-		$asset_path = EVENT_HUB_DIR . 'build/admin/event-details.asset.php';
-
-		$asset = array();
-
-		if ( is_readable( $asset_path ) ) {
-			// The is_readable() guard above satisfies PHPStan's static
-			// file-existence check for the require.
-			$asset = (array) require $asset_path; // phpcs:ignore WordPress.WP.EnqueuedResourceParameters.MissingVersion -- version comes from the manifest below.
-		}
-
-		$deps = isset( $asset['dependencies'] ) && is_array( $asset['dependencies'] ) ? $asset['dependencies'] : array();
+		$asset = Asset_Manifest::read( EVENT_HUB_DIR . 'build/admin/event-details.asset.php' );
+		$deps  = $asset['dependencies'];
 
 		/*
 		 * registerPlugin + PluginDocumentSettingPanel are consumed from the
@@ -71,11 +62,14 @@ final class Editor_Panel {
 		 */
 		$deps = array_unique( array_merge( $deps, array( 'wp-plugins', 'wp-edit-post' ) ) );
 
+		// read() guarantees a string; only a malformed manifest yields ''.
+		$version = '' !== $asset['version'] ? $asset['version'] : EVENT_HUB_VERSION;
+
 		wp_enqueue_script(
 			'event-hub-editor-panel',
 			EVENT_HUB_URL . 'build/admin/event-details.js',
 			$deps,
-			isset( $asset['version'] ) ? (string) $asset['version'] : EVENT_HUB_VERSION,
+			$version,
 			true
 		);
 

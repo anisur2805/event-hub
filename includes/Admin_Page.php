@@ -66,33 +66,27 @@ final class Admin_Page {
 		}
 
 		// The .asset.php manifest is emitted next to the entry by wp-scripts.
-		$asset_path = EVENT_HUB_DIR . 'build/admin/index.asset.php';
-
-		$asset = array();
-
-		if ( is_readable( $asset_path ) ) {
-			// The is_readable() guard above is what satisfies PHPStan's
-			// static file-existence check for the require.
-			$asset = (array) require $asset_path; // phpcs:ignore WordPress.WP.EnqueuedResourceParameters.MissingVersion -- version comes from the manifest below.
-		}
-
-		$script_deps = isset( $asset['dependencies'] ) && is_array( $asset['dependencies'] ) ? $asset['dependencies'] : array();
+		$asset       = Asset_Manifest::read( EVENT_HUB_DIR . 'build/admin/index.asset.php' );
+		$script_deps = $asset['dependencies'];
 
 		// Style gets no JS dependency list: manifest deps are script handles
 		// (react-jsx-runtime, wp-element, wp-i18n) and WP_Styles checks its
 		// own registry, which produced the "_wp_style_add warning on 6.9+".
+		// read() guarantees a string; only a malformed manifest yields ''.
+		$version = '' !== $asset['version'] ? $asset['version'] : EVENT_HUB_VERSION;
+
 		wp_enqueue_style(
 			'event-hub-admin',
 			EVENT_HUB_URL . 'build/admin/index.css',
 			array(),
-			isset( $asset['version'] ) ? (string) $asset['version'] : EVENT_HUB_VERSION
+			$version
 		);
 
 		wp_enqueue_script(
 			'event-hub-admin',
 			EVENT_HUB_URL . 'build/admin/index.js',
 			$script_deps,
-			isset( $asset['version'] ) ? (string) $asset['version'] : EVENT_HUB_VERSION,
+			$version,
 			true
 		);
 

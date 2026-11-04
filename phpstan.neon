@@ -5,7 +5,9 @@ parameters:
 		- event-hub.php
 	excludePaths:
 		- vendor
-		- build
+		# build/ exists only after `npm run build`; optional so a PHP-only
+		# checkout (CI php-static job) analyses without it.
+		- build (?)
 		- tests
 	bootstrapFiles:
 		- phpstan-bootstrap.php
