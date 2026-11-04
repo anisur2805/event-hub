@@ -121,6 +121,7 @@ function AdminApp(): ReactElement {
 	/* eslint-enable react-hooks/rules-of-hooks */
 
 	const deleteRsvp = async ( id: number ): Promise< void > => {
+		setError( null );
 		try {
 			const response = await fetch(
 				`${ boot.restUrl }event-hub/v1/rsvps/${ id }`,

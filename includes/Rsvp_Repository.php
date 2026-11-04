@@ -204,16 +204,15 @@ final class Rsvp_Repository {
 			foreach ( $rows as $row ) {
 				$status = (string) ( $row['status'] ?? '' );
 
+				// Checked rows are counted per status group and summed —
+				// one query serves all three keys (archive cards call this
+				// per card, so the saved round-trip compounds).
+				$counts['checkedIn'] += (int) ( $row['checked'] ?? 0 );
+
 				if ( isset( $counts[ $status ] ) ) {
 					$counts[ $status ] = (int) $row['total'];
 				}
 			}
-
-			$checked_query = "SELECT COUNT(*) FROM {$table} WHERE event_id = %d AND checked_in_at IS NOT NULL";
-
-			$counts['checkedIn'] = (int) $wpdb->get_var(
-				$wpdb->prepare( $checked_query, $event_id ) // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $table from $wpdb->prefix.
-			);
 		}
 
 		return $counts;

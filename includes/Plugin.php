@@ -78,7 +78,14 @@ final class Plugin {
 
 		add_action( 'wp_enqueue_scripts', array( $this, 'register_front_styles' ) );
 
-		add_action( 'admin_init', array( Migrations::class, 'maybe_migrate' ) );
+		/*
+		 * Migration check on `init`, not `admin_init`: front-end templates
+		 * (archive cards, single page) read counts() and would query columns
+		 * a pending migration has not added yet — a deployed-but-not-yet-
+		 * visited wp-admin would log DB errors on every front-end request.
+		 * maybe_migrate() is one cached option read when current.
+		 */
+		add_action( 'init', array( Migrations::class, 'maybe_migrate' ) );
 		add_action( 'rest_api_init', array( $this, 'register_rest_routes' ) );
 
 		/*
