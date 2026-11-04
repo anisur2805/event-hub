@@ -41,11 +41,16 @@ final class Rsvp_Repository {
 	 * Creates an RSVP using the capacity-safe INSERT ... SELECT guarded by an
 	 * advisory lock (docs/ARCHITECTURE.md "Capacity-safe write", #14).
 	 *
+	 * Also mints this row's manage token (DECISIONS #39): 32 random bytes
+	 * hashed with SHA-256 for storage; the raw token is returned once so the
+	 * caller can put it in the confirmation email — it is never persisted in
+	 * plaintext and cannot be recovered from the DB.
+	 *
 	 * @param string $name     Sanitized attendee name.
 	 * @param string $email    Sanitized, validated email address.
 	 * @param string $status   Either 'going' or 'waitlist'.
 	 * @param int    $event_id Event post ID.
-	 * @return array{rsvp:array<string,mixed>,counts:array{going:int,waitlist:int}}|WP_Error
+	 * @return array{rsvp:array<string,mixed>,counts:array{going:int,waitlist:int},manage_token:string}|WP_Error
 	 */
 	public function create( string $name, string $email, string $status, int $event_id ) {
 		global $wpdb;
@@ -112,11 +117,16 @@ final class Rsvp_Repository {
 		 * never returns NULL (COUNT is 0 for a missing meta row), so `going`
 		 * rows insert only while the going count is strictly below capacity.
 		 */
+		// The manage-token hash is server-generated (random_bytes), not user
+		// input; it rides the same prepared statement as the row values.
+		$raw_token  = bin2hex( random_bytes( 32 ) );
+		$token_hash = hash( 'sha256', $raw_token );
+
 		// Assemble the statement first; phpcs:ignore below sits on the query
 		// line that holds the $table variable (value from $wpdb->prefix, never
 		// user input). All values remain placeholders.
-		$insert_query = 'INSERT INTO ' . $table . " (event_id, name, email, status, created_at)
-			SELECT %d, %s, %s, %s, %s FROM DUAL
+		$insert_query = 'INSERT INTO ' . $table . " (event_id, name, email, status, created_at, manage_token)
+			SELECT %d, %s, %s, %s, %s, %s FROM DUAL
 			WHERE %s = 'waitlist'
 			   OR ( (SELECT COUNT(*) FROM " . $table . " WHERE event_id = %d AND status = 'going')
 			        < COALESCE( (SELECT CAST(m.meta_value AS UNSIGNED) FROM {$wpdb->postmeta} m
@@ -130,6 +140,7 @@ final class Rsvp_Repository {
 			$email,
 			$status,
 			current_time( 'mysql' ),
+			$token_hash,
 			$status,
 			$event_id,
 			$event_id
@@ -169,8 +180,9 @@ final class Rsvp_Repository {
 		}
 
 		return array(
-			'rsvp'   => $row,
-			'counts' => $this->counts( $event_id ),
+			'rsvp'         => $row,
+			'counts'       => $this->counts( $event_id ),
+			'manage_token' => $raw_token,
 		);
 	}
 
@@ -541,6 +553,74 @@ final class Rsvp_Repository {
 		);
 
 		return is_array( $row ) ? $this->normalize_row( $row ) : null;
+	}
+
+	/**
+	 * Resolves a raw manage token to its row (DECISIONS #39). The DB stores
+	 * only SHA-256 hashes, so lookup hashes the presented token and compares
+	 * against the indexed manage_token column. Legitimate tokens are 64 hex
+	 * chars; anything else cannot match and exits before the query.
+	 *
+	 * @param string $raw_token Raw token from the manage link.
+	 * @return array<string,mixed>|null Row (internal shape, token hash stripped) or null.
+	 */
+	public function find_by_token( string $raw_token ): ?array {
+		global $wpdb;
+
+		$candidate = trim( $raw_token );
+
+		if ( 64 !== strlen( $candidate ) || ! ctype_xdigit( $candidate ) ) {
+			return null;
+		}
+
+		$table = $this->table();
+
+		$token_query = 'SELECT * FROM ' . $table . ' WHERE manage_token = %s';
+
+		$row = $wpdb->get_row(
+			$wpdb->prepare( $token_query, hash( 'sha256', $candidate ) ), // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $table from $wpdb->prefix.
+			ARRAY_A
+		);
+
+		return is_array( $row ) ? $this->normalize_row( $row ) : null;
+	}
+
+	/**
+	 * Updates an RSVP's display name (manage page "update name" action).
+	 * Single-column UPDATE by primary key; status and timestamps untouched.
+	 *
+	 * @param int    $id   RSVP row ID.
+	 * @param string $name New sanitized name.
+	 * @return array<string,mixed>|WP_Error|null Updated row; null when the row
+	 *                                           vanished; eh_db_error on failure.
+	 */
+	public function update_name( int $id, string $name ) {
+		global $wpdb;
+
+		$table = $this->table();
+
+		$update_query = "UPDATE {$table} SET name = %s WHERE id = %d";
+
+		$suppress = $wpdb->suppress_errors( true );
+
+		try {
+			$raw   = $wpdb->query(
+				$wpdb->prepare( $update_query, $name, $id ) // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $table from $wpdb->prefix.
+			);
+			$error = $wpdb->last_error;
+		} finally {
+			$wpdb->suppress_errors( $suppress );
+		}
+
+		if ( false === $raw && '' !== $error ) {
+			return new WP_Error(
+				'eh_db_error',
+				__( 'The name could not be saved due to a database error.', 'event-hub' ),
+				array( 'status' => 500 )
+			);
+		}
+
+		return $this->get( $id );
 	}
 
 	/**

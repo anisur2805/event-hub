@@ -102,6 +102,47 @@ fails (delete or promotion) — the row's state is reported, never masked.
 
 `200 { "eventId": 55, "counts": { "going": 41, "waitlist": 3, "checkedIn": 12 } }` or `404 eh_event_not_found`. `checkedIn` counts rows with a check-in stamp across statuses (since DB 1.2.0).
 
+### POST `/event-hub/v1/rsvp/cancel` — public, token-gated (ROADMAP §2.1)
+
+Attendee-side cancellation via the manage-booking token (DECISIONS #39). Body:
+`{ "token": "<64-hex manage token>" }`. The token IS the credential — the
+permission callback resolves the row from it; there is no capability or
+cookie nonce on this route (no session exists; THREAT-MODEL T16).
+
+Success `200`:
+
+```json
+{ "cancelled": true, "promoted": { "id": 41, "name": "Wait One", "status": "going", … } | null, "counts": { "going": 41, "waitlist": 2, "checkedIn": 0 } }
+```
+
+Cancellation runs through the same `delete_and_promote()` as admin deletes:
+waitlist promotion (§1.3) and `event_hub_rsvp_promoted` behave identically.
+`promoted` uses the public serializer (no email, PII rule).
+
+Errors: `400 eh_manage_missing` (token absent), `404 eh_manage_invalid`
+(unknown/garbage token, or the row vanished mid-request), `500 eh_db_error`.
+
+## Manage-booking page (front end, non-REST)
+
+`GET /?eh_manage=<token>` renders the token-gated manage page
+(`includes/templates/manage-rsvp.php`): booking summary + no-JS forms for
+"update name" and "cancel my RSVP", posting to `admin_post` handlers
+(`eh_manage_rename` / `eh_manage_cancel`) that re-verify the token and a
+per-action nonce against the rendered page. Unknown tokens render the same
+chrome with the invalid message (no enumeration oracle).
+`Cache-Control: no-store`; the page is `noindex`.
+
+Status/feedback rides the `eh_state` query arg (`cancelled|saved|invalid|expired|error`)
+on redirects — a fixed whitelist, never user input.
+
+The confirmation email (opt-in, `Admin_Page → Confirmation emails` toggle,
+option `event_hub_confirmations`, default off) is plain text and carries the
+one-time-visible raw manage token as the link `/?eh_manage=<token>`. Token
+storage is SHA-256-only (`manage_token` column, DB 1.3.0): the raw token
+cannot be recovered from the database, so a leaked DB dump cannot mint
+manage links. Rows created before DB 1.3.0 (and rows created while the
+toggle is off — see DECISIONS #39) have no token and remain admin-managed.
+
 ## Non-REST endpoints
 
 ### ICS `GET /event-hub/v1/event/{id}/calendar.ics` and `/event-hub/v1/events/calendar.ics`

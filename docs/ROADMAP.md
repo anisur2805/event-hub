@@ -68,13 +68,19 @@ and hook an action (`event_hub_rsvp_promoted`) for anything downstream.
 ## 2. Second wave (self-contained, medium effort)
 
 ### 2.1 RSVP confirmation + cancellation by token
-Confirmation flow for anonymous RSVPs: after `create_rsvp`, store a signed token
-(hash of email+event+salt) and offer an emailed "manage booking" link → cancel my
-RSVP / update name. Cancellation then feeds 1.3's promotion. Emails go only to the
-attendee's own address; nothing public changes.
-**Files:** new `Notifier.php` (+ `wp_mail` wrapper with timeout-safe failure), token
-column via DB 1.1.0 migration, `Rest_Controller.php` cancel route, template.
-**Depends on:** decision — opt-in settings page toggle ("send confirmations") in `Admin_Page.php`.
+
+> **Done (2026-11-04, DB 1.3.0).** Design diverged from the sketch below on
+> purpose (DECISIONS #39): token = 32 random bytes per row, stored SHA-256-
+> hashed (`manage_token` column), raw token visible only in the emailed
+> manage link (`/?eh_manage=<token>`) — the sketch's salt-hash of
+> email+event would have forced PII into URLs and made wp_salt a forgery
+> key. `Notifier` (opt-in toggle on the admin page, `event_hub_confirmations`,
+> default off; 10s phpmailer timeout; failure never fails the RSVP) sends the
+> plain-text confirmation. `Manage_Page` (`?eh_manage=` on template_include)
+> renders booking + no-JS cancel/rename forms (admin_post handlers,
+> THREAT-MODEL T16). REST `POST /rsvp/cancel {token}` cancels through
+> `delete_and_promote()` so §1.3 promotion fires identically. Tests:
+> `Manage_Booking_Test` (11 cases).
 
 ### 2.2 Check-in / attendance tracking — **Done (2026-11-04, DB 1.2.0)**
 Add `checked_in_at DATETIME NULL` (DB 1.2.0); admin quick-action
@@ -136,4 +142,4 @@ parked unless explicitly requested.
 2. §1.2 hardening — **done, Phase 1**.
 3. §1.3 waitlist promotion — **done, Phase 2**.
 4. §1.1 JSON-LD — **done (2026-11-04)**; was independent, slotted after Phase 2.
-5. Then pick by need: 2.1 (email flow; its cancellation now feeds §1.3's promotion) or ~~2.2 (check-in)~~ **done (2026-11-04)**; 2.3 (seats) only with fresh capacity tests.
+5. Then pick by need: ~~2.1 (email flow; its cancellation now feeds §1.3's promotion)~~ **done (2026-11-04, DB 1.3.0)**; ~~2.2 (check-in)~~ **done (2026-11-04)**; 2.3 (seats) only with fresh capacity tests. Remaining: 2.4 cutoffs, then §3.

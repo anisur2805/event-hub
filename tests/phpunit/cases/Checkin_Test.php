@@ -124,11 +124,10 @@ class Checkin_Test extends WP_UnitTestCase {
 			$wpdb->prepare( 'SHOW COLUMNS FROM ' . $table . ' LIKE %s', 'checked_in_at' ) // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $table from $wpdb->prefix.
 		);
 
-		$this->assertNotNull( $column, 'checked_in_at column must exist on a fresh 1.2.0 install' );
+		$this->assertNotNull( $column, 'checked_in_at column must exist on a fresh install' );
 		$this->assertSame( 'YES', (string) $column->Null, 'column must be nullable' );
 
-		$this->assertSame( '1.2.0', EVENT_HUB_DB_VERSION );
-		$this->assertSame( '1.2.0', get_option( 'event_hub_db_version' ) );
+		$this->assertSame( EVENT_HUB_DB_VERSION, get_option( 'event_hub_db_version' ) );
 	}
 
 	/**
@@ -153,7 +152,17 @@ class Checkin_Test extends WP_UnitTestCase {
 		);
 
 		$this->assertNotNull( $column, 'migrate() must (re)add checked_in_at for 1.0.0 installs' );
-		$this->assertSame( '1.2.0', get_option( 'event_hub_db_version' ) );
+		$this->assertSame( EVENT_HUB_DB_VERSION, get_option( 'event_hub_db_version' ) );
+
+		/*
+		 * Leave the persistent DB consistent: the transactional wrapper rolls
+		 * back to the savepoint taken at set_up(), but the ALTER + the 1.0.0
+		 * option write above were already committed by the DDL. Re-stamp the
+		 * current version outside that commit window so a later test (or the
+		 * next suite run against this persistent install) never sees the
+		 * simulated downgrade.
+		 */
+		update_option( 'event_hub_db_version', EVENT_HUB_DB_VERSION );
 	}
 
 	/**

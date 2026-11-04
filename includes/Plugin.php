@@ -97,6 +97,7 @@ final class Plugin {
 		$admin_page = new Admin_Page();
 		add_action( 'admin_menu', array( $admin_page, 'register' ) );
 		add_action( 'admin_enqueue_scripts', array( $admin_page, 'enqueue_assets' ) );
+		$admin_page->boot();
 
 		$csv_exporter = new Csv_Exporter( $this->repository );
 		$csv_exporter->boot();
@@ -109,6 +110,9 @@ final class Plugin {
 
 		$single_template = new Single_Template();
 		$single_template->boot();
+
+		$manage_page = new Manage_Page();
+		$manage_page->boot();
 
 		$structured_data = new Structured_Data();
 		$structured_data->boot();

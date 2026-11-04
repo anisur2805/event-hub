@@ -231,6 +231,27 @@ final class Rest_Controller {
 
 		register_rest_route(
 			self::NAMESPACE_V1,
+			'/rsvp/cancel',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( $this, 'cancel_rsvp' ),
+				// Token-only authorization (THREAT-MODEL T16): the bearer token
+				// IS the credential for this anonymous route — a cookie nonce
+				// is meaningless without a session, so the permission callback
+				// resolves the row from the token instead of checking caps.
+				'permission_callback' => array( $this, 'cancel_permission' ),
+				'args'                => array(
+					'token' => array(
+						'required'          => true,
+						'type'              => 'string',
+						'sanitize_callback' => static fn ( $value ): string => sanitize_text_field( is_string( $value ) ? $value : '' ),
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE_V1,
 			'/event/(?P<id>[0-9]+)/calendar\.ics',
 			array(
 				'methods'             => WP_REST_Server::READABLE,
@@ -447,6 +468,13 @@ final class Rest_Controller {
 			return $result;
 		}
 
+		// Confirmation email is opt-in and never load-bearing: a send
+		// failure (or a dead mail host — 10s phpmailer timeout) must not
+		// turn a persisted RSVP into an error response (DECISIONS #39).
+		if ( isset( $result['manage_token'] ) && is_string( $result['manage_token'] ) && '' !== $result['manage_token'] ) {
+			Notifier::send_confirmation( $result['rsvp'], $event_id, $result['manage_token'] );
+		}
+
 		return new WP_REST_Response(
 			array(
 				// Public 201 body: counts only + non-PII rsvp echo (docs/API.md).
@@ -470,6 +498,72 @@ final class Rest_Controller {
 			'name'      => (string) ( $row['name'] ?? '' ),
 			'status'    => (string) ( $row['status'] ?? '' ),
 			'createdAt' => self::to_iso8601( (string) ( $row['created_at'] ?? '' ) ),
+		);
+	}
+
+	/**
+	 * Permission callback for POST /rsvp/cancel (THREAT-MODEL T16): the route
+	 * takes no ID from the client — the token resolves the row. Invalid or
+	 * unknown tokens are rejected before the callback runs.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return true|WP_Error
+	 */
+	public function cancel_permission( WP_REST_Request $request ) {
+		$params = $this->request_params( $request );
+		$token  = is_string( $params['token'] ?? null ) ? trim( (string) $params['token'] ) : '';
+
+		if ( '' === $token ) {
+			return new WP_Error( 'eh_manage_missing', __( 'This management link is not valid.', 'event-hub' ), array( 'status' => 400 ) );
+		}
+
+		if ( null === ( new Rsvp_Repository() )->find_by_token( $token ) ) {
+			return new WP_Error( 'eh_manage_invalid', __( 'This management link is not valid.', 'event-hub' ), array( 'status' => 404 ) );
+		}
+
+		return true;
+	}
+
+	/**
+	 * POST /rsvp/cancel { token } (ROADMAP §2.1). Cancels the token's RSVP
+	 * via delete_and_promote(), so waitlist promotion and the
+	 * event_hub_rsvp_promoted action behave exactly as for admin deletes.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function cancel_rsvp( WP_REST_Request $request ) {
+		$params = $this->request_params( $request );
+		$token  = is_string( $params['token'] ?? null ) ? trim( (string) $params['token'] ) : '';
+
+		$repository = new Rsvp_Repository();
+		$row        = $repository->find_by_token( $token );
+
+		if ( null === $row ) {
+			return new WP_Error( 'eh_manage_invalid', __( 'This management link is not valid.', 'event-hub' ), array( 'status' => 404 ) );
+		}
+
+		$result = $repository->delete_and_promote( (int) $row['id'] );
+
+		if ( $result instanceof WP_Error || null === $result['deleted'] ) {
+			// Pre-checked a moment ago; a vanished row or DB failure here is
+			// genuinely exceptional — surface 404 / 500, not a silent 200.
+			if ( $result instanceof WP_Error ) {
+				return $result;
+			}
+
+			return new WP_Error( 'eh_manage_invalid', __( 'This management link is not valid.', 'event-hub' ), array( 'status' => 404 ) );
+		}
+
+		return new WP_REST_Response(
+			array(
+				'cancelled' => true,
+				'promoted'  => $result['promoted']
+					? $this->serialize_public_rsvp( $result['promoted'] )
+					: null,
+				'counts'    => $repository->counts( (int) $row['event_id'] ),
+			),
+			200
 		);
 	}
 

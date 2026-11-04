@@ -47,6 +47,48 @@ final class Admin_Page {
 	}
 
 	/**
+	 * Registers the confirmation-email toggle's admin-post handler. Called
+	 * from Plugin::boot().
+	 *
+	 * @return void
+	 */
+	public function boot(): void {
+		add_action( 'admin_post_eh_toggle_confirmations', array( $this, 'handle_toggle' ) );
+	}
+
+	/**
+	 * Handles the settings toggle POST. Admin context => nonce AND
+	 * capability checked (standard admin-post pair).
+	 *
+	 * @return void
+	 */
+	public function handle_toggle(): void {
+		if ( ! current_user_can( 'edit_others_posts' ) ) {
+			wp_die(
+				esc_html__( 'You are not allowed to change this setting.', 'event-hub' ),
+				esc_html__( 'Forbidden', 'event-hub' ),
+				array( 'response' => 403 )
+			);
+		}
+
+		check_admin_referer( 'eh_toggle_confirmations' );
+
+		$enabled = isset( $_POST['event_hub_confirmations'] )
+			? sanitize_key( wp_unslash( (string) $_POST['event_hub_confirmations'] ) )
+			: '';
+
+		update_option( Notifier::OPTION, 'on' === $enabled );
+
+		wp_safe_redirect(
+			add_query_arg(
+				array( 'eh_settings' => 'saved' ),
+				admin_url( 'admin.php?page=' . self::SLUG )
+			)
+		);
+		exit;
+	}
+
+	/**
 	 * Enqueues the React app + boot data. Called on admin_enqueue_scripts.
 	 *
 	 * @param string $hook_suffix Current admin page hook.
@@ -149,7 +191,8 @@ final class Admin_Page {
 	}
 
 	/**
-	 * Renders the React mount point. Called by add_menu_page callback.
+	 * Renders the settings form + React mount point. Called by
+	 * add_menu_page callback.
 	 *
 	 * @return void
 	 */
@@ -158,9 +201,40 @@ final class Admin_Page {
 			return;
 		}
 
+		$confirmations = Notifier::enabled();
 		?>
 		<div class="wrap event-hub-admin-page">
 			<h1><?php echo esc_html( get_admin_page_title() ); ?></h1>
+
+			<?php if ( isset( $_GET['eh_settings'] ) && 'saved' === sanitize_key( wp_unslash( (string) $_GET['eh_settings'] ) ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only display flag, no state change. ?>
+				<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Settings saved.', 'event-hub' ); ?></p></div>
+			<?php endif; ?>
+
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+				<input type="hidden" name="action" value="eh_toggle_confirmations" />
+				<?php wp_nonce_field( 'eh_toggle_confirmations' ); ?>
+				<table class="form-table" role="presentation">
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Confirmation emails', 'event-hub' ); ?></th>
+						<td>
+							<label for="event-hub-confirmations">
+								<input
+									type="checkbox"
+									id="event-hub-confirmations"
+									name="event_hub_confirmations"
+									value="on"
+									<?php checked( $confirmations ); ?>
+								/>
+								<?php esc_html_e( 'Send RSVP confirmation emails with a manage-booking link', 'event-hub' ); ?>
+							</label>
+						</td>
+					</tr>
+				</table>
+				<?php submit_button(); ?>
+			</form>
+
+			<hr />
+			<h2><?php esc_html_e( 'RSVPs', 'event-hub' ); ?></h2>
 			<div id="event-hub-rsvps-root">
 				<?php if ( ! is_readable( EVENT_HUB_DIR . 'build/admin/index.js' ) ) : ?>
 					<p><?php esc_html_e( 'The admin app bundle is missing — run the plugin build.', 'event-hub' ); ?></p>
