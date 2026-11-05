@@ -22,6 +22,7 @@
 .event-hub-rsvp,
 .event-hub-rsvp-block,
 .event-hub-event-categories,
+.event-hub-event-calendar,
 .event-hub-single,
 /* Fallback archive/grid render bare .event-hub-card without a block
  * wrapper — tokens must live on the card itself for those pages. */
@@ -831,5 +832,134 @@
 	.event-hub-event-list.is-busy .event-hub-event-list__grid,
 	.event-hub-rsvp__button {
 		transition: none;
+	}
+}
+
+/* --------------------------------------------------------------------------
+ * Event calendar (ROADMAP 3.3) — server-rendered month grid. Shares the
+ * token block above via the .event-hub-event-calendar selector there.
+ * ----------------------------------------------------------------------- */
+
+.event-hub-calendar-preview {
+	display: grid;
+	gap: 2px;
+	width: 100%;
+}
+
+.event-hub-calendar-preview__row {
+	display: grid;
+	grid-template-columns: repeat(7, 1fr);
+	gap: 2px;
+}
+
+.event-hub-calendar-preview__cell {
+	aspect-ratio: 1;
+	block-size: auto;
+	background: color-mix(in srgb, var(--eh-accent, #2563eb) 12%, transparent);
+	border-radius: 2px;
+}
+
+.event-hub-calendar__head {
+	align-items: center;
+	display: flex;
+	gap: var(--eh-gap, 1.5rem);
+	justify-content: space-between;
+	margin-block-end: var(--eh-gap, 1.5rem);
+}
+
+.event-hub-calendar__nav {
+	color: var(--eh-accent, #2563eb);
+	font-size: var(--eh-font-s, 0.875rem);
+	text-decoration: none;
+
+	&:focus-visible {
+		outline: 2px solid var(--eh-accent, #2563eb);
+		outline-offset: 2px;
+	}
+}
+
+.event-hub-calendar__body {
+	block-size: 100%;
+}
+
+.event-hub-calendar__label {
+	font-size: var(--eh-font, 1rem);
+	font-weight: 600;
+	margin-block: 0 0.75rem;
+	text-align: center;
+}
+
+.event-hub-calendar__grid {
+	border-collapse: collapse;
+	inline-size: 100%;
+	table-layout: fixed;
+}
+
+.event-hub-calendar__grid th {
+	font-size: var(--eh-font-s, 0.875rem);
+	font-weight: 600;
+	padding: 0.5rem 0.25rem;
+	text-align: start;
+}
+
+.event-hub-calendar__cell {
+	border: 1px solid var(--eh-line, rgba(17, 24, 39, 0.14));
+	min-height: 4.5rem;
+	padding: 0.25rem;
+	vertical-align: top;
+}
+
+.event-hub-calendar__cell--pad {
+	background: color-mix(in srgb, var(--eh-ink, #111827) 4%, transparent);
+	border-color: transparent;
+}
+
+.event-hub-calendar__cell--today {
+	background: color-mix(in srgb, var(--eh-accent, #2563eb) 8%, transparent);
+}
+
+.event-hub-calendar__daynum {
+	display: block;
+	font-size: var(--eh-font-s, 0.875rem);
+	font-variant-numeric: tabular-nums;
+}
+
+.event-hub-calendar__events {
+	list-style: none;
+	margin: 0.25rem 0 0;
+	padding: 0;
+}
+
+.event-hub-calendar__event {
+	font-size: var(--eh-font-s, 0.875rem);
+	line-height: 1.35;
+	margin-block-end: 0.25rem;
+	overflow-wrap: anywhere;
+}
+
+.event-hub-calendar__event a {
+	color: var(--eh-accent, #2563eb);
+	text-decoration: none;
+
+	&:focus-visible {
+		outline: 2px solid var(--eh-accent, #2563eb);
+		outline-offset: 1px;
+	}
+}
+
+.event-hub-calendar__count {
+	color: var(--eh-muted, #475569);
+	font-size: var(--eh-font-s, 0.875rem);
+	margin-block-start: 0.75rem;
+}
+
+@media (max-width: 600px) {
+	.event-hub-calendar__cell {
+		min-height: 3rem;
+		padding: 0.125rem;
+	}
+
+	.event-hub-calendar__grid th {
+		padding: 0.25rem 0;
 	}
 }

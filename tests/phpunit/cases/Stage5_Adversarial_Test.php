@@ -500,4 +500,61 @@ class Stage5_Adversarial_Test extends WP_UnitTestCase {
 
 		unset( $_GET['tab'] );
 	}
+
+	/**
+	 * Calendar render pipeline: hostile event titles reach the grid cell
+	 * anchors escaped, and a hostile ?eh_month never alters markup shape —
+	 * it falls back to the current month and the render survives.
+	 *
+	 * @return void
+	 */
+	public function test_calendar_cell_links_survive_hostile_input(): void {
+		// KSES would strip the payload at insert (input sanitization, not our
+		// layer). An unfiltered_html author may legitimately store raw markup
+		// in titles — remove the filters to simulate that and probe the
+		// render-side esc_html directly.
+		kses_remove_filters();
+
+		$hostile = self::factory()->post->create(
+			array(
+				'post_type'   => 'eh_event',
+				'post_title'  => '"><script>alert(1)</script>',
+				'post_status' => 'publish',
+			)
+		);
+
+		kses_init_filters();
+
+		update_post_meta( $hostile, 'eh_start', '2099-03-14 09:30:00' );
+		update_post_meta( $hostile, 'eh_end', '2099-03-14 11:00:00' );
+
+		// Valid month GET: the hostile title renders into a grid cell anchor.
+		$_GET['eh_month'] = '2099-03';
+
+		$html = Render_Blocks::render_calendar_block( array() );
+
+		$this->assertStringNotContainsString( '<script', $html );
+
+		// The title is escaped into the cell anchor. (wptexturize rewrites
+		// the leading " as a curly-quote entity, so assert the escaped
+		// script tags — the injection proof — not the quote glyph.)
+		$this->assertStringContainsString( '&gt;&lt;script&gt;', $html );
+		$this->assertStringNotContainsString( '<script', $html );
+		$this->assertStringNotContainsString( 'alert(1)</a>', $html );
+
+		// Junk month GET: falls back to the current month; the render
+		// survives with no injected markup.
+		$_GET['eh_month'] = '"><svg onload=alert(2)>';
+
+		$junk_html = Render_Blocks::render_calendar_block( array() );
+
+		unset( $_GET['eh_month'] );
+
+		$this->assertStringNotContainsString( '<svg', $junk_html );
+		$this->assertStringNotContainsString( '<script', $junk_html );
+		$this->assertStringNotContainsString( 'event-hub-calendar__event"', $junk_html );
+
+		// Junk month normalized: parse falls back to the current month.
+		$this->assertMatchesRegularExpression( '/^\d{4}-(0[1-9]|1[0-2])$/', Render_Blocks::calendar_month()['iso'] );
+	}
 }

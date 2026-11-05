@@ -617,6 +617,291 @@ final class Render_Blocks {
 	}
 
 	/**
+	 * Resolves the calendar's viewing month (ROADMAP §3.3): the
+	 * `eh_month=YYYY-MM` GET value when valid, else the block's initialMonth
+	 * attribute (YYYY-MM), else the current month. One resolver for both the
+	 * no-JS GET navigation and the server-rendered initial state; the client
+	 * store echoes the same format.
+	 *
+	 * @param string $initial_month Block attribute (YYYY-MM or '').
+	 * @return array{year:int,month:int,iso:string} iso = YYYY-MM.
+	 */
+	public static function calendar_month( string $initial_month = '' ): array {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only view selector, no state change.
+		$get_month = isset( $_GET['eh_month'] ) ? sanitize_text_field( wp_unslash( (string) $_GET['eh_month'] ) ) : '';
+
+		$candidates = array( $get_month, $initial_month );
+
+		foreach ( $candidates as $candidate ) {
+			if ( 1 === preg_match( '/^\d{4}-(0[1-9]|1[0-2])$/', $candidate ) ) {
+				return array(
+					'year'  => (int) substr( $candidate, 0, 4 ),
+					'month' => (int) substr( $candidate, 5, 2 ),
+					'iso'   => $candidate,
+				);
+			}
+		}
+
+		// Site-clock "now" (time() + gmt_offset): the same frame the stored
+		// meta and the grid run in. Not a UTC timestamp — deliberate.
+		$now = time() + (int) ( get_option( 'gmt_offset' ) * HOUR_IN_SECONDS );
+
+		return array(
+			'year'  => (int) gmdate( 'Y', $now ),
+			'month' => (int) gmdate( 'n', $now ),
+			'iso'   => gmdate( 'Y-m', $now ),
+		);
+	}
+
+	/**
+	 * Loads events whose START falls inside the half-open month window
+	 * [first day 00:00, first day of next month 00:00) — standard calendar
+	 * semantics (an event belongs to the month it starts in, even if it runs
+	 * into the next). Published only; the query is uncached cheap per render
+	 * on a bounded CPT.
+	 *
+	 * @param array{year:int,month:int} $month Month to load.
+	 * @return array<int,array<string,mixed>> summary() shapes, start ASC.
+	 */
+	public static function calendar_month_events( array $month ): array {
+		// Window bounds in SITE time: stored eh_start meta is site-local, so
+		// the comparison must be in the same frame (a UTC+X site would have
+		// shifted every calendar day boundary by X hours otherwise). The
+		// half-open month window [month-start, next-month-start) at second
+		// precision is a closed BETWEEN: [first 00:00:00, last-day 23:59:59].
+		$window_start = gmmktime( 0, 0, 0, $month['month'], 1, $month['year'] );
+		$window_end   = gmmktime( 0, 0, 0, 12 === $month['month'] ? 1 : $month['month'] + 1, 1, 12 === $month['month'] ? $month['year'] + 1 : $month['year'] );
+
+		$format = 'Y-m-d H:i:s';
+
+		/*
+		 * Offsetting the GMT window bounds by the site's UTC offset writes
+		 * the site-local wall-clock of the window edges; BETWEEN those two
+		 * strings matches every site-local start inside the month and
+		 * nothing on either side of it (the -1s trims next-month midnight,
+		 * which BETWEEN's inclusive upper edge would otherwise capture).
+		 */
+		$offset     = (int) ( get_option( 'gmt_offset' ) * HOUR_IN_SECONDS );
+		$after_sql  = gmdate( $format, $window_start + $offset );
+		$before_sql = gmdate( $format, $window_end - 1 + $offset );
+
+		$query = new \WP_Query(
+			array(
+				'post_type'      => 'eh_event',
+				'post_status'    => 'publish',
+				// A month grid must show a full month, not the first page of
+				// one; the CPT is bounded (an events site rarely tops this).
+				'posts_per_page' => 200, // phpcs:ignore WordPress.WP.PostsPerPage.posts_per_page_posts_per_page -- full-month grid is the feature.
+				'orderby'        => 'meta_value',
+				// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- chronology sort on a bounded CPT.
+				'meta_key'       => 'eh_start',
+				'order'          => 'ASC',
+				'no_found_rows'  => true,
+				// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- the month filter IS the feature.
+				'meta_query'     => array(
+					array(
+						'key'     => 'eh_start',
+						'value'   => array( $after_sql, $before_sql ),
+						'compare' => 'BETWEEN',
+						'type'    => 'DATETIME',
+					),
+				),
+			)
+		);
+
+		return array_map( array( self::class, 'summary' ), is_array( $query->posts ) ? $query->posts : array() );
+	}
+
+	/**
+	 * Renders the event-calendar block (attribute: initialMonth, ROADMAP
+	 * §3.3): a server-rendered month grid of published events keyed by the
+	 * START day in the site timezone. No-JS navigation uses prev/next GET
+	 * links carrying `eh_month=YYYY-MM`; with JS the calendar action
+	 * (calendar.ts) swallows the click, fetches the same URL and swaps only
+	 * the `.event-hub-calendar__body` child — the head with the nav links is
+	 * never swapped, so its directives stay hydrated for every later click.
+	 *
+	 * @param array<string,mixed> $attributes Block attributes.
+	 * @return string
+	 */
+	public static function render_calendar_block( array $attributes ): string {
+		$month_iso = isset( $attributes['initialMonth'] ) ? sanitize_text_field( (string) $attributes['initialMonth'] ) : '';
+
+		$month  = self::calendar_month( $month_iso );
+		$events = self::calendar_month_events( $month );
+
+		// Column order honors the site's start_of_week option (0 Sunday …
+		// 6 Saturday); day 1 sits in column (w - start_of_week + 7) % 7.
+		$start_of_week = (int) get_option( 'start_of_week' );
+
+		// Site-timezone anchors at NOON: day-1 anchors cannot hit the
+		// "-1 month from the 31st" overflow (modify() from the 1st always
+		// lands on the 1st), and noon dodges DST edges at midnight.
+		$anchor = static function ( string $time ): \DateTimeImmutable {
+			return new \DateTimeImmutable( $time, wp_timezone() );
+		};
+
+		$first = $anchor( sprintf( '%04d-%02d-01 12:00:00', $month['year'], $month['month'] ) );
+
+		$leading_blanks = ( ( (int) $first->format( 'w' ) ) - $start_of_week + 7 ) % 7;
+		$days_in_month  = (int) $first->format( 't' );
+
+		$prev_iso = $first->modify( '-1 month' )->format( 'Y-m' );
+		$next_iso = $first->modify( '+1 month' )->format( 'Y-m' );
+
+		$base_url = home_url( esc_url_raw( isset( $_SERVER['REQUEST_URI'] ) ? wp_unslash( (string) $_SERVER['REQUEST_URI'] ) : '/' ) );
+		$base_url = remove_query_arg( 'eh_month', $base_url );
+
+		$month_label = wp_date( 'F Y', $first->getTimestamp() );
+
+		// Group the flat summary list by day-of-month. summary()['start'] is
+		// ISO 8601 WITH the site offset (or parsed against the site zone when
+		// offset-less), so format('j') is the site-local calendar day.
+		$by_day = array();
+
+		foreach ( $events as $summary ) {
+			try {
+				$start_dt = new \DateTimeImmutable( (string) $summary['start'], wp_timezone() );
+			} catch ( \Exception $e ) {
+				continue;
+			}
+
+			$by_day[ (int) $start_dt->format( 'j' ) ][] = $summary;
+		}
+
+		$event_count = count( $events );
+
+		// "Today" marker in site time — the frame the grid indexes in.
+		$now_dt      = new \DateTimeImmutable( 'now', wp_timezone() );
+		$today_month = $now_dt->format( 'Y-m' );
+		$today_day   = (int) $now_dt->format( 'j' );
+
+		$context = array(
+			'busy' => false,
+		);
+
+		ob_start();
+		?>
+		<div
+			<?php echo get_block_wrapper_attributes( array( 'class' => 'event-hub-event-calendar' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- core helper output. ?>
+			data-wp-interactive="event-hub"
+			data-wp-router-region="event-hub-calendar"
+			data-wp-class--is-busy="context.busy"
+			<?php echo wp_interactivity_data_wp_context( $context ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- helper-safe attribute output. ?>
+		>
+			<div class="event-hub-calendar__head">
+				<a
+					class="event-hub-calendar__nav event-hub-calendar__nav--prev"
+					href="<?php echo esc_url( add_query_arg( 'eh_month', $prev_iso, $base_url ) ); ?>"
+					data-wp-on--click="actions.calendarNav"
+				>&larr; <?php echo esc_html( wp_date( 'F Y', $first->modify( '-1 month' )->getTimestamp() ) ); ?></a>
+				<a
+					class="event-hub-calendar__nav event-hub-calendar__nav--next"
+					href="<?php echo esc_url( add_query_arg( 'eh_month', $next_iso, $base_url ) ); ?>"
+					data-wp-on--click="actions.calendarNav"
+				><?php echo esc_html( wp_date( 'F Y', $first->modify( '+1 month' )->getTimestamp() ) ); ?> &rarr;</a>
+			</div>
+
+			<div class="event-hub-calendar__body">
+				<p class="event-hub-calendar__label" aria-live="polite"><?php echo esc_html( $month_label ); ?></p>
+
+				<table class="event-hub-calendar__grid" role="grid">
+					<thead>
+						<tr>
+							<?php
+							// Weekday labels: 2023-01-01 is a Sunday; column i
+							// is (start_of_week + i) % 7 days after it. The
+							// weekday of a fixed date is timezone-independent.
+							$sunday = $anchor( '2023-01-01 12:00:00' );
+
+							for ( $i = 0; $i < 7; $i++ ) {
+								$dow = ( $start_of_week + $i ) % 7;
+								$ts  = $sunday->modify( "+{$dow} day" )->getTimestamp();
+
+								printf(
+									'<th scope="col" aria-label="%1$s">%2$s</th>',
+									esc_attr( wp_date( 'l', $ts ) ),
+									esc_html( wp_date( 'D', $ts ) )
+								);
+							}
+							?>
+						</tr>
+					</thead>
+					<tbody>
+						<?php
+						$day = 1 - $leading_blanks;
+
+						while ( $day <= $days_in_month ) {
+							echo '<tr>';
+
+							for ( $col = 0; $col < 7; $col++, $day++ ) {
+								if ( $day < 1 || $day > $days_in_month ) {
+									echo '<td class="event-hub-calendar__cell event-hub-calendar__cell--pad"></td>';
+									continue;
+								}
+
+								$day_events = $by_day[ $day ] ?? array();
+								$classes    = 'event-hub-calendar__cell';
+
+								if ( $today_month === $month['iso'] && $today_day === $day ) {
+									$classes .= ' event-hub-calendar__cell--today';
+								}
+
+								printf( '<td class="%s">', esc_attr( $classes ) );
+								printf(
+									'<span class="event-hub-calendar__daynum" aria-hidden="true">%s</span>',
+									esc_html( (string) number_format_i18n( $day ) )
+								);
+
+								if ( array() !== $day_events ) {
+									echo '<ul class="event-hub-calendar__events">';
+
+									foreach ( $day_events as $day_summary ) {
+										printf(
+											'<li class="event-hub-calendar__event"><a href="%1$s">%2$s</a></li>',
+											esc_url( (string) $day_summary['permalink'] ),
+											esc_html( (string) $day_summary['title'] )
+										);
+									}
+
+									echo '</ul>';
+								}
+
+								echo '</td>';
+							}
+
+							echo '</tr>';
+						}
+						?>
+					</tbody>
+				</table>
+
+				<p class="event-hub-calendar__count"><?php echo esc_html( self::calendar_count_text( $event_count ) ); ?></p>
+
+				<noscript>
+					<p class="event-hub-calendar__noscript"><?php esc_html_e( 'Use the month links to browse other months.', 'event-hub' ); ?></p>
+				</noscript>
+			</div>
+		</div>
+		<?php
+		return (string) ob_get_clean();
+	}
+
+	/**
+	 * Shared "N events this month" line for the calendar footer.
+	 *
+	 * @param int $count Events in the rendered month.
+	 * @return string
+	 */
+	public static function calendar_count_text( int $count ): string {
+		return (string) sprintf(
+			/* translators: %s: number of events. */
+			_n( '%s event this month', '%s events this month', $count, 'event-hub' ),
+			(string) number_format_i18n( $count )
+		);
+	}
+
+	/**
 	 * Renders the event-card block (attribute: eventId).
 	 *
 	 * @param array<string,mixed> $attributes Block attributes.

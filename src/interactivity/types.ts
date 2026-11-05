@@ -109,6 +109,18 @@ export interface ListContext {
 }
 
 /**
+ * Context rendered on the event-calendar interactive region (ROADMAP §3.3,
+ * Render_Blocks::render_calendar_block). The month grid HTML itself is
+ * plain markup, not directive-bound: the calendar navigates by re-rendering
+ * the region through the interactivity router, so the context only carries
+ * the busy flag the region's class binding reads.
+ */
+export interface CalendarContext {
+	/** True while a router navigation is in flight. */
+	busy: boolean;
+}
+
+/**
  * Full `event-hub` store type: server state (restUrl/nonce/user via
  * wp_interactivity_state) + client getters, merged into `state`.
  */
@@ -122,5 +134,6 @@ export interface EventHubStore {
 		rsvpWaitlist: () => Generator< unknown, void, unknown >;
 		filterCategory: ( event: Event ) => Generator< unknown, void, unknown >;
 		filterSubmit: ( event: Event ) => void;
+		calendarNav: ( event: Event ) => Generator< unknown, void, unknown >;
 	};
 }

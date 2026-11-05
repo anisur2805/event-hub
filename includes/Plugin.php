@@ -308,6 +308,7 @@ final class Plugin {
 			'event-card'       => array( Render_Blocks::class, 'render_event_card_block' ),
 			'rsvp-button'      => array( Render_Blocks::class, 'render_rsvp_button_block' ),
 			'event-categories' => array( Render_Blocks::class, 'render_event_categories_block' ),
+			'event-calendar'   => array( Render_Blocks::class, 'render_calendar_block' ),
 		);
 
 		foreach ( $blocks as $slug => $callback ) {

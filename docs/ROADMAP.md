@@ -152,8 +152,13 @@ Parent event + occurrence CPTs or a `series_id` meta with per-occurrence RSVPs.
 Touches schema, REST filtering, ICS and archive logic — plan before coding.
 
 ### 3.3 Calendar view block
-Front-end month grid (Interactivity API) fed by the events REST route; builds on the
-existing seeding pattern (`script_module_data_*`).
+~~Front-end month grid (Interactivity API) fed by the events REST route; builds on the
+existing seeding pattern (`script_module_data_*`).~~ **done (2026-11-05)** — shipped as
+`event-hub/event-calendar` with a DELIBERATE architecture change vs. the sketch: no REST
+route is involved. One PHP render path (whole month server-side inside a
+`data-wp-router-region`), prev/next are real `?eh_month=YYYY-MM` GET links that work
+without JS; with JS the core interactivity-router re-renders the region (same pattern as
+core pagination). Month window is site-timezone; known cap: 200 events/month.
 
 ### 3.4 WooCommerce paid events (knowingly out of scope for now)
 RSVP gated by order/completion. Huge scope (HPOS, checkout blocks, refunds) — keep
@@ -176,4 +181,4 @@ parked unless explicitly requested.
 2. §1.2 hardening — **done, Phase 1**.
 3. §1.3 waitlist promotion — **done, Phase 2**.
 4. §1.1 JSON-LD — **done (2026-11-04)**; was independent, slotted after Phase 2.
-5. Then pick by need: ~~2.1 (email flow; its cancellation now feeds §1.3's promotion)~~ **done (2026-11-04, DB 1.3.0)**; ~~2.2 (check-in)~~ **done (2026-11-04)**; ~~2.4 cutoffs~~ **done (2026-11-05)**; ~~2.3 seats~~ **done (2026-11-05, DB 1.4.0)**; ~~3.1 dashboard~~ **done (2026-11-05)**. Remaining: §3 (3.3 calendar block → 3.2 recurring → §4 compliance); 3.4 Woo stays parked.
+5. Then pick by need: ~~2.1 (email flow; its cancellation now feeds §1.3's promotion)~~ **done (2026-11-04, DB 1.3.0)**; ~~2.2 (check-in)~~ **done (2026-11-04)**; ~~2.4 cutoffs~~ **done (2026-11-05)**; ~~2.3 seats~~ **done (2026-11-05, DB 1.4.0)**; ~~3.1 dashboard~~ **done (2026-11-05)**; ~~3.3 calendar block~~ **done (2026-11-05)**. Remaining: 3.2 recurring (design pass first) → §4 compliance; 3.4 Woo stays parked.
