@@ -62,27 +62,15 @@ foreach ( (array) $event_hub_post_ids as $event_hub_post_id ) {
 /*
  * Remove any orphaned event meta left behind by forced deletions — every
  * registered eh_* key: §1 core fields, §2.3/2.4 RSVP fields, §3.2 series
- * keys. Must stay in sync with Plugin::register_meta().
+ * keys. Keys are hardcoded literals (no user input exists on this path);
+ * must stay in sync with Plugin::register_meta().
  */
-$event_hub_meta_keys = array(
-	'eh_start',
-	'eh_end',
-	'eh_venue',
-	'eh_capacity',
-	'eh_rsvp_open_hours',
-	'eh_rsvp_close_hours',
-	'eh_series_freq',
-	'eh_series_interval',
-	'eh_series_byweekday',
-	'eh_series_until',
+$wpdb->query(
+	"DELETE FROM {$wpdb->postmeta}
+		WHERE meta_key IN ( 'eh_start', 'eh_end', 'eh_venue', 'eh_capacity',
+		'eh_rsvp_open_hours', 'eh_rsvp_close_hours', 'eh_series_freq',
+		'eh_series_interval', 'eh_series_byweekday', 'eh_series_until' )"
 );
-
-$event_hub_placeholders = implode( ', ', array_fill( 0, count( $event_hub_meta_keys ), '%s' ) );
-$event_hub_cleanup      = $wpdb->prepare(
-	"DELETE FROM {$wpdb->postmeta} WHERE meta_key IN ( {$event_hub_placeholders} )",
-	$event_hub_meta_keys
-); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- prepared immediately above.
-$wpdb->query( $event_hub_cleanup ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- see above.
 
 // Un-schedule the series horizon cron (Series_Engine::CRON_HOOK). An orphaned
 // schedule is harmless (core drops hooks for inactive plugins) but leaves
