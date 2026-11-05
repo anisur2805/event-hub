@@ -99,6 +99,9 @@ final class Plugin {
 		add_action( 'admin_enqueue_scripts', array( $admin_page, 'enqueue_assets' ) );
 		$admin_page->boot();
 
+		$dashboard_widget = new Dashboard_Widget();
+		add_action( 'wp_dashboard_setup', array( $dashboard_widget, 'register' ) );
+
 		$csv_exporter = new Csv_Exporter( $this->repository );
 		$csv_exporter->boot();
 

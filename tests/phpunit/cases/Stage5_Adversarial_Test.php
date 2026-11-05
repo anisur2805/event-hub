@@ -322,4 +322,182 @@ class Stage5_Adversarial_Test extends WP_UnitTestCase {
 			Plugin::instance()->repository()->counts( $event_id )
 		);
 	}
+
+	/* ---------- §3.1 dashboard probes: hostile data on admin surfaces ---------- */
+
+	/**
+	 * Inserts a row bypassing every guard (simulates imported/corrupt data —
+	 * the adversarial assumption: the DB itself holds junk).
+	 *
+	 * @param int    $event_id Event ID (may not exist at all).
+	 * @param string $name     Raw name.
+	 * @param string $email    Raw email.
+	 * @param string $status   Status.
+	 * @param int    $guests   Seats.
+	 * @return int Row ID.
+	 */
+	private static function raw_row( int $event_id, string $name, string $email, string $status = 'going', int $guests = 1 ): int {
+		global $wpdb;
+
+		$wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- adversarial fixture.
+			$wpdb->prefix . 'eh_rsvps',
+			array(
+				'event_id'   => $event_id,
+				'name'       => $name,
+				'email'      => $email,
+				'status'     => $status,
+				'guests'     => $guests,
+				'created_at' => current_time( 'mysql' ),
+			)
+		);
+
+		return (int) $wpdb->insert_id;
+	}
+
+	/**
+	 * Recent() LIMIT boundaries: 0, negative, and huge must never error
+	 * (negative LIMIT is an SQL syntax error unless clamped).
+	 *
+	 * @return void
+	 */
+	public function test_recent_limit_boundaries_never_sql_error(): void {
+		$event_id = self::make_event( '10' );
+		self::raw_row( $event_id, 'One', 'one@example.com' );
+		self::raw_row( $event_id, 'Two', 'two@example.com' );
+		self::raw_row( $event_id, 'Three', 'three@example.com' );
+
+		global $wpdb;
+
+		$repo = new Rsvp_Repository();
+
+		$this->assertCount( 1, $repo->recent( 0 ) );
+		$this->assertCount( 1, $repo->recent( -7 ) );
+		$this->assertCount( 3, $repo->recent( PHP_INT_MAX ) );
+
+		$this->assertSame( '', $wpdb->last_error );
+	}
+
+	/**
+	 * Dashboard widget + summary tab must escape hostile stored names/titles
+	 * (raw script tags are only reachable via direct DB writes; the render
+	 * layer is the last line).
+	 *
+	 * @return void
+	 */
+	public function test_dashboard_surfaces_escape_hostile_rows(): void {
+		wp_set_current_user(
+			self::factory()->user->create( array( 'role' => 'editor' ) )
+		);
+
+		$event_id = self::make_event( '10' );
+		self::raw_row( $event_id, '<script>alert(1)</script>', 'xss@example.com' );
+
+		// A hostile event title in the upcoming-events table.
+		$hostile_title_id = self::factory()->post->create(
+			array(
+				'post_type'   => 'eh_event',
+				'post_title'  => 'Quote " & <b>bold</b>',
+				'post_status' => 'publish',
+			)
+		);
+
+		update_post_meta( $hostile_title_id, 'eh_start', '2099-05-01 18:00:00' );
+		update_post_meta( $hostile_title_id, 'eh_end', '2099-05-01 20:00:00' );
+
+		$widget = new Dashboard_Widget();
+
+		ob_start();
+		$widget->render();
+		$widget_html = (string) ob_get_clean();
+
+		$_GET['tab'] = 'summary';
+
+		$page = new Admin_Page();
+
+		ob_start();
+		$page->render();
+		$tab_html = (string) ob_get_clean();
+
+		unset( $_GET['tab'] );
+
+		foreach ( array( $widget_html, $tab_html ) as $html ) {
+			$this->assertStringNotContainsString( '<script', $html );
+			$this->assertStringNotContainsString( '<b>bold', $html );
+		}
+
+		// Escaped forms are visible in place of the raw markup.
+		$this->assertStringContainsString( '&lt;script&gt;', $widget_html );
+		$this->assertStringContainsString( '&lt;script&gt;', $tab_html );
+	}
+
+	/**
+	 * Rows whose event vanished (import orphan / cascade bypass) must render
+	 * without fatals or broken links on the summary tab.
+	 *
+	 * @return void
+	 */
+	public function test_summary_tab_survives_orphan_rows(): void {
+		wp_set_current_user(
+			self::factory()->user->create( array( 'role' => 'editor' ) )
+		);
+
+		self::raw_row( 999999, 'Orphan Person', 'orphan@example.com' );
+
+		$_GET['tab'] = 'summary';
+
+		$page = new Admin_Page();
+
+		ob_start();
+		$page->render();
+		$html = (string) ob_get_clean();
+
+		unset( $_GET['tab'] );
+
+		$this->assertStringContainsString( 'orphan@example.com', $html );
+		$this->assertStringContainsString( '999999', $html );
+
+		// No edit link for a dead post ID.
+		$this->assertStringNotContainsString(
+			'post.php?post=999999',
+			$html
+		);
+	}
+
+	/**
+	 * Junk tab values never open anything unexpected — unknown values fall
+	 * back to the RSVPs view.
+	 *
+	 * @return void
+	 */
+	public function test_tab_param_junk_falls_back_to_rsvps(): void {
+		wp_set_current_user(
+			self::factory()->user->create( array( 'role' => 'editor' ) )
+		);
+
+		foreach ( array( '../summary', 'SUMMARY/', 'delete-from', '%00' ) as $junk ) {
+			$_GET['tab'] = $junk;
+
+			$page = new Admin_Page();
+
+			ob_start();
+			$page->render();
+			$html = (string) ob_get_clean();
+
+			// sanitize_key normalizes '../summary' and 'SUMMARY/' to the
+			// whitelisted 'summary' (lowercase + [a-z0-9_-] strip); anything
+			// else falls back to RSVPs. The invariant: one of exactly two
+			// capability-gated, read-only views renders — never anything else.
+			if ( '../summary' === $junk || 'SUMMARY/' === $junk ) {
+				$this->assertStringContainsString( 'Recent RSVPs', $html );
+			} else {
+				$this->assertStringContainsString(
+					'event-hub-rsvps-root',
+					$html,
+					"Junk tab '$junk' must render the RSVPs view"
+				);
+			}
+		}
+
+		unset( $_GET['tab'] );
+	}
 }

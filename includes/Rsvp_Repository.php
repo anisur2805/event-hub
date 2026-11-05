@@ -313,6 +313,31 @@ final class Rsvp_Repository {
 	}
 
 	/**
+	 * Most recent RSVP rows across ALL events, newest first (ROADMAP §3.1
+	 * dashboard surfaces). Rows keep the full internal shape — including the
+	 * email — so callers must be admin-context (both dashboard consumers are
+	 * capability-gated; the public serializers never call this).
+	 *
+	 * @param int $limit Maximum rows (minimum 1).
+	 * @return array<int,array<string,mixed>>
+	 */
+	public function recent( int $limit = 10 ): array {
+		global $wpdb;
+
+		$table = $this->table();
+
+		// id DESC is the tiebreak for rows created within the same second.
+		$query = "SELECT * FROM {$table} ORDER BY created_at DESC, id DESC LIMIT %d";
+
+		$rows = $wpdb->get_results(
+			$wpdb->prepare( $query, max( 1, $limit ) ), // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $table from $wpdb->prefix.
+			ARRAY_A
+		);
+
+		return is_array( $rows ) ? array_map( array( $this, 'normalize_row' ), $rows ) : array();
+	}
+
+	/**
 	 * Deletes an RSVP row and, once a going seat is free, promotes the
 	 * earliest waitlist row (docs/ROADMAP.md §1.3). Delete and promotion share
 	 * the advisory lock that serializes all same-event writes (#14) and the

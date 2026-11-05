@@ -132,6 +132,17 @@ REST `create_rsvp` guard both honor it. No schema change (post meta).
 ## 3. Larger bets (own milestone each)
 
 ### 3.1 Organizer dashboard
+
+> **Done (2026-11-05).** Dashboard widget (`Dashboard_Widget`, gated at
+> registration on `edit_others_posts`; function_exists guard for non-wp-admin
+> contexts) + server-rendered Admin_Page "Summary" tab (`?tab=summary`,
+> whitelisted, React bundle skipped when active). Upcoming events with
+> seat-based fill ("12 / 40 seats (30%)", clamped at 100%; unlimited when
+> no capacity), waitlist depth in seats, recent RSVPs across all events
+> with emails (shared `Rsvp_Repository::recent()` — the slice's one new
+> query). Shared label helpers so both surfaces never drift. DECISIONS #42.
+> Tests: `Dashboard_Test` (12) + 4 Stage5 probes.
+
 Admin dashboard widget + admin-page summary tab: upcoming events, fill %, waitlist
 depth, recent RSVPs (emails visible here — authenticated admin surface only).
 **Files:** new `Dashboard_Widget.php`, `Admin_Page.php` tab.
@@ -165,4 +176,4 @@ parked unless explicitly requested.
 2. §1.2 hardening — **done, Phase 1**.
 3. §1.3 waitlist promotion — **done, Phase 2**.
 4. §1.1 JSON-LD — **done (2026-11-04)**; was independent, slotted after Phase 2.
-5. Then pick by need: ~~2.1 (email flow; its cancellation now feeds §1.3's promotion)~~ **done (2026-11-04, DB 1.3.0)**; ~~2.2 (check-in)~~ **done (2026-11-04)**; ~~2.4 cutoffs~~ **done (2026-11-05)**; ~~2.3 seats~~ **done (2026-11-05, DB 1.4.0)**. Remaining: §3 (3.1 dashboard → 3.3 calendar block → 3.2 recurring → §4 compliance); 3.4 Woo stays parked.
+5. Then pick by need: ~~2.1 (email flow; its cancellation now feeds §1.3's promotion)~~ **done (2026-11-04, DB 1.3.0)**; ~~2.2 (check-in)~~ **done (2026-11-04)**; ~~2.4 cutoffs~~ **done (2026-11-05)**; ~~2.3 seats~~ **done (2026-11-05, DB 1.4.0)**; ~~3.1 dashboard~~ **done (2026-11-05)**. Remaining: §3 (3.3 calendar block → 3.2 recurring → §4 compliance); 3.4 Woo stays parked.

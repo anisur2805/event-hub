@@ -99,6 +99,12 @@ final class Admin_Page {
 			return;
 		}
 
+		// The summary tab is server-rendered and carries no React app; the
+		// bundle would only boot a mount point that is not printed there.
+		if ( 'summary' === $this->current_tab() ) {
+			return;
+		}
+
 		$script = EVENT_HUB_DIR . 'build/admin/index.js';
 
 		// The admin build is produced by wp-scripts; without it the page
@@ -201,10 +207,27 @@ final class Admin_Page {
 			return;
 		}
 
+		if ( 'summary' === $this->current_tab() ) {
+			$this->render_summary_tab();
+
+			return;
+		}
+
 		$confirmations = Notifier::enabled();
 		?>
 		<div class="wrap event-hub-admin-page">
 			<h1><?php echo esc_html( get_admin_page_title() ); ?></h1>
+
+			<nav class="nav-tab-wrapper" aria-label="<?php esc_attr_e( 'Event Hub sections', 'event-hub' ); ?>">
+				<a
+					href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::SLUG ) ); ?>"
+					class="nav-tab<?php echo 'summary' !== $this->current_tab() ? ' nav-tab-active' : ''; ?>"
+				><?php esc_html_e( 'RSVPs', 'event-hub' ); ?></a>
+				<a
+					href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::SLUG . '&tab=summary' ) ); ?>"
+					class="nav-tab<?php echo 'summary' === $this->current_tab() ? ' nav-tab-active' : ''; ?>"
+				><?php esc_html_e( 'Summary', 'event-hub' ); ?></a>
+			</nav>
 
 			<?php if ( isset( $_GET['eh_settings'] ) && 'saved' === sanitize_key( wp_unslash( (string) $_GET['eh_settings'] ) ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only display flag, no state change. ?>
 				<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Settings saved.', 'event-hub' ); ?></p></div>
@@ -240,6 +263,120 @@ final class Admin_Page {
 					<p><?php esc_html_e( 'The admin app bundle is missing — run the plugin build.', 'event-hub' ); ?></p>
 				<?php endif; ?>
 			</div>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Resolves the active tab from a whitelisted GET value. Anything absent or
+	 * unknown is the default RSVPs tab (read-only GET, no state change).
+	 *
+	 * @return string 'summary' or 'rsvps'.
+	 */
+	private function current_tab(): string {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only view selector, no state change.
+		$tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( (string) $_GET['tab'] ) ) : '';
+
+		return 'summary' === $tab ? 'summary' : 'rsvps';
+	}
+
+	/**
+	 * Server-rendered organizer summary tab (ROADMAP §3.1): upcoming events
+	 * with seat fill + waitlist depth, and the newest RSVPs across all events
+	 * (emails visible — authenticated admin surface). Reuses the same helpers
+	 * as the dashboard widget so both surfaces never drift.
+	 *
+	 * @return void
+	 */
+	private function render_summary_tab(): void {
+		$events = Render_Blocks::upcoming_events( Dashboard_Widget::EVENT_LIMIT );
+		$recent = Plugin::instance()->repository()->recent( Dashboard_Widget::RECENT_LIMIT );
+		?>
+		<div class="wrap event-hub-admin-page">
+			<h1><?php echo esc_html( get_admin_page_title() ); ?></h1>
+
+			<nav class="nav-tab-wrapper" aria-label="<?php esc_attr_e( 'Event Hub sections', 'event-hub' ); ?>">
+				<a
+					href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::SLUG ) ); ?>"
+					class="nav-tab<?php echo 'summary' !== $this->current_tab() ? ' nav-tab-active' : ''; ?>"
+				><?php esc_html_e( 'RSVPs', 'event-hub' ); ?></a>
+				<a
+					href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::SLUG . '&tab=summary' ) ); ?>"
+					class="nav-tab<?php echo 'summary' === $this->current_tab() ? ' nav-tab-active' : ''; ?>"
+				><?php esc_html_e( 'Summary', 'event-hub' ); ?></a>
+			</nav>
+
+			<h2><?php esc_html_e( 'Upcoming events', 'event-hub' ); ?></h2>
+
+			<?php if ( array() === $events ) : ?>
+				<p><?php esc_html_e( 'No upcoming events.', 'event-hub' ); ?></p>
+			<?php else : ?>
+				<table class="widefat striped">
+					<thead>
+						<tr>
+							<th><?php esc_html_e( 'Event', 'event-hub' ); ?></th>
+							<th><?php esc_html_e( 'Starts', 'event-hub' ); ?></th>
+							<th><?php esc_html_e( 'Fill', 'event-hub' ); ?></th>
+							<th><?php esc_html_e( 'Waitlist', 'event-hub' ); ?></th>
+						</tr>
+					</thead>
+					<tbody>
+						<?php foreach ( $events as $summary ) : ?>
+							<?php $parts = Dashboard_Widget::fill_parts( $summary ); ?>
+							<tr>
+								<td>
+									<a href="<?php echo esc_url( (string) $summary['permalink'] ); ?>">
+										<?php echo esc_html( (string) $summary['title'] ); ?>
+									</a>
+								</td>
+								<td><?php echo esc_html( Dashboard_Widget::date_label( (string) $summary['start'] ) ); ?></td>
+								<td><?php echo esc_html( $parts['fill'] ); ?></td>
+								<td><?php echo esc_html( $parts['waitlist'] ); ?></td>
+							</tr>
+						<?php endforeach; ?>
+					</tbody>
+				</table>
+			<?php endif; ?>
+
+			<h2><?php esc_html_e( 'Recent RSVPs', 'event-hub' ); ?></h2>
+
+			<?php if ( array() === $recent ) : ?>
+				<p><?php esc_html_e( 'No RSVPs yet.', 'event-hub' ); ?></p>
+			<?php else : ?>
+				<table class="widefat striped">
+					<thead>
+						<tr>
+							<th><?php esc_html_e( 'When', 'event-hub' ); ?></th>
+							<th><?php esc_html_e( 'Name', 'event-hub' ); ?></th>
+							<th><?php esc_html_e( 'Email', 'event-hub' ); ?></th>
+							<th><?php esc_html_e( 'Seats', 'event-hub' ); ?></th>
+							<th><?php esc_html_e( 'Status', 'event-hub' ); ?></th>
+							<th><?php esc_html_e( 'Event', 'event-hub' ); ?></th>
+						</tr>
+					</thead>
+					<tbody>
+						<?php foreach ( $recent as $row ) : ?>
+							<tr>
+								<td><?php echo esc_html( Dashboard_Widget::time_ago_label( (string) $row['created_at'] ) ); ?></td>
+								<td><?php echo esc_html( (string) $row['name'] ); ?></td>
+								<td><?php echo esc_html( (string) $row['email'] ); ?></td>
+								<td><?php echo esc_html( (string) number_format_i18n( max( 1, (int) $row['guests'] ) ) ); ?></td>
+								<td><?php echo esc_html( Dashboard_Widget::status_label( (string) $row['status'], 1 ) ); ?></td>
+								<td>
+									<?php $event_title = get_the_title( (int) $row['event_id'] ); ?>
+									<?php if ( '' !== (string) $event_title ) : ?>
+										<a href="<?php echo esc_url( get_edit_post_link( (int) $row['event_id'] ) ?? '' ); ?>">
+											<?php echo esc_html( (string) $event_title ); ?>
+										</a>
+									<?php else : ?>
+										<?php echo esc_html( (string) $row['event_id'] ); ?>
+									<?php endif; ?>
+								</td>
+							</tr>
+						<?php endforeach; ?>
+					</tbody>
+				</table>
+			<?php endif; ?>
 		</div>
 		<?php
 	}
