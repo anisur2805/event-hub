@@ -25,6 +25,8 @@ export interface RsvpRow {
 	name: string;
 	email: string;
 	status: 'going' | 'waitlist';
+	/** Seats this row reserves (2.3); always >= 1. */
+	guests: number;
 	createdAt: string;
 	/** ISO 8601 check-in stamp; null until the organizer checks the row in. */
 	checkedInAt: string | null;

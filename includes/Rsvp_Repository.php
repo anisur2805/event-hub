@@ -27,6 +27,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 final class Rsvp_Repository {
 
 	/**
+	 * Maximum seats one RSVP row may reserve (ROADMAP §2.3). Shared by the
+	 * repository guard, the REST arg schema, and the front-end seat picker.
+	 *
+	 * @var int
+	 */
+	public const MAX_GUESTS = 10;
+
+	/**
 	 * Full table name, resolved lazily from $wpdb.
 	 *
 	 * @return string
@@ -50,13 +58,18 @@ final class Rsvp_Repository {
 	 * @param string $email    Sanitized, validated email address.
 	 * @param string $status   Either 'going' or 'waitlist'.
 	 * @param int    $event_id Event post ID.
+	 * @param int    $guests   Seats this row reserves (1..MAX_GUESTS, ROADMAP §2.3).
 	 * @return array{rsvp:array<string,mixed>,counts:array{going:int,waitlist:int},manage_token:string}|WP_Error
 	 */
-	public function create( string $name, string $email, string $status, int $event_id ) {
+	public function create( string $name, string $email, string $status, int $event_id, int $guests = 1 ) {
 		global $wpdb;
 
 		if ( 'waitlist' !== $status && 'going' !== $status ) {
 			return new WP_Error( 'eh_invalid_status', __( 'Status must be either going or waitlist.', 'event-hub' ), array( 'status' => 400 ) );
+		}
+
+		if ( $guests < 1 || $guests > self::MAX_GUESTS ) {
+			return new WP_Error( 'eh_invalid_guests', __( 'Guests must be between 1 and 10.', 'event-hub' ), array( 'status' => 400 ) );
 		}
 
 		// VARCHAR(191) storage cap: a longer address would be truncated
@@ -129,8 +142,13 @@ final class Rsvp_Repository {
 		 * WHERE clause, so there is no check-then-insert gap. Waitlist rows
 		 * bypass capacity. Missing/empty capacity meta => unlimited. The
 		 * subquery on postmeta re-checks capacity inside the statement and
-		 * never returns NULL (COUNT is 0 for a missing meta row), so `going`
-		 * rows insert only while the going count is strictly below capacity.
+		 * never returns NULL (SUM over zero rows is NULL → COALESCE to 0), so
+		 * `going` rows insert only while the booked SEATS (SUM(guests), DB
+		 * 1.4.0; every legacy row carries guests = 1) stay strictly below
+		 * capacity. The row's own guests value is deliberately NOT part of
+		 * the predicate: admitting a party of 4 into 2 free seats would
+		 * overbook on arrival; the seat check admits the ROW, and the front
+		 * end steers oversized parties to the waitlist (rsvpGoing).
 		 */
 		// The manage-token hash is server-generated (random_bytes), not user
 		// input; it rides the same prepared statement as the row values.
@@ -140,10 +158,10 @@ final class Rsvp_Repository {
 		// Assemble the statement first; phpcs:ignore below sits on the query
 		// line that holds the $table variable (value from $wpdb->prefix, never
 		// user input). All values remain placeholders.
-		$insert_query = 'INSERT INTO ' . $table . " (event_id, name, email, status, created_at, manage_token)
-			SELECT %d, %s, %s, %s, %s, %s FROM DUAL
+		$insert_query = 'INSERT INTO ' . $table . " (event_id, name, email, status, guests, created_at, manage_token)
+			SELECT %d, %s, %s, %s, %d, %s, %s FROM DUAL
 			WHERE %s = 'waitlist'
-			   OR ( (SELECT COUNT(*) FROM " . $table . " WHERE event_id = %d AND status = 'going')
+			   OR ( (SELECT COALESCE( SUM( guests ), 0 ) FROM " . $table . " WHERE event_id = %d AND status = 'going')
 			        < COALESCE( (SELECT CAST(m.meta_value AS UNSIGNED) FROM {$wpdb->postmeta} m
 			                     WHERE m.post_id = %d AND m.meta_key = 'eh_capacity'
 			                       AND m.meta_value REGEXP '^[0-9]+$'), 999999999 ) )"; // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $table derives from $wpdb->prefix.
@@ -154,6 +172,7 @@ final class Rsvp_Repository {
 			$name,
 			$email,
 			$status,
+			$guests,
 			current_time( 'mysql' ),
 			$token_hash,
 			$status,
@@ -202,8 +221,11 @@ final class Rsvp_Repository {
 	}
 
 	/**
-	 * Counts going and waitlist rows for an event, plus how many of the going
-	 * rows are checked in (ROADMAP §2.2).
+	 * Counts booked SEATS per status for an event, plus how many of the going
+	 * rows are checked in (ROADMAP §2.2). going/waitlist are SUM(guests)
+	 * totals since DB 1.4.0 — capacity math is seat-based (§2.3); every
+	 * legacy row carries guests = 1, and checkedIn stays a row count (a
+	 * party checks in as it arrives, the stamp is per row).
 	 *
 	 * @param int $event_id Event post ID.
 	 * @return array{going:int,waitlist:int,checkedIn:int}
@@ -213,7 +235,7 @@ final class Rsvp_Repository {
 
 		$table = $this->table();
 
-		$query = "SELECT status, COUNT(*) AS total, SUM( CASE WHEN checked_in_at IS NOT NULL THEN 1 ELSE 0 END ) AS checked
+		$query = "SELECT status, COALESCE( SUM( guests ), 0 ) AS total, SUM( CASE WHEN checked_in_at IS NOT NULL THEN 1 ELSE 0 END ) AS checked
 			FROM {$table} WHERE event_id = %d GROUP BY status";
 
 		$rows = $wpdb->get_results(
@@ -382,15 +404,19 @@ final class Rsvp_Repository {
 			);
 
 			if ( $pick_id > 0 ) {
-				// The going-count subquery targets the same table as the
+				// The going-seats subquery targets the same table as the
 				// UPDATE — MySQL rejects that directly (error 1093), so the
-				// COUNT lives inside a derived table, which materializes
+				// SUM lives inside a derived table, which materializes
 				// against the post-delete state before the update applies.
-				// The guard still re-checks capacity inside the statement,
-				// exactly like create()'s INSERT...SELECT predicate.
+				// The guard still re-checks SEATS (SUM(guests), §2.3) against
+				// capacity inside the statement, exactly like create()'s
+				// INSERT...SELECT predicate; a waitlist row holding guests
+				// promotes only when its own party size is NOT counted yet —
+				// the UPDATE flips the whole row, so the guard is seats-
+				// before-flip, same shape as before (row-based COUNT).
 				$promote_query = "UPDATE {$table} SET status = 'going'
 					WHERE id = %d AND status = 'waitlist'
-					  AND ( (SELECT gc.going FROM (SELECT COUNT(*) AS going FROM {$table} WHERE event_id = %d AND status = 'going') AS gc)
+					  AND ( (SELECT gc.going FROM (SELECT COALESCE( SUM( guests ), 0 ) AS going FROM {$table} WHERE event_id = %d AND status = 'going') AS gc)
 					        < COALESCE( (SELECT CAST(m.meta_value AS UNSIGNED) FROM {$wpdb->postmeta} m
 					                     WHERE m.post_id = %d AND m.meta_key = 'eh_capacity'
 					                       AND m.meta_value REGEXP '^[0-9]+$'), 999999999 ) )";
@@ -651,6 +677,7 @@ final class Rsvp_Repository {
 			'name'          => (string) ( $row['name'] ?? '' ),
 			'email'         => (string) ( $row['email'] ?? '' ),
 			'status'        => (string) ( $row['status'] ?? '' ),
+			'guests'        => isset( $row['guests'] ) ? max( 1, (int) $row['guests'] ) : 1,
 			'created_at'    => (string) ( $row['created_at'] ?? '' ),
 			'checked_in_at' => isset( $row['checked_in_at'] )
 				? (string) $row['checked_in_at']

@@ -75,6 +75,19 @@ const { state } = store< EventHubStore >( 'event-hub', {
 			}
 			getContext< RsvpContext >().email = input.value;
 		},
+		/**
+		 * Keep the selected seat count in context (2.3). Server re-clamps to
+		 * 1..MAX_GUESTS; the select only offers legal options.
+		 * @param event
+		 */
+		setGuests( event: Event ) {
+			const select = event.target as HTMLSelectElement | null;
+			if ( ! select ) {
+				return;
+			}
+			getContext< RsvpContext >().guests =
+				parseInt( select.value, 10 ) || 1;
+		},
 		*rsvpGoing( event: Event ): Generator< unknown, void, unknown > {
 			const el =
 				event?.currentTarget instanceof Element
@@ -133,6 +146,7 @@ function* rsvp(
 				name,
 				email,
 				status,
+				guests: ctx.guests ?? 1,
 				...guardFields( triggerEl ),
 			} ),
 		} ) ) as Response;

@@ -101,6 +101,11 @@ final class Notifier {
 					? __( 'Waitlist', 'event-hub' )
 					: __( 'Going', 'event-hub' )
 			),
+			sprintf(
+				/* translators: %s: number of seats. */
+				__( 'Seats: %s', 'event-hub' ),
+				(string) number_format_i18n( isset( $rsvp['guests'] ) ? max( 1, (int) $rsvp['guests'] ) : 1 )
+			),
 		);
 
 		$start = get_post_meta( $event_id, 'eh_start', true );

@@ -164,7 +164,7 @@ final class Csv_Exporter {
 			$handle,
 			array_map(
 				array( $this, 'neutralize' ),
-				array( 'Event ID', 'Event Title', 'Name', 'Email', 'Status', 'Registered At', 'Checked In At' )
+				array( 'Event ID', 'Event Title', 'Name', 'Email', 'Status', 'Seats', 'Registered At', 'Checked In At' )
 			),
 			',',
 			'"',
@@ -194,6 +194,7 @@ final class Csv_Exporter {
 						$this->neutralize( (string) ( $rsvp['name'] ?? '' ) ),
 						$this->neutralize( (string) ( $rsvp['email'] ?? '' ) ),
 						$this->neutralize( (string) ( $rsvp['status'] ?? '' ) ),
+						$this->neutralize( (string) ( isset( $rsvp['guests'] ) ? max( 1, (int) $rsvp['guests'] ) : 1 ) ),
 						$this->neutralize( Rest_Controller::to_iso8601( (string) ( $rsvp['created_at'] ?? '' ) ) ),
 						$this->neutralize( $checked_in_at ),
 					),

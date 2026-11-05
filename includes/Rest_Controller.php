@@ -109,6 +109,18 @@ final class Rest_Controller {
 						'enum'              => array( 'going', 'waitlist' ),
 						'sanitize_callback' => static fn ( $value ): string => (string) sanitize_key( (string) $value ),
 					),
+					'guests'  => array(
+						'required'          => false,
+						'default'           => 1,
+						'type'              => 'integer',
+
+						/*
+						 * Seats per row (ROADMAP 2.3), 1..MAX_GUESTS: the min
+						 * is 1 so a party never silently books 0 seats (which
+						 * would under-count against capacity).
+						 */
+						'sanitize_callback' => static fn ( $value ): int => min( Rsvp_Repository::MAX_GUESTS, max( 1, absint( $value ) ) ),
+					),
 				),
 			)
 		);
@@ -461,7 +473,8 @@ final class Rest_Controller {
 			self::normalize_name( $named ),
 			(string) sanitize_email( $raw_email ),
 			$status,
-			$event_id
+			$event_id,
+			isset( $params['guests'] ) ? absint( $params['guests'] ) : 1
 		);
 
 		if ( is_wp_error( $result ) ) {
@@ -497,6 +510,7 @@ final class Rest_Controller {
 			'eventId'   => (int) ( $row['event_id'] ?? 0 ),
 			'name'      => (string) ( $row['name'] ?? '' ),
 			'status'    => (string) ( $row['status'] ?? '' ),
+			'guests'    => isset( $row['guests'] ) ? max( 1, (int) $row['guests'] ) : 1,
 			'createdAt' => self::to_iso8601( (string) ( $row['created_at'] ?? '' ) ),
 		);
 	}
@@ -964,6 +978,7 @@ final class Rest_Controller {
 			'name'        => (string) ( $row['name'] ?? '' ),
 			'email'       => (string) ( $row['email'] ?? '' ),
 			'status'      => (string) ( $row['status'] ?? '' ),
+			'guests'      => isset( $row['guests'] ) ? max( 1, (int) $row['guests'] ) : 1,
 			'createdAt'   => self::to_iso8601( (string) ( $row['created_at'] ?? '' ) ),
 			'checkedInAt' => isset( $row['checked_in_at'] )
 				? self::to_iso8601( (string) $row['checked_in_at'] )

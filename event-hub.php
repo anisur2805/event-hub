@@ -22,7 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 define( 'EVENT_HUB_VERSION', '1.0.0' );
-define( 'EVENT_HUB_DB_VERSION', '1.3.0' );
+define( 'EVENT_HUB_DB_VERSION', '1.4.0' );
 define( 'EVENT_HUB_FILE', __FILE__ );
 define( 'EVENT_HUB_DIR', plugin_dir_path( __FILE__ ) );
 define( 'EVENT_HUB_URL', plugin_dir_url( __FILE__ ) );

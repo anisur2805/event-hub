@@ -107,7 +107,7 @@ class Csv_Exporter_Test extends WP_UnitTestCase {
 
 		$this->assertSame( 200, $code );
 		$this->assertSame( "\xEF\xBB\xBF", substr( $output, 0, 3 ), 'UTF-8 BOM must open the stream.' );
-		$this->assertStringContainsString( '"Event ID","Event Title",Name,Email,Status,"Registered At"', $output );
+		$this->assertStringContainsString( '"Event ID","Event Title",Name,Email,Status,Seats,"Registered At"', $output );
 		// The formula cell must be prefixed with an apostrophe.
 		$this->assertStringContainsString( '\'=CMD', $output );
 	}

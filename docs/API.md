@@ -23,13 +23,14 @@ Request `application/json` (or form-encoded):
 | name | string | 1..100 chars after trim, else `400` `eh_invalid_name` |
 | email | string | `sanitize_email()` result must be valid, else `400` `eh_invalid_email` |
 | status | string | optional; `going` (default) or `waitlist`, else `400` `eh_invalid_status` |
+| guests | integer | optional (default 1); seats this row reserves, clamped into 1..10 (ROADMAP 2.3, `Rsvp_Repository::MAX_GUESTS`). Capacity counts SEATS — a party larger than the remaining seats books `going` only while booked seats < capacity, else it lands on the waitlist path the same as any full event |
 | formToken | string | **required.** `{timestamp}.{hmac}` token rendered into the RSVP form (`event_hub_form_ts` hidden input, HMAC-signed with the nonce salt, bound to the event). Must be `3s..24h` old at submit, else `400` `eh_form_token` |
 | honeypot | string | must be empty/absent; any non-empty value = bot, `400` `eh_honeypot` (checked before formToken and before the rate meter) |
 
 Success `201`:
 
 ```json
-{ "rsvp": { "id": 12, "eventId": 55, "name": "Ada", "status": "going", "createdAt": "2026-10-25T14:03:00+00:00" }, "counts": { "going": 41, "waitlist": 3 } }
+{ "rsvp": { "id": 12, "eventId": 55, "name": "Ada", "status": "going", "guests": 2, "createdAt": "2026-10-25T14:03:00+00:00" }, "counts": { "going": 41, "waitlist": 3 } }
 ```
 No email in the response body (PII rule).
 

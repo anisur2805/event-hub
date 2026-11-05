@@ -290,6 +290,7 @@ function AdminApp(): ReactElement {
 							<th scope="col">{ __( 'Name', 'event-hub' ) }</th>
 							<th scope="col">{ __( 'Email', 'event-hub' ) }</th>
 							<th scope="col">{ __( 'Status', 'event-hub' ) }</th>
+							<th scope="col">{ __( 'Seats', 'event-hub' ) }</th>
 							<th scope="col">
 								{ __( 'Checked in', 'event-hub' ) }
 							</th>
@@ -304,7 +305,7 @@ function AdminApp(): ReactElement {
 					<tbody>
 						{ ! eventId && (
 							<tr>
-								<td colSpan={ 6 }>
+								<td colSpan={ 7 }>
 									{ __(
 										'Select an event to see its RSVPs.',
 										'event-hub'
@@ -314,7 +315,7 @@ function AdminApp(): ReactElement {
 						) }
 						{ eventId && rows.length === 0 && (
 							<tr>
-								<td colSpan={ 6 }>
+								<td colSpan={ 7 }>
 									{ __( 'No RSVPs yet.', 'event-hub' ) }
 								</td>
 							</tr>
@@ -325,6 +326,7 @@ function AdminApp(): ReactElement {
 									<td>{ row.name }</td>
 									<td>{ row.email }</td>
 									<td>{ row.status }</td>
+									<td>{ row.guests }</td>
 									<td>
 										{ row.checkedInAt
 											? new Date(

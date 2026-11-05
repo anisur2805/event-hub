@@ -92,6 +92,19 @@ exporter gains the column; ICS unaffected.
 **Accept:** check-in survives on plain post-type CRUD (no HPOS surface); counts endpoint returns 3 numbers.
 
 ### 2.3 Guests / seats per RSVP
+
+> **Done (2026-11-05, DB 1.4.0).** `guests INT UNSIGNED NOT NULL DEFAULT 1`;
+> capacity math is seat-based (`SUM(guests)`) in `create()`,
+> `delete_and_promote()`, and `counts()` — cards/bar/pill/JSON-LD/REST stay
+> truthful with zero call-site changes. REST `guests` param (default 1,
+> clamped 1..`MAX_GUESTS`=10); repository rejects out-of-range with 400
+> `eh_invalid_guests`. Front-end seats `<select>` (context.guests +
+> actions.setGuests + POST body); admin Seats column; CSV Seats column;
+> Notifier + manage page Seats line. Documented tradeoff: the guard admits
+> the row while booked-seats < capacity (a party may exceed remaining
+> seats; oversized parties self-select to waitlist client-side). Tests:
+> `Seats_Test` (10 cases) + updated CSV header assertion. DECISIONS #41.
+
 One row can reserve N seats: `guests INT UNSIGNED NOT NULL DEFAULT 1` (DB 1.3.0).
 Capacity math switches from row-count to `SUM(guests)` — the atomic insert's
 `going < capacity` becomes a guarded conditional-sum (same `INSERT…SELECT…WHERE`
@@ -152,4 +165,4 @@ parked unless explicitly requested.
 2. §1.2 hardening — **done, Phase 1**.
 3. §1.3 waitlist promotion — **done, Phase 2**.
 4. §1.1 JSON-LD — **done (2026-11-04)**; was independent, slotted after Phase 2.
-5. Then pick by need: ~~2.1 (email flow; its cancellation now feeds §1.3's promotion)~~ **done (2026-11-04, DB 1.3.0)**; ~~2.2 (check-in)~~ **done (2026-11-04)**; ~~2.4 cutoffs~~ **done (2026-11-05)**. Remaining: 2.3 (seats) only with fresh capacity tests, then §3.
+5. Then pick by need: ~~2.1 (email flow; its cancellation now feeds §1.3's promotion)~~ **done (2026-11-04, DB 1.3.0)**; ~~2.2 (check-in)~~ **done (2026-11-04)**; ~~2.4 cutoffs~~ **done (2026-11-05)**; ~~2.3 seats~~ **done (2026-11-05, DB 1.4.0)**. Remaining: §3 (3.1 dashboard → 3.3 calendar block → 3.2 recurring → §4 compliance); 3.4 Woo stays parked.

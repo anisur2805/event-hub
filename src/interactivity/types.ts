@@ -58,6 +58,8 @@ export interface RsvpContext {
 	name: string;
 	/** Email typed by the visitor; kept in context via actions.setEmail. */
 	email: string;
+	/** Seats this RSVP reserves (2.3); 1..10, kept in context via actions.setGuests. */
+	guests: number;
 }
 
 /** REST error payload: { code, message, data: { status } }. */
@@ -115,6 +117,7 @@ export interface EventHubStore {
 	actions: {
 		setName: ( event: Event ) => void;
 		setEmail: ( event: Event ) => void;
+		setGuests: ( event: Event ) => void;
 		rsvpGoing: () => Generator< unknown, void, unknown >;
 		rsvpWaitlist: () => Generator< unknown, void, unknown >;
 		filterCategory: ( event: Event ) => Generator< unknown, void, unknown >;

@@ -71,6 +71,10 @@ get_header();
 				);
 				?>
 			</p>
+			<p>
+				<strong><?php esc_html_e( 'Seats:', 'event-hub' ); ?></strong>
+				<?php echo esc_html( (string) number_format_i18n( isset( $event_hub_row['guests'] ) ? max( 1, (int) $event_hub_row['guests'] ) : 1 ) ); ?>
+			</p>
 		</section>
 
 		<?php if ( $event_hub_can_act ) : ?>

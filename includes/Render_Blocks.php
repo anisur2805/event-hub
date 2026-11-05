@@ -352,6 +352,7 @@ final class Render_Blocks {
 			'countText' => $going_text,
 			'name'      => 0 !== $user->ID ? $user->display_name : '',
 			'email'     => 0 !== $user->ID ? $user->user_email : '',
+			'guests'    => 1,
 		);
 
 		self::seed_interactivity_state( $user );
@@ -421,6 +422,22 @@ final class Render_Blocks {
 							data-wp-bind--value="context.email"
 							data-wp-on--input="actions.setEmail"
 						/>
+						<?php
+						// Seats per RSVP (2.3): 1..MAX_GUESTS. Plain <select>
+						// wired to context via two directives; PHP renders every
+						// option so the no-JS markup stays complete.
+						?>
+						<label class="event-hub-rsvp__label" for="event-hub-guests-<?php echo esc_attr( (string) $event_id ); ?>"><?php esc_html_e( 'Seats', 'event-hub' ); ?></label>
+						<select
+							id="event-hub-guests-<?php echo esc_attr( (string) $event_id ); ?>"
+							class="event-hub-rsvp__input"
+							data-wp-bind--value="context.guests"
+							data-wp-on--input="actions.setGuests"
+						>
+							<?php for ( $seat = 1; $seat <= Rsvp_Repository::MAX_GUESTS; $seat++ ) : ?>
+								<option value="<?php echo esc_attr( (string) $seat ); ?>"><?php echo esc_html( (string) number_format_i18n( $seat ) ); ?></option>
+							<?php endfor; ?>
+						</select>
 						<?php
 						// Honeypot + time-trap token (T15, Form_Guard). The trap
 						// field is visually hidden (CSS clip); the token is opaque.
