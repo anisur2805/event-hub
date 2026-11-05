@@ -1,6 +1,12 @@
 <?php
 /**
- * Uninstall cleanup: drops the RSVP table, options, events and transients.
+ * Uninstall cleanup: drops the RSVP table, removes options, events,
+ * occurrence children, orphaned event meta, series cron schedule, the
+ * ICS rewrite rule and rate-limit transients.
+ *
+ * WP includes this file WITHOUT loading the plugin (no bootstrap, no
+ * autoload), so every helper is either a core function or an explicitly
+ * required plugin file.
  *
  * @package event-hub
  */
@@ -21,19 +27,29 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 global $wpdb;
 
-// Drop the RSVP table (T14, docs/THREAT-MODEL.md).
-$event_hub_table = $wpdb->prefix . 'eh_rsvps';
-$wpdb->query( 'DROP TABLE IF EXISTS ' . $event_hub_table ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- table name derives from $wpdb->prefix, never user input.
+/*
+ * Table + schema-version option. Migrations::uninstall() is dependency-free
+ * by contract (see that method) — this require is the single source of the
+ * DROP, not a parallel inline copy.
+ */
+require_once __DIR__ . '/includes/Migrations.php';
 
-// Delete the schema version option.
-delete_option( 'event_hub_db_version' );
+\Migrations::uninstall();
 
-// Delete all eh_event posts (forcing deletion skips the trash).
+/*
+ * Plugin options beyond the schema version: the §2.1 email-confirmation
+ * toggle. (Names must be hardcoded — the Notifier class is not loaded and
+ * must not be, per the autoload note above.)
+ */
+delete_option( 'event_hub_confirmations' );
+
+// Delete all eh_event posts (forcing deletion skips the trash). Children
+// (series occurrences) are eh_event posts too — deleted by the same sweep.
 $event_hub_post_ids = get_posts(
 	array(
 		'post_type'      => 'eh_event',
 		'post_status'    => 'any',
-		'posts_per_page' => -1,
+		'posts_per_page' => - 1,
 		'fields'         => 'ids',
 		'no_found_rows'  => true,
 	)
@@ -43,15 +59,39 @@ foreach ( (array) $event_hub_post_ids as $event_hub_post_id ) {
 	wp_delete_post( (int) $event_hub_post_id, true );
 }
 
-// Remove any orphaned event meta left behind by forced deletions.
-$event_hub_cleanup = $wpdb->prepare(
-	"DELETE FROM {$wpdb->postmeta} WHERE meta_key IN ( %s, %s, %s, %s )",
+/*
+ * Remove any orphaned event meta left behind by forced deletions — every
+ * registered eh_* key: §1 core fields, §2.3/2.4 RSVP fields, §3.2 series
+ * keys. Must stay in sync with Plugin::register_meta().
+ */
+$event_hub_meta_keys = array(
 	'eh_start',
 	'eh_end',
 	'eh_venue',
-	'eh_capacity'
+	'eh_capacity',
+	'eh_rsvp_open_hours',
+	'eh_rsvp_close_hours',
+	'eh_series_freq',
+	'eh_series_interval',
+	'eh_series_byweekday',
+	'eh_series_until',
 );
-$wpdb->query( $event_hub_cleanup ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- prepared immediately above.
+
+$event_hub_placeholders = implode( ', ', array_fill( 0, count( $event_hub_meta_keys ), '%s' ) );
+$event_hub_cleanup      = $wpdb->prepare(
+	"DELETE FROM {$wpdb->postmeta} WHERE meta_key IN ( {$event_hub_placeholders} )",
+	$event_hub_meta_keys
+); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- prepared immediately above.
+$wpdb->query( $event_hub_cleanup ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- see above.
+
+// Un-schedule the series horizon cron (Series_Engine::CRON_HOOK). An orphaned
+// schedule is harmless (core drops hooks for inactive plugins) but leaves
+// cron clutter; explicit removal keeps the site clean.
+wp_clear_scheduled_hook( 'event_hub_series_tick' );
+
+// Flush the ICS rewrite endpoint (and CPT rewrites) out of the stored rules;
+// core regenerates on the next request.
+delete_option( 'rewrite_rules' );
 
 // Delete rate-limit transients (they expire naturally but leave no trace).
 $event_hub_transients = $wpdb->prepare(

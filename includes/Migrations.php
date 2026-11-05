@@ -89,7 +89,10 @@ final class Migrations {
 
 	/**
 	 * Drops the RSVP table and deletes the schema version option. Called from
-	 * uninstall.php only (T14 docs/THREAT-MODEL.md).
+	 * uninstall.php only (T14 docs/THREAT-MODEL.md). Deliberately dependency-
+	 * free (no plugin constants, no other classes) so uninstall.php can
+	 * require this file standalone — WP includes uninstall.php WITHOUT
+	 * bootstrapping the plugin, so nothing else is autoloadable there.
 	 *
 	 * @return void
 	 */
