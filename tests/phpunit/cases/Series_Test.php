@@ -98,7 +98,10 @@ class Series_Test extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Junction helper: grab the first child's ID.
+	 * Junction helper: grab the earliest child's ID. Order MUST be explicit
+	 * — without an ORDER BY, MySQL (and GitHub Actions' MySQL in particular)
+	 * returns an arbitrary row, which made the copies assertion compare the
+	 * wrong child's eh_end on CI while passing locally.
 	 *
 	 * @param int $seed_id Seed post ID.
 	 * @return int 0 when no child exists.
@@ -111,6 +114,10 @@ class Series_Test extends WP_UnitTestCase {
 				'post_parent'    => $seed_id,
 				'posts_per_page' => 1,
 				'fields'         => 'ids',
+				'orderby'        => 'meta_value',
+				// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- test-side chronology.
+				'meta_key'       => 'eh_start',
+				'order'          => 'ASC',
 				'no_found_rows'  => true,
 			)
 		);

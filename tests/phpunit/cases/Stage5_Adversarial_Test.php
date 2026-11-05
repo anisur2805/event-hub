@@ -658,7 +658,9 @@ class Stage5_Adversarial_Test extends WP_UnitTestCase {
 		$this->assertSame( 2, $engine->materialize( $seed ) );
 
 		// Forge: give the first child its own freq meta + start, as if it
-		// were a seed. Then run the cron tick.
+		// were a seed. Then run the cron tick. (Order must be explicit —
+		// an unordered get_posts returns an arbitrary child, which made
+		// this pick a different child on CI than locally.)
 		$child = get_posts(
 			array(
 				'post_type'      => 'eh_event',
@@ -666,6 +668,10 @@ class Stage5_Adversarial_Test extends WP_UnitTestCase {
 				'post_parent'    => $seed,
 				'posts_per_page' => 1,
 				'fields'         => 'ids',
+				'orderby'        => 'meta_value',
+				// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- test-side chronology.
+				'meta_key'       => 'eh_start',
+				'order'          => 'ASC',
 				'no_found_rows'  => true,
 			)
 		)[0];
