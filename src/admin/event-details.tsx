@@ -18,6 +18,7 @@ import {
 	DateTimePicker,
 	Notice,
 	PanelRow,
+	SelectControl,
 	TextControl,
 	ToggleControl,
 } from '@wordpress/components';
@@ -38,6 +39,10 @@ interface EventHubEventMeta {
 	eh_capacity?: string;
 	eh_rsvp_open_hours?: string;
 	eh_rsvp_close_hours?: string;
+	eh_series_freq?: string;
+	eh_series_interval?: string;
+	eh_series_byweekday?: string;
+	eh_series_until?: string;
 	[ key: string ]: unknown;
 }
 
@@ -116,10 +121,27 @@ const CAPACITY_PATTERN = /^\d+$/;
 /** Detects a configured RSVP-window boundary (hours before start, 0 legal). */
 const WINDOW_PATTERN = /^\d+$/;
 
+/** Series frequency values (mirror of the REST meta schema enum). */
+const SERIES_FREQS = [ '', 'daily', 'weekly', 'monthly' ] as const;
+
+/** Valid Y-m-d series "until" value; '' legal. */
+const SERIES_UNTIL_PATTERN = /^$|^\d{4}-\d{2}-\d{2}$/;
+
+/** Weekday short labels, 0 = Sunday … 6 = Saturday (wp-field order). */
+const WEEKDAY_LABELS = [
+	__( 'Sun', 'event-hub' ),
+	__( 'Mon', 'event-hub' ),
+	__( 'Tue', 'event-hub' ),
+	__( 'Wed', 'event-hub' ),
+	__( 'Thu', 'event-hub' ),
+	__( 'Fri', 'event-hub' ),
+	__( 'Sat', 'event-hub' ),
+];
+
 /**
- * The panel body: four controls bound to the eh_* meta. All strings are
- * translatable (script translations are registered server-side); no custom
- * CSS — native @wordpress/components only.
+ * The panel body: the event-meta controls bound to the eh_* meta. All
+ * strings are translatable (script translations are registered server-side);
+ * no custom CSS — native components only.
  */
 function EventDetailsFields(): ReactElement {
 	const [ entityMeta, setMeta ] = useEntityProp(
@@ -152,6 +174,27 @@ function EventDetailsFields(): ReactElement {
 			? meta.eh_rsvp_close_hours
 			: '';
 
+	const seriesFreqValidated =
+		typeof meta.eh_series_freq === 'string' &&
+		SERIES_FREQS.includes(
+			meta.eh_series_freq as ( typeof SERIES_FREQS )[ number ]
+		)
+			? meta.eh_series_freq
+			: '';
+	// Plain-string alias: SelectControl's onChange hands back a bare string,
+	// so binding its value to the narrowed union type fights the component.
+	const seriesFreq: string = seriesFreqValidated;
+	const seriesIntervalRaw =
+		typeof meta.eh_series_interval === 'string'
+			? meta.eh_series_interval
+			: '';
+	const seriesByweekdayRaw =
+		typeof meta.eh_series_byweekday === 'string'
+			? meta.eh_series_byweekday
+			: '';
+	const seriesUntilRaw =
+		typeof meta.eh_series_until === 'string' ? meta.eh_series_until : '';
+
 	const limited = CAPACITY_PATTERN.test( capacityRaw );
 
 	// RSVP window boundaries (2.4): hours before start. '0' is legal both
@@ -165,6 +208,34 @@ function EventDetailsFields(): ReactElement {
 		hasOpen &&
 		hasClose &&
 		parseInt( openHoursRaw, 10 ) < parseInt( closeHoursRaw, 10 );
+
+	// Recurrence (3.2): the by-weekday selection parsed from the stored list.
+	const selectedDays = seriesByweekdayRaw
+		.split( ',' )
+		.map( ( piece ) => parseInt( piece.trim(), 10 ) )
+		.filter( ( day ) => day >= 0 && day <= 6 );
+
+	const toggleDay = ( day: number ): void => {
+		const next = selectedDays.includes( day )
+			? selectedDays.filter( ( kept ) => kept !== day )
+			: [ ...selectedDays, day ].sort( ( a, b ) => a - b );
+
+		update( 'eh_series_byweekday', next.join( ',' ) );
+	};
+
+	// A recurring event needs a start date; the engine no-ops without one.
+	const seriesNeedsStart =
+		'' !== seriesFreq && '' === toStorageValue( toPickerValue( startRaw ) );
+
+	// Interval label per frequency (record lookup: no nested ternary).
+	const intervalLabel =
+		(
+			{
+				daily: __( 'Every N days', 'event-hub' ),
+				weekly: __( 'Every N weeks', 'event-hub' ),
+				monthly: __( 'Every N months', 'event-hub' ),
+			} as Record< string, string >
+		 )[ seriesFreq ] ?? __( 'Every N months', 'event-hub' );
 
 	// Advisory validation: lexicographic comparison is chronological here
 	// because both values are normalized to zero-padded 'YYYY-MM-DD HH:mm:ss'.
@@ -340,6 +411,117 @@ function EventDetailsFields(): ReactElement {
 					} }
 				/>
 			</PanelRow>
+			<PanelRow>
+				<SelectControl
+					label={ __( 'Repeats', 'event-hub' ) }
+					value={ seriesFreq }
+					options={
+						[
+							{
+								value: '',
+								label: __( 'Does not repeat', 'event-hub' ),
+							},
+							{
+								value: 'daily',
+								label: __( 'Daily', 'event-hub' ),
+							},
+							{
+								value: 'weekly',
+								label: __( 'Weekly', 'event-hub' ),
+							},
+							{
+								value: 'monthly',
+								label: __( 'Monthly', 'event-hub' ),
+							},
+						] as Array< {
+							value: string;
+							label: string;
+						} >
+					}
+					onChange={ ( next ) => update( 'eh_series_freq', next ) }
+					help={ __(
+						'Upcoming copies of this event are created automatically (up to 6 months ahead). Each copy has its own RSVP list.',
+						'event-hub'
+					) }
+				/>
+			</PanelRow>
+			{ '' !== seriesFreq && (
+				<>
+					<PanelRow>
+						<TextControl
+							label={ intervalLabel }
+							type="number"
+							min={ 1 }
+							step={ 1 }
+							value={ seriesIntervalRaw }
+							onChange={ ( next ) => {
+								const value = String( next ?? '' );
+
+								if (
+									'' === value ||
+									WINDOW_PATTERN.test( value )
+								) {
+									update( 'eh_series_interval', value );
+								}
+							} }
+						/>
+					</PanelRow>
+					{ 'weekly' === seriesFreq && (
+						<PanelRow>
+							<div>
+								<span className="components-base-control__label">
+									{ __( 'Repeat on', 'event-hub' ) }
+								</span>
+								<div style={ { display: 'flex', gap: '8px' } }>
+									{ WEEKDAY_LABELS.map( ( label, day ) => (
+										<ToggleControl
+											key={ day }
+											label={ label }
+											checked={ selectedDays.includes(
+												day
+											) }
+											onChange={ () => toggleDay( day ) }
+										/>
+									) ) }
+								</div>
+							</div>
+						</PanelRow>
+					) }
+					<PanelRow>
+						<TextControl
+							label={ __( 'Until (Y–m–d)', 'event-hub' ) }
+							type="text"
+							value={ seriesUntilRaw }
+							placeholder={ __( 'e.g. 2027–06–30', 'event-hub' ) }
+							help={ __(
+								'Leave empty to keep generating 6 months ahead on an ongoing basis.',
+								'event-hub'
+							) }
+							onChange={ ( next ) => {
+								const value = next.trim();
+
+								if ( SERIES_UNTIL_PATTERN.test( value ) ) {
+									update( 'eh_series_until', value );
+								}
+							} }
+						/>
+					</PanelRow>
+					{ seriesNeedsStart && (
+						<Notice status="warning" isDismissible={ false }>
+							{ __(
+								'Repeats needs a start date. Set one above and the copies will be created on save.',
+								'event-hub'
+							) }
+						</Notice>
+					) }
+					<Notice status="info" isDismissible={ false }>
+						{ __(
+							'Already-created copies keep their dates when you change this schedule. Deleting this event never deletes the copies.',
+							'event-hub'
+						) }
+					</Notice>
+				</>
+			) }
 		</>
 	);
 }

@@ -65,3 +65,15 @@ function event_hub_bootstrap(): void {
 	EventHub\Plugin::instance()->boot();
 }
 add_action( 'plugins_loaded', 'event_hub_bootstrap' );
+
+/**
+ * Deactivation: un-schedule the series horizon cron. Registered top-level
+ * per the lifecycle guardrails (activation/deactivation hooks are fragile
+ * inside other hooks).
+ *
+ * @return void
+ */
+function event_hub_deactivate(): void {
+	EventHub\Plugin::instance()->series_engine()->deactivate();
+}
+register_deactivation_hook( __FILE__, 'event_hub_deactivate' );

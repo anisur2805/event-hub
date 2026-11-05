@@ -55,6 +55,7 @@ final class Admin_Columns {
 				$rebuilt['eh_when']     = __( 'When', 'event-hub' );
 				$rebuilt['eh_venue']    = __( 'Venue', 'event-hub' );
 				$rebuilt['eh_capacity'] = __( 'Capacity', 'event-hub' );
+				$rebuilt['eh_series']   = __( 'Series', 'event-hub' );
 			}
 		}
 
@@ -63,6 +64,7 @@ final class Admin_Columns {
 			$rebuilt['eh_when']     = __( 'When', 'event-hub' );
 			$rebuilt['eh_venue']    = __( 'Venue', 'event-hub' );
 			$rebuilt['eh_capacity'] = __( 'Capacity', 'event-hub' );
+			$rebuilt['eh_series']   = __( 'Series', 'event-hub' );
 		}
 
 		return $rebuilt;
@@ -77,7 +79,13 @@ final class Admin_Columns {
 	 * @return void
 	 */
 	public function column_content( string $column, int $post_id ): void {
-		if ( ! in_array( $column, array( 'eh_when', 'eh_venue', 'eh_capacity' ), true ) ) {
+		if ( ! in_array( $column, array( 'eh_when', 'eh_venue', 'eh_capacity', 'eh_series' ), true ) ) {
+			return;
+		}
+
+		if ( 'eh_series' === $column ) {
+			$this->render_series_cell( $post_id );
+
 			return;
 		}
 
@@ -190,6 +198,87 @@ final class Admin_Columns {
 		);
 
 		return $actions;
+	}
+
+	/**
+	 * Renders the Series column cell: a rule summary on a series seed,
+	 * a parent link on an occurrence (post_parent set), an em dash on a
+	 * one-off event.
+	 *
+	 * @param int $post_id Event post ID.
+	 * @return void
+	 */
+	private function render_series_cell( int $post_id ): void {
+		$freq   = (string) get_post_meta( $post_id, 'eh_series_freq', true );
+		$parent = (int) get_post( $post_id )->post_parent;
+
+		if ( '' === $freq && $parent <= 0 ) {
+			echo esc_html__( '—', 'event-hub' );
+
+			return;
+		}
+
+		if ( $parent > 0 ) {
+			$parent_post = get_post( $parent );
+
+			if ( $parent_post instanceof WP_Post ) {
+				printf(
+					'<a href="%s">%s</a>',
+					esc_url( (string) get_edit_post_link( $parent ) ),
+					/* translators: %s: series seed event title. */
+					esc_html( sprintf( __( '↳ %s', 'event-hub' ), $parent_post->post_title ) )
+				);
+			} else {
+				echo esc_html__( '↳ (deleted series)', 'event-hub' );
+			}
+
+			return;
+		}
+
+		// Series seed: rule summary.
+		$labels = array(
+			'daily'   => __( 'Daily', 'event-hub' ),
+			'weekly'  => __( 'Weekly', 'event-hub' ),
+			'monthly' => __( 'Monthly', 'event-hub' ),
+		);
+
+		$label = $labels[ $freq ] ?? '';
+
+		if ( '' === $label ) {
+			// Frequency junk bypassed the REST schema (DB/CLI write) — show it
+			// flagged, the engine treats this post as a one-off (parse_rules
+			// rejects unknown frequencies).
+			echo '<span style="color:#b32d2e;">' . esc_html(
+				sprintf(
+					/* translators: %s: invalid stored frequency value. */
+					__( 'Invalid (%s) — treated as one-off', 'event-hub' ),
+					$freq
+				)
+			) . '</span>';
+
+			return;
+		}
+
+		$interval = max( 1, (int) get_post_meta( $post_id, 'eh_series_interval', true ) );
+
+		$label .= 1 === $interval
+			? '' : sprintf(
+				/* translators: %d: interval (every N days/weeks/months). */
+				esc_html__( ' ×%d', 'event-hub' ),
+				$interval
+			);
+
+		$until = trim( (string) get_post_meta( $post_id, 'eh_series_until', true ) );
+
+		if ( '' !== $until ) {
+			$label .= sprintf(
+				/* translators: %s: last occurrence date (Y-m-d). */
+				esc_html__( ', until %s', 'event-hub' ),
+				$until
+			);
+		}
+
+		echo esc_html( $label );
 	}
 
 	/**

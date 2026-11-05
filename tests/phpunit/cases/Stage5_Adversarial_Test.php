@@ -557,4 +557,188 @@ class Stage5_Adversarial_Test extends WP_UnitTestCase {
 		// Junk month normalized: parse falls back to the current month.
 		$this->assertMatchesRegularExpression( '/^\d{4}-(0[1-9]|1[0-2])$/', Render_Blocks::calendar_month()['iso'] );
 	}
+
+	/**
+	 * ATTACK 13 (§3.2): series meta written behind the REST schema's back
+	 * (DB/CLI write). Junk frequency kills the rule (one-off); junk
+	 * interval/byweekday/until degrade to the documented defaults
+	 * (parse_rules): interval → 1, byweekday → seed weekday, until →
+	 * rolling horizon. Never fatal; every run terminates and stays bounded.
+	 *
+	 * @return void
+	 */
+	public function test_series_survives_hostile_meta_shapes(): void {
+		$engine = new Series_Engine();
+
+		// Freq junk (dispatch table bypassed) = not a series, nothing spawns.
+		$hostile = self::factory()->post->create(
+			array(
+				'post_type'   => 'eh_event',
+				'post_status' => 'publish',
+			)
+		);
+
+		update_post_meta( $hostile, 'eh_start', '2030-01-09 18:00:00' );
+		update_post_meta( $hostile, 'eh_end', '2030-01-09 20:00:00' );
+		update_post_meta( $hostile, 'eh_series_freq', '<svg onload=alert(9)>' );
+
+		$this->assertNull( $engine->parse_rules( $hostile ) );
+		$this->assertSame( 0, $engine->materialize( $hostile ) );
+
+		// Freq valid, the other three keys hostile: the rule survives with
+		// coerced defaults — junk text interval → 1, '99999999999' clamps
+		// to the 366 ceiling, 'DROP TABLE'/'"><script>' are junk → defaults.
+		update_post_meta( $hostile, 'eh_series_freq', 'weekly' );
+		update_post_meta( $hostile, 'eh_series_interval', '99999999999' );
+		update_post_meta( $hostile, 'eh_series_byweekday', 'DROP TABLE' );
+		update_post_meta( $hostile, 'eh_series_until', '"><script>' );
+
+		$rule = $engine->parse_rules( $hostile );
+
+		$this->assertNotNull( $rule );
+		$this->assertSame( 366, $rule['interval'] );
+		$this->assertSame( array( 3 ), $rule['byweekday'], 'Junk byweekday falls back to the seed weekday.' );
+		$this->assertNull( $rule['until'], 'Junk until is discarded (rolling horizon).' );
+
+		// A 366-week interval legitimately spawns nothing inside a 6-month
+		// horizon — bounded and terminated is the contract here.
+		$this->assertSame( 0, $engine->materialize( $hostile ) );
+
+		// Junk TEXT interval degrades to 1: the rule then spawns its normal
+		// weekly horizon, and children inherit no series meta (no recursion).
+		update_post_meta( $hostile, 'eh_series_interval', 'DROP TABLE' );
+
+		$rule2 = $engine->parse_rules( $hostile );
+
+		$this->assertSame( 1, $rule2['interval'] ?? 0 );
+		$this->assertLessThanOrEqual( 200, $engine->materialize( $hostile ) );
+
+		$children = get_posts(
+			array(
+				'post_type'      => 'eh_event',
+				'post_status'    => 'any',
+				'post_parent'    => $hostile,
+				'posts_per_page' => 500, // phpcs:ignore WordPress.WP.PostsPerPage.posts_per_page_posts_per_page -- probe assertion scan.
+				'fields'         => 'ids',
+				'no_found_rows'  => true,
+			)
+		);
+
+		$this->assertNotEmpty( $children, 'Coerced rule spawns its horizon.' );
+
+		foreach ( $children as $child_id ) {
+			$this->assertSame( '', get_post_meta( (int) $child_id, 'eh_series_freq', true ) );
+		}
+	}
+
+	/**
+	 * ATTACK 14 (§3.2): a child occurrence carrying series meta (legacy junk
+	 * or forged write) looks like a series seed. The engine must never treat
+	 * a post with post_parent set as a seed — that would fork sub-series and
+	 * runaway spawns on every cron tick.
+	 *
+	 * @return void
+	 */
+	public function test_child_with_freq_meta_never_forks_subseries(): void {
+		$engine = new Series_Engine();
+
+		// Legit seed spawns two children (until caps at Jan 23).
+		$seed = self::factory()->post->create(
+			array(
+				'post_type'   => 'eh_event',
+				'post_status' => 'publish',
+			)
+		);
+
+		update_post_meta( $seed, 'eh_start', '2030-01-09 18:00:00' );
+		update_post_meta( $seed, 'eh_end', '2030-01-09 20:00:00' );
+		update_post_meta( $seed, 'eh_series_freq', 'weekly' );
+		update_post_meta( $seed, 'eh_series_until', '2030-01-23' );
+
+		$this->assertSame( 2, $engine->materialize( $seed ) );
+
+		// Forge: give the first child its own freq meta + start, as if it
+		// were a seed. Then run the cron tick.
+		$child = get_posts(
+			array(
+				'post_type'      => 'eh_event',
+				'post_status'    => 'any',
+				'post_parent'    => $seed,
+				'posts_per_page' => 1,
+				'fields'         => 'ids',
+				'no_found_rows'  => true,
+			)
+		)[0];
+
+		update_post_meta( (int) $child, 'eh_series_freq', 'weekly' );
+		update_post_meta( (int) $child, 'eh_start', '2030-01-16 18:00:00' );
+
+		$engine->run_tick();
+
+		// The child got NO children of its own (no sub-series fork)...
+		$grandchildren = get_posts(
+			array(
+				'post_type'      => 'eh_event',
+				'post_status'    => 'any',
+				'post_parent'    => (int) $child,
+				'posts_per_page' => 500,
+				'fields'         => 'ids',
+				'no_found_rows'  => true,
+			)
+		);
+
+		$this->assertSame( array(), $grandchildren );
+
+		// ...and the forged child is not double-counted as its own seed row
+		// in the tick's seed query alongside the parent (total tree = 3).
+		$tree = get_posts(
+			array(
+				'post_type'      => 'eh_event',
+				'post_status'    => 'any',
+				'posts_per_page' => 500,
+				'fields'         => 'ids',
+				'no_found_rows'  => true,
+				'post__in'       => array( $seed, (int) $child ),
+			)
+		);
+
+		$this->assertCount( 2, $tree );
+	}
+
+	/**
+	 * ATTACK 15 (§3.2): interval junk writes behind the schema — zero and
+	 * negative intervals must coerce to 1 (never an infinite loop in
+	 * occurrence_dates()), and a huge interval just spawns nothing.
+	 *
+	 * @return void
+	 */
+	public function test_series_interval_zero_negative_no_infinite_loop(): void {
+		$engine = new Series_Engine();
+
+		foreach ( array( '0', '-5', '0.5', 'abc' ) as $interval ) {
+			$seed = self::factory()->post->create(
+				array(
+					'post_type'   => 'eh_event',
+					'post_status' => 'publish',
+				)
+			);
+
+			update_post_meta( $seed, 'eh_start', '2030-01-09 18:00:00' );
+			update_post_meta( $seed, 'eh_end', '2030-01-09 20:00:00' );
+			update_post_meta( $seed, 'eh_series_freq', 'daily' );
+			update_post_meta( $seed, 'eh_series_interval', $interval );
+
+			$rule = $engine->parse_rules( $seed );
+
+			$this->assertNotNull( $rule, "Interval '{$interval}' must not disable the rule." );
+			$this->assertGreaterThanOrEqual( 1, $rule['interval'], "Interval '{$interval}' must coerce >= 1." );
+
+			// Must terminate (no infinite loop) and spawn within the cap.
+			$spawned = $engine->materialize( $seed );
+
+			$this->assertLessThanOrEqual( 200, $spawned );
+
+			wp_delete_post( $seed, true );
+		}
+	}
 }

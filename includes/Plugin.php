@@ -35,11 +35,19 @@ final class Plugin {
 	private Rsvp_Repository $repository;
 
 	/**
+	 * Series (recurring events) engine.
+	 *
+	 * @var Series_Engine
+	 */
+	private Series_Engine $series_engine;
+
+	/**
 	 * Creates the instance and wires the object graph. Private: bootstrap owns
 	 * the single instance.
 	 */
 	private function __construct() {
-		$this->repository = new Rsvp_Repository();
+		$this->repository    = new Rsvp_Repository();
+		$this->series_engine = new Series_Engine();
 	}
 
 	/**
@@ -62,6 +70,15 @@ final class Plugin {
 	 */
 	public function repository(): Rsvp_Repository {
 		return $this->repository;
+	}
+
+	/**
+	 * Series engine accessor (deactivation hook un-schedules its cron).
+	 *
+	 * @return Series_Engine
+	 */
+	public function series_engine(): Series_Engine {
+		return $this->series_engine;
 	}
 
 	/**
@@ -107,6 +124,8 @@ final class Plugin {
 
 		$admin_columns = new Admin_Columns();
 		$admin_columns->boot();
+
+		$this->series_engine->boot();
 
 		$editor_panel = new Editor_Panel();
 		$editor_panel->boot();
@@ -270,6 +289,86 @@ final class Plugin {
 				)
 			);
 		}
+
+		/*
+		 * Recurring events (ROADMAP 3.2) — the four series meta keys on the
+		 * SEED event. Non-empty eh_series_freq = "this event is a series
+		 * seed"; Series_Engine materializes child occurrences. Patterns are
+		 * the same save-time rejection discipline as eh_capacity (BUG 5):
+		 * junk REST writes 400 at the meta schema; the engine's parse_rules()
+		 * is the defensive read-side twin for DB/CLI writes.
+		 */
+		register_post_meta(
+			'eh_event',
+			'eh_series_freq',
+			array(
+				'type'          => 'string',
+				'single'        => true,
+				'description'   => __( 'Recurrence frequency. Empty = one-off event; daily, weekly or monthly = series seed. (ROADMAP 3.2)', 'event-hub' ),
+				'auth_callback' => static fn ( bool $allowed, string $meta_key, int $post_id ): bool => current_user_can( 'edit_post', $post_id ),
+				'show_in_rest'  => array(
+					'schema' => array(
+						'type'    => 'string',
+						'enum'    => array( '', 'daily', 'weekly', 'monthly' ),
+						'default' => '',
+					),
+				),
+			)
+		);
+
+		register_post_meta(
+			'eh_event',
+			'eh_series_interval',
+			array(
+				'type'          => 'string',
+				'single'        => true,
+				'description'   => __( 'Recurrence interval (every N days/weeks/months). Empty = 1. (ROADMAP 3.2)', 'event-hub' ),
+				'auth_callback' => static fn ( bool $allowed, string $meta_key, int $post_id ): bool => current_user_can( 'edit_post', $post_id ),
+				'show_in_rest'  => array(
+					'schema' => array(
+						'type'    => 'string',
+						'pattern' => '^$|^[0-9]+$',
+						'default' => '',
+					),
+				),
+			)
+		);
+
+		register_post_meta(
+			'eh_event',
+			'eh_series_byweekday',
+			array(
+				'type'          => 'string',
+				'single'        => true,
+				'description'   => __( 'Weekly recurrence weekdays, 0=Sunday..6=Saturday, comma-separated. Empty = the start weekday. (ROADMAP 3.2)', 'event-hub' ),
+				'auth_callback' => static fn ( bool $allowed, string $meta_key, int $post_id ): bool => current_user_can( 'edit_post', $post_id ),
+				'show_in_rest'  => array(
+					'schema' => array(
+						'type'    => 'string',
+						'pattern' => '^$|^[0-6](,[0-6])*$',
+						'default' => '',
+					),
+				),
+			)
+		);
+
+		register_post_meta(
+			'eh_event',
+			'eh_series_until',
+			array(
+				'type'          => 'string',
+				'single'        => true,
+				'description'   => __( 'Last date occurrences are generated (Y-m-d, inclusive). Empty = rolling 6-month horizon. (ROADMAP 3.2)', 'event-hub' ),
+				'auth_callback' => static fn ( bool $allowed, string $meta_key, int $post_id ): bool => current_user_can( 'edit_post', $post_id ),
+				'show_in_rest'  => array(
+					'schema' => array(
+						'type'    => 'string',
+						'pattern' => '^$|^[0-9]{4}-[0-9]{2}-[0-9]{2}$',
+						'default' => '',
+					),
+				),
+			)
+		);
 	}
 
 	/**

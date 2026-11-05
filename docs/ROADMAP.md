@@ -148,8 +148,17 @@ depth, recent RSVPs (emails visible here — authenticated admin surface only).
 **Files:** new `Dashboard_Widget.php`, `Admin_Page.php` tab.
 
 ### 3.2 Recurring events (series)
-Parent event + occurrence CPTs or a `series_id` meta with per-occurrence RSVPs.
-Touches schema, REST filtering, ICS and archive logic — plan before coding.
+~~Parent event + occurrence CPTs or a `series_id` meta with per-occurrence RSVPs.
+Touches schema, REST filtering, ICS and archive logic — plan before coding.~~
+**done (2026-11-05)** — shipped with a DELIBERATE architecture change vs. both sketched
+options (no second CPT, no `series_id` filter layer): the SEED is the first occurrence.
+A series = any published `eh_event` with non-empty `eh_series_freq`; occurrences are
+real published child posts (`post_parent` = seed ID). Zero changes to any read surface
+(REST list, ICS, upcoming bar, calendar window, admin picker all keep querying
+`eh_start`); every occurrence has its own RSVP list by construction. Engine is
+additive-only (never edits or deletes children), 6-month rolling horizon, 200-spawn
+run cap, twice-daily cron, deferred (shutdown) materialization after the editor's
+4-key meta write lands, and children can never become seeds (no sub-series forks).
 
 ### 3.3 Calendar view block
 ~~Front-end month grid (Interactivity API) fed by the events REST route; builds on the
@@ -181,4 +190,4 @@ parked unless explicitly requested.
 2. §1.2 hardening — **done, Phase 1**.
 3. §1.3 waitlist promotion — **done, Phase 2**.
 4. §1.1 JSON-LD — **done (2026-11-04)**; was independent, slotted after Phase 2.
-5. Then pick by need: ~~2.1 (email flow; its cancellation now feeds §1.3's promotion)~~ **done (2026-11-04, DB 1.3.0)**; ~~2.2 (check-in)~~ **done (2026-11-04)**; ~~2.4 cutoffs~~ **done (2026-11-05)**; ~~2.3 seats~~ **done (2026-11-05, DB 1.4.0)**; ~~3.1 dashboard~~ **done (2026-11-05)**; ~~3.3 calendar block~~ **done (2026-11-05)**. Remaining: 3.2 recurring (design pass first) → §4 compliance; 3.4 Woo stays parked.
+5. Then pick by need: ~~2.1 (email flow; its cancellation now feeds §1.3's promotion)~~ **done (2026-11-04, DB 1.3.0)**; ~~2.2 (check-in)~~ **done (2026-11-04)**; ~~2.4 cutoffs~~ **done (2026-11-05)**; ~~2.3 seats~~ **done (2026-11-05, DB 1.4.0)**; ~~3.1 dashboard~~ **done (2026-11-05)**; ~~3.3 calendar block~~ **done (2026-11-05)**; ~~3.2 recurring events~~ **done (2026-11-05)**. Remaining: §4 compliance; 3.4 Woo stays parked.
