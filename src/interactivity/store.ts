@@ -187,6 +187,12 @@ function* rsvp(
 			case 'eh_event_passed':
 				ctx.feedback = __( 'This event has already taken place.' );
 				break;
+			case 'eh_rsvp_closed':
+				ctx.feedback = __( 'RSVPs are closed.' );
+				break;
+			case 'eh_rsvp_not_open':
+				ctx.feedback = __( 'RSVPs have not opened yet.' );
+				break;
 			default:
 				ctx.feedback = __( 'Something went wrong — please try again.' );
 		}

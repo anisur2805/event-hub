@@ -86,7 +86,7 @@ Waitlist rows bypass capacity. Missing/empty capacity meta ⇒ unlimited. Duplic
 3. `SELECT RELEASE_LOCK(...)` in `finally`.
 
 ### Render_Blocks (includes/class-render-blocks.php) public API — used by render.php files
-- `summary( int|WP_Post $event ): array` → `{ id:int, title:string, permalink:string, excerpt:string, start:string(ISO8601), end:string, venue:string, capacity:int|null, counts:{going:int,waitlist:int}, rsvpOpen:bool, categories:string[] }`
+- `summary( int|WP_Post $event ): array` → `{ id:int, title:string, permalink:string, excerpt:string, start:string(ISO8601), end:string, venue:string, capacity:int|null, counts:{going:int,waitlist:int}, rsvpOpen:bool, cutoffClosed:bool, cutoffNotOpen:bool, categories:string[] }` — `rsvpOpen` folds the §2.4 cutoff verdicts from `Rsvp_Repository::rsvp_cutoffs()`; the flags pick the closed/not-open notice.
 - `render_card( array $summary ): string` — complete escaped card HTML (title link, datetime, venue, excerpt, RSVP button markup)
 - `render_rsvp_button( int $event_id ): string` — RSVP form markup (below)
 

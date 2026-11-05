@@ -27,7 +27,7 @@ final class Render_Blocks {
 	 * Builds the normalized event summary. Accepts a post ID or WP_Post.
 	 *
 	 * @param int|WP_Post $event Event post ID or object.
-	 * @return array{id:int,title:string,permalink:string,excerpt:string,start:string,end:string,venue:string,capacity:int|null,counts:array{going:int,waitlist:int},rsvpOpen:bool,categories:string[],category_names:string[]}
+	 * @return array{id:int,title:string,permalink:string,excerpt:string,start:string,end:string,venue:string,capacity:int|null,counts:array{going:int,waitlist:int},rsvpOpen:bool,cutoffClosed:bool,cutoffNotOpen:bool,categories:string[],category_names:string[]}
 	 */
 	public static function summary( int|WP_Post $event ): array {
 		$post = get_post( $event );
@@ -47,6 +47,8 @@ final class Render_Blocks {
 					'waitlist' => 0,
 				),
 				'rsvpOpen'       => false,
+				'cutoffClosed'   => false,
+				'cutoffNotOpen'  => false,
 				'categories'     => array(),
 				'category_names' => array(),
 			);
@@ -58,12 +60,20 @@ final class Render_Blocks {
 		$excerpt   = (string) wp_specialchars_decode( $excerpt, ENT_QUOTES );
 		$venue     = (string) get_post_meta( $post->ID, 'eh_venue', true );
 
-		$counts   = Plugin::instance()->repository()->counts( $post->ID );
-		$capacity = self::capacity( $post->ID );
+		$repository = Plugin::instance()->repository();
+		$counts     = $repository->counts( $post->ID );
+		$capacity   = self::capacity( $post->ID );
 
+		// Cutoff verdicts (2.4): either boundary outside the window kills
+		// rsvpOpen; the flags drive the button/pill message choice.
+		$cutoffs   = $repository->rsvp_cutoffs( $post->ID );
 		$rsvp_open = true;
 
 		if ( null !== $capacity && $counts['going'] >= $capacity ) {
+			$rsvp_open = false;
+		}
+
+		if ( $cutoffs['closed'] || $cutoffs['not_open'] ) {
 			$rsvp_open = false;
 		}
 
@@ -89,6 +99,8 @@ final class Render_Blocks {
 			'capacity'       => $capacity,
 			'counts'         => $counts,
 			'rsvpOpen'       => $rsvp_open,
+			'cutoffClosed'   => $cutoffs['closed'],
+			'cutoffNotOpen'  => $cutoffs['not_open'],
 			'categories'     => $categories,
 			'category_names' => $category_names,
 		);
@@ -205,6 +217,16 @@ final class Render_Blocks {
 			);
 		}
 
+		// Cutoff-closed beats capacity states: an event whose registration
+		// window shut still has seats, but the button is gone (2.4).
+		if ( ! empty( $s['cutoffClosed'] ) ) {
+			return array(
+				'key'   => 'closed',
+				'label' => __( 'Closed', 'event-hub' ),
+				'past'  => false,
+			);
+		}
+
 		$capacity = null !== $s['capacity'] ? (int) $s['capacity'] : null;
 		$going    = (int) $s['counts']['going'];
 		$waitlist = (int) $s['counts']['waitlist'];
@@ -304,6 +326,8 @@ final class Render_Blocks {
 		$capacity = $summary['capacity'];
 		$full     = null !== $capacity && $counts['going'] >= $capacity;
 		$past     = self::is_past( $summary );
+		$closed   = ! empty( $summary['cutoffClosed'] );
+		$not_open = ! empty( $summary['cutoffNotOpen'] );
 
 		$user = wp_get_current_user();
 
@@ -343,6 +367,22 @@ final class Render_Blocks {
 				<p class="event-hub-rsvp__count"><?php echo esc_html( $going_text ); ?></p>
 			<?php endif; ?>
 			<p class="event-hub-rsvp__closed"><?php esc_html_e( 'This event has already taken place.', 'event-hub' ); ?></p>
+			<?php
+			return (string) ob_get_clean();
+		}
+
+		if ( $closed || $not_open ) {
+			// Cutoff modes (2.4) are inert like past, but honest about why:
+			// the form is gone (the write guard would 409 anyway) and the
+			// notice names the state. Count line stays when there are rows.
+			ob_start();
+			?>
+			<?php if ( '' !== $going_text ) : ?>
+				<p class="event-hub-rsvp__count"><?php echo esc_html( $going_text ); ?></p>
+			<?php endif; ?>
+			<p class="event-hub-rsvp__closed">
+				<?php echo $not_open ? esc_html__( 'RSVPs have not opened yet.', 'event-hub' ) : esc_html__( 'RSVPs are closed.', 'event-hub' ); ?>
+			</p>
 			<?php
 			return (string) ob_get_clean();
 		}
@@ -1030,10 +1070,13 @@ final class Render_Blocks {
 			/* translators: %s: number of events. */
 			'%s events found'                           => __( '%s events found', 'event-hub' ),
 			'Open'                                      => __( 'Open', 'event-hub' ),
+			'Closed'                                    => __( 'Closed', 'event-hub' ),
 			'Few spots left'                            => __( 'Few spots left', 'event-hub' ),
 			'Waitlist'                                  => __( 'Waitlist', 'event-hub' ),
 			'Sold out'                                  => __( 'Sold out', 'event-hub' ),
 			'Past'                                      => __( 'Past', 'event-hub' ),
+			'RSVPs are closed.'                         => __( 'RSVPs are closed.', 'event-hub' ),
+			'RSVPs have not opened yet.'                => __( 'RSVPs have not opened yet.', 'event-hub' ),
 			/* translators: 1: number going, 2: total capacity. */
 			'%1$s of %2$s spots filled'                 => __( '%1$s of %2$s spots filled', 'event-hub' ),
 		);

@@ -100,6 +100,16 @@ shape, subquery does the SUM). Front end gets an optional seats select.
 **Careful:** this is the riskiest change on the list — capacity invariants need fresh PHPUnit coverage first.
 
 ### 2.4 RSVP cutoff meta
+
+> **Done (2026-11-05).** `eh_rsvp_open_hours` / `eh_rsvp_close_hours` post
+> meta (hours before `eh_start`, 0 legal, '' = no boundary; capacity-style
+> save schema). `Rsvp_Repository::rsvp_cutoffs()` is the single verdict
+> source: the `create()` guard (409 `eh_rsvp_closed` / `eh_rsvp_not_open`)
+> and `summary()`'s rsvpOpen fold + `cutoffClosed`/`cutoffNotOpen` keys both
+> read it; Closed pill + inert closed/not-open button states; editor panel
+> fields + inverted-window warning; store.ts maps both 409s. No DB bump.
+> Tests: `Rsvp_Cutoff_Test` (12 cases). DECISIONS #40.
+
 "RSVP opens/closes X hours before start" event meta; `rsvpOpen` derivation and the
 REST `create_rsvp` guard both honor it. No schema change (post meta).
 **Files:** `Editor_Panel.php`, `Render_Blocks.php`, `Rest_Controller.php`.
@@ -142,4 +152,4 @@ parked unless explicitly requested.
 2. §1.2 hardening — **done, Phase 1**.
 3. §1.3 waitlist promotion — **done, Phase 2**.
 4. §1.1 JSON-LD — **done (2026-11-04)**; was independent, slotted after Phase 2.
-5. Then pick by need: ~~2.1 (email flow; its cancellation now feeds §1.3's promotion)~~ **done (2026-11-04, DB 1.3.0)**; ~~2.2 (check-in)~~ **done (2026-11-04)**; 2.3 (seats) only with fresh capacity tests. Remaining: 2.4 cutoffs, then §3.
+5. Then pick by need: ~~2.1 (email flow; its cancellation now feeds §1.3's promotion)~~ **done (2026-11-04, DB 1.3.0)**; ~~2.2 (check-in)~~ **done (2026-11-04)**; ~~2.4 cutoffs~~ **done (2026-11-05)**. Remaining: 2.3 (seats) only with fresh capacity tests, then §3.

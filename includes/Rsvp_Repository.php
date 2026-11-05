@@ -81,6 +81,21 @@ final class Rsvp_Repository {
 			return new WP_Error( 'eh_event_passed', __( 'This event has already ended.', 'event-hub' ), array( 'status' => 409 ) );
 		}
 
+		// RSVP window cutoffs (ROADMAP 2.4): close-hours gates the whole
+		// surface (going + waitlist — a registration window that stayed open
+		// for the waitlist alone would surprise organizers), open-hours
+		// gates everything until the window starts. Missing-data verdicts
+		// report open, so a missing clock never blocks (same rule as above).
+		$cutoffs = $this->rsvp_cutoffs( $event_id );
+
+		if ( $cutoffs['closed'] ) {
+			return new WP_Error( 'eh_rsvp_closed', __( 'RSVPs for this event are closed.', 'event-hub' ), array( 'status' => 409 ) );
+		}
+
+		if ( $cutoffs['not_open'] ) {
+			return new WP_Error( 'eh_rsvp_not_open', __( 'RSVPs for this event have not opened yet.', 'event-hub' ), array( 'status' => 409 ) );
+		}
+
 		$lock = 'eh_rsvp_' . $event_id;
 
 		$acquired = $wpdb->get_var(
@@ -664,5 +679,62 @@ final class Rsvp_Repository {
 		}
 
 		return $datetime->getTimestamp();
+	}
+
+	/**
+	 * Parses an RSVP-cutoff hours meta string (ROADMAP §2.4) into a
+	 * non-negative integer. Contract mirrors parse_capacity() (BUG 5): ''
+	 * / missing = no cutoff (null); digit-only = that many hours (0 = right
+	 * at start); anything else = no cutoff — the save-time meta schema
+	 * rejects junk, so legacy junk keeps the forgiving default.
+	 *
+	 * @param string $raw Raw meta value.
+	 * @return int|null Hours, or null when no cutoff is configured.
+	 */
+	public static function parse_hours( string $raw ): ?int {
+		if ( '' === trim( $raw ) || 1 !== preg_match( '/^[0-9]+$/', $raw ) ) {
+			return null;
+		}
+
+		return (int) $raw;
+	}
+
+	/**
+	 * Cutoff verdicts for one event (ROADMAP §2.4), keyed by which boundary
+	 * sits inside / outside the window now — shape used by the render layer
+	 * and the write guard alike.
+	 *
+	 * @param int $post_id Event post ID.
+	 * @return array{closed:bool,not_open:bool} closed: at/after start minus
+	 *                                           close-hours (0 closes right at start). not_open: before
+	 *                                           start minus open-hours. Missing/unparseable clocks or
+	 *                                           cutoff meta always report open (conservative — the same
+	 *                                           rule as the eh_event_passed guard: never block on missing data).
+	 */
+	public function rsvp_cutoffs( int $post_id ): array {
+		$verdicts = array(
+			'closed'   => false,
+			'not_open' => false,
+		);
+
+		$start = $this->post_meta_gmt( $post_id, 'eh_start' );
+
+		if ( null === $start ) {
+			return $verdicts;
+		}
+
+		$close_hours = self::parse_hours( (string) get_post_meta( $post_id, 'eh_rsvp_close_hours', true ) );
+
+		if ( null !== $close_hours && $start - $close_hours * HOUR_IN_SECONDS <= time() ) {
+			$verdicts['closed'] = true;
+		}
+
+		$open_hours = self::parse_hours( (string) get_post_meta( $post_id, 'eh_rsvp_open_hours', true ) );
+
+		if ( null !== $open_hours && $start - $open_hours * HOUR_IN_SECONDS > time() ) {
+			$verdicts['not_open'] = true;
+		}
+
+		return $verdicts;
 	}
 }

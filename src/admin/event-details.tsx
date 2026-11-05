@@ -36,6 +36,8 @@ interface EventHubEventMeta {
 	eh_end?: string;
 	eh_venue?: string;
 	eh_capacity?: string;
+	eh_rsvp_open_hours?: string;
+	eh_rsvp_close_hours?: string;
 	[ key: string ]: unknown;
 }
 
@@ -111,6 +113,9 @@ function toStorageValue( pickerValue: string | null ): string {
 /** Detects a capacity meta that means "limited to N spots". */
 const CAPACITY_PATTERN = /^\d+$/;
 
+/** Detects a configured RSVP-window boundary (hours before start, 0 legal). */
+const WINDOW_PATTERN = /^\d+$/;
+
 /**
  * The panel body: four controls bound to the eh_* meta. All strings are
  * translatable (script translations are registered server-side); no custom
@@ -138,8 +143,28 @@ function EventDetailsFields(): ReactElement {
 	const endRaw = typeof meta.eh_end === 'string' ? meta.eh_end : '';
 	const capacityRaw =
 		typeof meta.eh_capacity === 'string' ? meta.eh_capacity : '';
+	const openHoursRaw =
+		typeof meta.eh_rsvp_open_hours === 'string'
+			? meta.eh_rsvp_open_hours
+			: '';
+	const closeHoursRaw =
+		typeof meta.eh_rsvp_close_hours === 'string'
+			? meta.eh_rsvp_close_hours
+			: '';
 
 	const limited = CAPACITY_PATTERN.test( capacityRaw );
+
+	// RSVP window boundaries (2.4): hours before start. '0' is legal both
+	// sides (close at start / open at start) — test the string, not truthiness.
+	const hasOpen = WINDOW_PATTERN.test( openHoursRaw );
+	const hasClose = WINDOW_PATTERN.test( closeHoursRaw );
+
+	// Inverted window: closing before it opens. Both cutoffs count hours
+	// BEFORE start, so openHours < closeHours flips the boundaries.
+	const invertedWindow =
+		hasOpen &&
+		hasClose &&
+		parseInt( openHoursRaw, 10 ) < parseInt( closeHoursRaw, 10 );
 
 	// Advisory validation: lexicographic comparison is chronological here
 	// because both values are normalized to zero-padded 'YYYY-MM-DD HH:mm:ss'.
@@ -183,6 +208,14 @@ function EventDetailsFields(): ReactElement {
 				<Notice status="warning" isDismissible={ false }>
 					{ __(
 						'The end time is before the start time.',
+						'event-hub'
+					) }
+				</Notice>
+			) }
+			{ invertedWindow && (
+				<Notice status="warning" isDismissible={ false }>
+					{ __(
+						'The RSVP window closes before it opens. Closing hours must be smaller than opening hours.',
 						'event-hub'
 					) }
 				</Notice>
@@ -258,6 +291,55 @@ function EventDetailsFields(): ReactElement {
 					/>
 				</PanelRow>
 			) }
+			<PanelRow>
+				<TextControl
+					label={ __(
+						'Open RSVPs (hours before start)',
+						'event-hub'
+					) }
+					type="number"
+					min={ 0 }
+					step={ 1 }
+					value={ openHoursRaw }
+					placeholder={ __( 'Always open', 'event-hub' ) }
+					help={ __(
+						'Leave empty to accept RSVPs from publish time. 0 opens them right at the start time.',
+						'event-hub'
+					) }
+					onChange={ ( next ) => {
+						const value = String( next ?? '' );
+
+						// Commit only whole numbers; '' clears the boundary.
+						if ( '' === value || WINDOW_PATTERN.test( value ) ) {
+							update( 'eh_rsvp_open_hours', value );
+						}
+					} }
+				/>
+			</PanelRow>
+			<PanelRow>
+				<TextControl
+					label={ __(
+						'Close RSVPs (hours before start)',
+						'event-hub'
+					) }
+					type="number"
+					min={ 0 }
+					step={ 1 }
+					value={ closeHoursRaw }
+					placeholder={ __( 'Never closes', 'event-hub' ) }
+					help={ __(
+						'Leave empty to keep RSVPs open until the event ends. 0 closes them right at the start time.',
+						'event-hub'
+					) }
+					onChange={ ( next ) => {
+						const value = String( next ?? '' );
+
+						if ( '' === value || WINDOW_PATTERN.test( value ) ) {
+							update( 'eh_rsvp_close_hours', value );
+						}
+					} }
+				/>
+			</PanelRow>
 		</>
 	);
 }

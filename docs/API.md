@@ -41,6 +41,8 @@ Error codes:
 | `eh_rest_cookie_invalid` (i.e., nonce check failed while cookies present) | 403 | CSRF guard |
 | `eh_event_not_found` | 404 | no such published event |
 | `eh_event_passed` | 409 | event end datetime in the past |
+| `eh_rsvp_closed` | 409 | inside the close window (ROADMAP 2.4: `eh_rsvp_close_hours` hours before `eh_start`; 0 = at start) — gates going AND waitlist |
+| `eh_rsvp_not_open` | 409 | before the open window (`eh_rsvp_open_hours` hours before `eh_start`; 0 = at start). Missing/unparseable `eh_start` or cutoff meta keeps the window open (never blocks on missing data) |
 | `eh_duplicate` | 409 | same email already RSVP'd to this event |
 | `eh_capacity_full` | 409 | going-capacity exhausted; body includes `counts` |
 | `eh_honeypot` | 400 | honeypot field non-empty (bot classifier; message is deliberately generic) |
@@ -59,7 +61,7 @@ Response `200`: array of published, upcoming events (end >= now... see below), e
 { "id": 55, "title": "Launch", "excerpt": "…", "start": "ISO8601", "end": "ISO8601", "venue": "Main Hall", "capacity": 100, "counts": { "going": 41, "waitlist": 3 }, "categories": ["meetup"], "rsvpOpen": true }
 ```
 
-`rsvpOpen` = published AND end in future AND (capacity null or going count < capacity). Emails never serialized. Sorting: start ASC. Events whose end has passed are excluded.
+`rsvpOpen` = published AND end in future AND (capacity null or going count < capacity) AND RSVP window open (ROADMAP 2.4: not before `eh_rsvp_open_hours` and not at/after `eh_rsvp_close_hours` before start, when those meta are set). The list payload reflects cutoff state but does not expose the raw hours meta — read it from post meta if needed. Emails never serialized. Sorting: start ASC. Events whose end has passed are excluded.
 
 ### GET `/event-hub/v1/rsvps` — capability `edit_others_posts`
 

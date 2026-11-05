@@ -240,6 +240,33 @@ final class Plugin {
 				),
 			)
 		);
+
+		/*
+		 * RSVP window cutoffs (ROADMAP 2.4). Hours before eh_start when the
+		 * RSVP window opens / closes; '' = absent boundary (always-open on
+		 * that side). Same digits-only schema as eh_capacity — junk is
+		 * rejected at save time, and Rsvp_Repository::parse_hours() is the
+		 * read-side twin of this pattern.
+		 */
+		foreach ( array( 'eh_rsvp_open_hours', 'eh_rsvp_close_hours' ) as $hours_key ) {
+			register_post_meta(
+				'eh_event',
+				$hours_key,
+				array(
+					'type'          => 'string',
+					'single'        => true,
+					'description'   => __( 'Hours before start when RSVPs open or close. Empty = no boundary. (ROADMAP 2.4)', 'event-hub' ),
+					'auth_callback' => static fn ( bool $allowed, string $meta_key, int $post_id ): bool => current_user_can( 'edit_post', $post_id ),
+					'show_in_rest'  => array(
+						'schema' => array(
+							'type'    => 'string',
+							'pattern' => '^$|^[0-9]+$',
+							'default' => '',
+						),
+					),
+				)
+			);
+		}
 	}
 
 	/**
