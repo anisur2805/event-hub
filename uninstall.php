@@ -34,7 +34,7 @@ global $wpdb;
  */
 require_once __DIR__ . '/includes/Migrations.php';
 
-\Migrations::uninstall();
+\EventHub\Migrations::uninstall();
 
 /*
  * Plugin options beyond the schema version: the §2.1 email-confirmation
@@ -79,12 +79,26 @@ $wpdb->query(
 		'eh_reminder_hours', 'eh_status', 'eh_status_generation' )"
 );
 
-// Un-schedule the series horizon cron (Series_Engine::CRON_HOOK) and the
-// reminder tick (Reminders::CRON_HOOK). An orphaned schedule is harmless
-// (core drops hooks for inactive plugins) but leaves cron clutter; explicit
-// removal keeps the site clean.
+// Delete orphaned eh_event_category terms. wp_delete_post detaches terms
+// from the deleted posts but leaves the term rows; a re-install would
+// resurrect the old categories, so remove them explicitly (term + taxonomy
+// relationships; tc_ids are internal row ids, not user input).
+$event_hub_term_ids = $wpdb->get_col(
+	"SELECT term_id FROM {$wpdb->term_taxonomy} WHERE taxonomy = 'eh_event_category'"
+);
+
+foreach ( (array) $event_hub_term_ids as $event_hub_term_id ) {
+	wp_delete_term( (int) $event_hub_term_id, 'eh_event_category' );
+}
+
+// Un-schedule the series horizon cron (Series_Engine::CRON_HOOK), the
+// reminder tick (Reminders::CRON_HOOK) and the migration tick
+// (Migrations::CRON_HOOK). An orphaned schedule is harmless (core drops
+// hooks for inactive plugins) but leaves cron clutter; explicit removal
+// keeps the site clean.
 wp_clear_scheduled_hook( 'event_hub_series_tick' );
 wp_clear_scheduled_hook( 'event_hub_reminders_tick' );
+wp_clear_scheduled_hook( 'event_hub_migrate_cron' );
 
 // Flush the ICS rewrite endpoint (and CPT rewrites) out of the stored rules;
 // core regenerates on the next request.
