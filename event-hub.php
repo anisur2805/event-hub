@@ -22,7 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 define( 'EVENT_HUB_VERSION', '1.0.0' );
-define( 'EVENT_HUB_DB_VERSION', '1.4.0' );
+define( 'EVENT_HUB_DB_VERSION', '1.5.0' );
 define( 'EVENT_HUB_FILE', __FILE__ );
 define( 'EVENT_HUB_DIR', plugin_dir_path( __FILE__ ) );
 define( 'EVENT_HUB_URL', plugin_dir_url( __FILE__ ) );
@@ -67,13 +67,14 @@ function event_hub_bootstrap(): void {
 add_action( 'plugins_loaded', 'event_hub_bootstrap' );
 
 /**
- * Deactivation: un-schedule the series horizon cron. Registered top-level
- * per the lifecycle guardrails (activation/deactivation hooks are fragile
- * inside other hooks).
+ * Deactivation: un-schedule the series horizon cron and the reminders tick.
+ * Registered top-level per the lifecycle guardrails (activation/deactivation
+ * hooks are fragile inside other hooks).
  *
  * @return void
  */
 function event_hub_deactivate(): void {
 	EventHub\Plugin::instance()->series_engine()->deactivate();
+	EventHub\Plugin::instance()->reminders()->deactivate();
 }
 register_deactivation_hook( __FILE__, 'event_hub_deactivate' );

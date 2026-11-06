@@ -153,4 +153,226 @@ final class Notifier {
 
 		return is_bool( $sent ) ? $sent : false;
 	}
+
+	/**
+	 * Sends the pre-event reminder email (ROADMAP 5.2). Same contract as
+	 * send_confirmation: never throws, false on any refusal; the caller
+	 * stamps `reminded_at` only when this returns true.
+	 *
+	 * @param array<string,mixed> $rsvp     Repository row (name, email, status).
+	 * @param int                 $event_id Event post ID.
+	 * @return bool True when wp_mail accepted the message.
+	 */
+	public static function send_reminder( array $rsvp, int $event_id ): bool {
+		$email = (string) ( $rsvp['email'] ?? '' );
+
+		if ( '' === $email || false === is_email( $email ) ) {
+			return false;
+		}
+
+		$event = get_post( $event_id );
+
+		if ( ! $event instanceof \WP_Post || 'eh_event' !== $event->post_type ) {
+			return false;
+		}
+
+		$event_title = html_entity_decode( get_the_title( $event ), ENT_QUOTES, 'UTF-8' );
+
+		$subject = sprintf(
+			/* translators: %s: event title. */
+			__( 'Reminder: %s is coming up', 'event-hub' ),
+			$event_title
+		);
+
+		$rows = array(
+			sprintf( /* translators: %s: attendee name. */ __( 'Name: %s', 'event-hub' ), (string) ( $rsvp['name'] ?? '' ) ),
+			sprintf(
+				/* translators: %s: attendance status (going / waitlist). */
+				__( 'Status: %s', 'event-hub' ),
+				'waitlist' === ( $rsvp['status'] ?? '' )
+					? __( 'Waitlist', 'event-hub' )
+					: __( 'Going', 'event-hub' )
+			),
+		);
+
+		$rows[] = self::start_line( $event_id );
+
+		$message = implode(
+			"\r\n",
+			array_merge(
+				$rows,
+				array(
+					'',
+					__( 'We look forward to seeing you.', 'event-hub' ),
+					'',
+					sprintf(
+						/* translators: %s: site name. */
+						__( '— %s', 'event-hub' ),
+						wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES )
+					),
+				)
+			)
+		);
+
+		return self::dispatch( $email, $subject, $message );
+	}
+
+	/**
+	 * Sends the cancellation notice to the attendee whose RSVP was removed
+	 * (their own action via the manage page — a confirmation, not an alert).
+	 *
+	 * @param array<string,mixed> $deleted  The removed RSVP row.
+	 * @param int                 $event_id Event post ID.
+	 * @return bool True when wp_mail accepted the message.
+	 */
+	public static function send_cancel_notice( array $deleted, int $event_id ): bool {
+		$email = (string) ( $deleted['email'] ?? '' );
+
+		if ( '' === $email || false === is_email( $email ) ) {
+			return false;
+		}
+
+		$event = get_post( $event_id );
+
+		if ( ! $event instanceof \WP_Post || 'eh_event' !== $event->post_type ) {
+			return false;
+		}
+
+		$subject = sprintf(
+			/* translators: %s: event title. */
+			__( 'Your RSVP was cancelled: %s', 'event-hub' ),
+			html_entity_decode( get_the_title( $event ), ENT_QUOTES, 'UTF-8' )
+		);
+
+		$message = implode(
+			"\r\n",
+			array(
+				sprintf( /* translators: %s: attendee name. */ __( 'Name: %s', 'event-hub' ), (string) ( $deleted['name'] ?? '' ) ),
+				self::start_line( $event_id ),
+				'',
+				__( 'Your registration has been removed and your seats are free again. You can RSVP again at any time while the event is open.', 'event-hub' ),
+				'',
+				sprintf(
+					/* translators: %s: site name. */
+					__( '— %s', 'event-hub' ),
+					wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES )
+				),
+			)
+		);
+
+		return self::dispatch( $email, $subject, $message );
+	}
+
+	/**
+	 * Sends the new-RSVP notice to the organizer (author of the event post).
+	 *
+	 * @param array<string,mixed> $rsvp     The created RSVP row.
+	 * @param int                 $event_id Event post ID.
+	 * @return bool True when wp_mail accepted the message.
+	 */
+	public static function send_organizer_notice( array $rsvp, int $event_id ): bool {
+		$event = get_post( $event_id );
+
+		if ( ! $event instanceof \WP_Post || 'eh_event' !== $event->post_type ) {
+			return false;
+		}
+
+		$organizer_id = (int) $event->post_author;
+
+		if ( $organizer_id < 1 ) {
+			return false;
+		}
+
+		$organizer = get_userdata( $organizer_id );
+
+		if ( false === $organizer || '' === (string) $organizer->user_email ) {
+			return false;
+		}
+
+		$event_title = html_entity_decode( get_the_title( $event ), ENT_QUOTES, 'UTF-8' );
+
+		$subject = sprintf(
+			/* translators: 1: attendee name, 2: event title. */
+			__( 'New RSVP: %1$s for %2$s', 'event-hub' ),
+			(string) ( $rsvp['name'] ?? '' ),
+			$event_title
+		);
+
+		$message = implode(
+			"\r\n",
+			array(
+				sprintf( /* translators: %s: attendee name. */ __( 'Name: %s', 'event-hub' ), (string) ( $rsvp['name'] ?? '' ) ),
+				sprintf( /* translators: %s: attendee email. */ __( 'Email: %s', 'event-hub' ), (string) ( $rsvp['email'] ?? '' ) ),
+				sprintf(
+					/* translators: %s: attendance status (going / waitlist). */
+					__( 'Status: %s', 'event-hub' ),
+					'waitlist' === ( $rsvp['status'] ?? '' )
+						? __( 'Waitlist', 'event-hub' )
+						: __( 'Going', 'event-hub' )
+				),
+				sprintf(
+					/* translators: %s: number of seats. */
+					__( 'Seats: %s', 'event-hub' ),
+					(string) number_format_i18n( isset( $rsvp['guests'] ) ? max( 1, (int) $rsvp['guests'] ) : 1 )
+				),
+				'',
+				sprintf(
+					/* translators: %s: admin RSVP manager URL. */
+					__( 'Manage RSVPs: %s', 'event-hub' ),
+					admin_url( 'admin.php?page=event-hub-rsvps&event=' . $event_id )
+				),
+			)
+		);
+
+		return self::dispatch( (string) $organizer->user_email, $subject, $message );
+	}
+
+	/**
+	 * The formatted "Starts: …" line for an event's stored start meta, or the
+	 * raw value when unparseable; '' when the event has no start (reminder
+	 * and cancel bodies skip the line entirely then — callers append as-is).
+	 *
+	 * @param int $event_id Event post ID.
+	 * @return string Ready-to-print line ('' when no start exists).
+	 */
+	private static function start_line( int $event_id ): string {
+		$start = get_post_meta( $event_id, 'eh_start', true );
+
+		if ( ! is_string( $start ) || '' === trim( $start ) ) {
+			return '';
+		}
+
+		$datetime = date_create_immutable_from_format( 'Y-m-d H:i:s', $start, wp_timezone() );
+
+		return sprintf(
+			/* translators: %s: event start date and time. */
+			__( 'Starts: %s', 'event-hub' ),
+			false !== $datetime
+				? $datetime->format( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ) )
+				: $start
+		);
+	}
+
+	/**
+	 * Sends with the shared per-send SMTP timeout guard. Never throws.
+	 *
+	 * @param string $to      Recipient.
+	 * @param string $subject Subject.
+	 * @param string $message Plain-text body.
+	 * @return bool True when wp_mail accepted the message.
+	 */
+	private static function dispatch( string $to, string $subject, string $message ): bool {
+		$timeout_hook = static function ( \PHPMailer\PHPMailer\PHPMailer $phpmailer ): void {
+			// PHPMailer's typed property is camelCase by class design.
+			$phpmailer->Timeout = self::TIMEOUT; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase -- third-party property name.
+		};
+
+		add_action( 'phpmailer_init', $timeout_hook );
+
+		$sent = wp_mail( $to, $subject, $message );
+
+		remove_action( 'phpmailer_init', $timeout_hook );
+
+		return is_bool( $sent ) ? $sent : false;
+	}
 }

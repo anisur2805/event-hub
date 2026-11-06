@@ -47,6 +47,7 @@ interface EventHubEventMeta {
 	eh_series_interval?: string;
 	eh_series_byweekday?: string;
 	eh_series_until?: string;
+	eh_reminder_hours?: string;
 	[ key: string ]: unknown;
 }
 
@@ -276,6 +277,10 @@ function EventDetailsFields(): ReactElement {
 			: '';
 	const seriesUntilRaw =
 		typeof meta.eh_series_until === 'string' ? meta.eh_series_until : '';
+	const reminderHoursRaw =
+		typeof meta.eh_reminder_hours === 'string'
+			? meta.eh_reminder_hours
+			: '';
 
 	const limited = CAPACITY_PATTERN.test( capacityRaw );
 
@@ -424,6 +429,26 @@ function EventDetailsFields(): ReactElement {
 					onChange={ ( next ) => update( 'eh_venue', next ) }
 					help={ __(
 						'Used when no venue is selected above (shown on cards and the event page).',
+						'event-hub'
+					) }
+				/>
+			</PanelRow>
+			<PanelRow>
+				<TextControl
+					label={ __( 'Reminder (hours before start)', 'event-hub' ) }
+					type="number"
+					min={ 0 }
+					step={ 1 }
+					value={ reminderHoursRaw }
+					onChange={ ( next ) => {
+						const value = String( next ?? '' );
+
+						if ( '' === value || /^\d+$/.test( value ) ) {
+							update( 'eh_reminder_hours', value );
+						}
+					} }
+					help={ __(
+						'Attendees get a reminder email this many hours before the start. Empty = 24. 0 = no reminder.',
 						'event-hub'
 					) }
 				/>

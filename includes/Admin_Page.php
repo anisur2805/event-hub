@@ -79,6 +79,14 @@ final class Admin_Page {
 
 		update_option( Notifier::OPTION, 'on' === $enabled );
 
+		$notify = isset( $_POST['event_hub_notifications'] )
+			? sanitize_key( wp_unslash( (string) $_POST['event_hub_notifications'] ) )
+			: '';
+
+		// Organizer/cancel notices ride the same master switch as reminders:
+		// one Notifications toggle governs all 5.2 email paths.
+		update_option( Reminders::OPTION, 'on' === $notify );
+
 		wp_safe_redirect(
 			add_query_arg(
 				array( 'eh_settings' => 'saved' ),
@@ -214,6 +222,7 @@ final class Admin_Page {
 		}
 
 		$confirmations = Notifier::enabled();
+		$notifications = Reminders::enabled();
 		?>
 		<div class="wrap event-hub-admin-page">
 			<h1><?php echo esc_html( get_admin_page_title() ); ?></h1>
@@ -249,6 +258,21 @@ final class Admin_Page {
 									<?php checked( $confirmations ); ?>
 								/>
 								<?php esc_html_e( 'Send RSVP confirmation emails with a manage-booking link', 'event-hub' ); ?>
+							</label>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Notifications', 'event-hub' ); ?></th>
+						<td>
+							<label for="event-hub-notifications">
+								<input
+									type="checkbox"
+									id="event-hub-notifications"
+									name="event_hub_notifications"
+									value="on"
+									<?php checked( $notifications ); ?>
+								/>
+								<?php esc_html_e( 'Email attendees a reminder before the event, a cancellation notice, and organizers each new RSVP', 'event-hub' ); ?>
 							</label>
 						</td>
 					</tr>

@@ -75,6 +75,7 @@ final class Migrations {
 	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	checked_in_at DATETIME NULL DEFAULT NULL,
 	manage_token CHAR(64) NULL DEFAULT NULL,
+	reminded_at DATETIME NULL DEFAULT NULL,
 	PRIMARY KEY  (id),
 	UNIQUE KEY uniq_event_email (event_id, email),
 	KEY manage_token (manage_token)

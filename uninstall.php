@@ -38,10 +38,12 @@ require_once __DIR__ . '/includes/Migrations.php';
 
 /*
  * Plugin options beyond the schema version: the §2.1 email-confirmation
- * toggle. (Names must be hardcoded — the Notifier class is not loaded and
- * must not be, per the autoload note above.)
+ * toggle and the §5.2 notifications toggle. (Names must be hardcoded — the
+ * Notifier / Reminders classes are not loaded and must not be, per the
+ * autoload note above.)
  */
 delete_option( 'event_hub_confirmations' );
+delete_option( 'event_hub_notifications' );
 
 // Delete all eh_event posts (forcing deletion skips the trash). Children
 // (series occurrences) are eh_event posts too — deleted by the same sweep.
@@ -73,13 +75,16 @@ $wpdb->query(
 		WHERE meta_key IN ( 'eh_start', 'eh_end', 'eh_venue', 'eh_capacity',
 		'eh_rsvp_open_hours', 'eh_rsvp_close_hours', 'eh_series_freq',
 		'eh_series_interval', 'eh_series_byweekday', 'eh_series_until',
-		'eh_venue_id', 'eh_organizer_id', 'eh_venue_address' )"
+		'eh_venue_id', 'eh_organizer_id', 'eh_venue_address',
+		'eh_reminder_hours' )"
 );
 
-// Un-schedule the series horizon cron (Series_Engine::CRON_HOOK). An orphaned
-// schedule is harmless (core drops hooks for inactive plugins) but leaves
-// cron clutter; explicit removal keeps the site clean.
+// Un-schedule the series horizon cron (Series_Engine::CRON_HOOK) and the
+// reminder tick (Reminders::CRON_HOOK). An orphaned schedule is harmless
+// (core drops hooks for inactive plugins) but leaves cron clutter; explicit
+// removal keeps the site clean.
 wp_clear_scheduled_hook( 'event_hub_series_tick' );
+wp_clear_scheduled_hook( 'event_hub_reminders_tick' );
 
 // Flush the ICS rewrite endpoint (and CPT rewrites) out of the stored rules;
 // core regenerates on the next request.

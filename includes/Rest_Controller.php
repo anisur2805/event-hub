@@ -488,6 +488,15 @@ final class Rest_Controller {
 			Notifier::send_confirmation( $result['rsvp'], $event_id, $result['manage_token'] );
 		}
 
+		/**
+		 * A new RSVP row was persisted (ROADMAP 5.2). Fired after the write
+		 * commits and outside any lock; listeners may email/log freely.
+		 *
+		 * @param array<string,mixed> $rsvp     The created RSVP row.
+		 * @param int                 $event_id Event post ID.
+		 */
+		do_action( 'event_hub_rsvp_created', $result['rsvp'], $event_id );
+
 		return new WP_REST_Response(
 			array(
 				// Public 201 body: counts only + non-PII rsvp echo (docs/API.md).

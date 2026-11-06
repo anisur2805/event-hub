@@ -485,6 +485,22 @@ final class Rsvp_Repository {
 			do_action( 'event_hub_rsvp_promoted', $result['promoted'], $event_id );
 		}
 
+		/*
+		 * Post-try, a row was provably deleted: every path that removes
+		 * nothing returns earlier (pre-lock no-row, in-lock concurrent
+		 * delete, DB errors). The WP_Error paths also return before here,
+		 * so a committed-but-errored delete (promotion failure) reports its
+		 * error without claiming a clean cancellation (#34 asymmetry).
+		 *
+		 * An RSVP row was removed from an event (attendee cancel via the
+		 * manage page, or an admin delete). Fired after RELEASE_LOCK —
+		 * listeners may email/log freely.
+		 *
+		 * @param array<string,mixed> $deleted  The removed RSVP row.
+		 * @param int                 $event_id Event post ID.
+		 */
+		do_action( 'event_hub_rsvp_cancelled', $result['deleted'], $event_id );
+
 		return $result;
 	}
 
@@ -547,6 +563,92 @@ final class Rsvp_Repository {
 		}
 
 		return $row;
+	}
+
+	/**
+	 * Rows due for the pre-event reminder (ROADMAP 5.2): going/waitlist rows
+	 * of UPCOMING events whose start falls inside the reminder window
+	 * (event-dependent, passed as an ID list), that have never been reminded.
+	 * The caller supplies the event-ID set after resolving per-event windows;
+	 * this method only bounds and fetches (per-event clock logic lives in
+	 * Reminders).
+	 *
+	 * @param array<int,int> $event_ids Upcoming event IDs inside their window.
+	 * @param int            $limit     Max rows to return.
+	 * @return array<int,array<string,mixed>> RSVP rows keyed by id.
+	 */
+	public function list_for_reminder( array $event_ids, int $limit = 100 ): array {
+		global $wpdb;
+
+		$event_ids = array_values(
+			array_unique(
+				array_filter(
+					array_map( 'absint', $event_ids ),
+					static fn ( int $id ): bool => $id > 0
+				)
+			)
+		);
+
+		if ( array() === $event_ids || $limit < 1 ) {
+			return array();
+		}
+
+		$table        = $this->table();
+		$placeholders = implode( ', ', array_fill( 0, count( $event_ids ), '%d' ) );
+		$limit        = min( 500, $limit );
+
+		$query = "SELECT * FROM {$table}
+			WHERE event_id IN ( {$placeholders} )
+			  AND reminded_at IS NULL
+			ORDER BY id ASC
+			LIMIT %d";
+
+		$rows = $wpdb->get_results(
+			$wpdb->prepare( $query, array_merge( $event_ids, array( $limit ) ) ), // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $table from $wpdb->prefix; IN placeholders counted above.
+			ARRAY_A
+		);
+
+		if ( ! is_array( $rows ) ) {
+			return array();
+		}
+
+		$indexed = array();
+
+		foreach ( $rows as $row ) {
+			$indexed[ (int) $row['id'] ] = $row;
+		}
+
+		return $indexed;
+	}
+
+	/**
+	 * Stamps an RSVP as reminded. Single-column UPDATE by PK (same pooled
+	 * pattern as set_checked_in: no capacity math consumes reminded_at, so
+	 * no advisory lock).
+	 *
+	 * @param int $id RSVP row ID.
+	 * @return bool True when a row was stamped (false: gone / no update).
+	 */
+	public function mark_reminded( int $id ): bool {
+		global $wpdb;
+
+		$table = $this->table();
+
+		$update_query = "UPDATE {$table} SET reminded_at = %s WHERE id = %d AND reminded_at IS NULL";
+
+		$suppress = $wpdb->suppress_errors( true );
+
+		try {
+			$updated = (int) $wpdb->query(
+				$wpdb->prepare( $update_query, current_time( 'mysql' ), $id ) // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $table from $wpdb->prefix.
+			);
+
+			$error = (string) $wpdb->last_error;
+		} finally {
+			$wpdb->suppress_errors( $suppress );
+		}
+
+		return $updated > 0 && '' === $error;
 	}
 
 	/**

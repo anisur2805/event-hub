@@ -42,12 +42,20 @@ final class Plugin {
 	private Series_Engine $series_engine;
 
 	/**
+	 * Pre-event reminder cron.
+	 *
+	 * @var Reminders
+	 */
+	private Reminders $reminders;
+
+	/**
 	 * Creates the instance and wires the object graph. Private: bootstrap owns
 	 * the single instance.
 	 */
 	private function __construct() {
 		$this->repository    = new Rsvp_Repository();
 		$this->series_engine = new Series_Engine();
+		$this->reminders     = new Reminders();
 	}
 
 	/**
@@ -79,6 +87,15 @@ final class Plugin {
 	 */
 	public function series_engine(): Series_Engine {
 		return $this->series_engine;
+	}
+
+	/**
+	 * Reminders accessor (deactivation hook un-schedules its cron).
+	 *
+	 * @return Reminders
+	 */
+	public function reminders(): Reminders {
+		return $this->reminders;
 	}
 
 	/**
@@ -126,6 +143,33 @@ final class Plugin {
 		$admin_columns->boot();
 
 		$this->series_engine->boot();
+		$this->reminders->boot();
+
+		/*
+		 * Notifications (ROADMAP 5.2). The organizer notice rides a dedicated
+		 * action fired in Rest_Controller's 201 path (after the RSVP write
+		 * commits — never inside a lock); the cancel notice rides the
+		 * repository-side cancelled action. Both degrade silently when mail
+		 * is off: wp_mail failures never touch API responses (Notifier
+		 * contract, DECISIONS #39).
+		 */
+		add_action(
+			'event_hub_rsvp_created',
+			static function ( array $rsvp, int $event_id ): void {
+				Notifier::send_organizer_notice( $rsvp, $event_id );
+			},
+			10,
+			2
+		);
+
+		add_action(
+			'event_hub_rsvp_cancelled',
+			static function ( array $deleted, int $event_id ): void {
+				Notifier::send_cancel_notice( $deleted, $event_id );
+			},
+			10,
+			2
+		);
 
 		$editor_panel = new Editor_Panel();
 		$editor_panel->boot();
@@ -336,6 +380,30 @@ final class Plugin {
 				'show_in_rest'  => array(
 					'schema' => array(
 						'type'    => 'string',
+						'default' => '',
+					),
+				),
+			)
+		);
+
+		/*
+		 * Reminder window (ROADMAP 5.2): hours before eh_start. Same
+		 * digits-only save-time schema as eh_capacity (BUG 5 pattern);
+		 * Reminders::window_hours() is the read-side twin. '0' = reminders
+		 * off for this event ('0' IS digits; junk = 24h default).
+		 */
+		register_post_meta(
+			'eh_event',
+			Reminders::HOURS_META,
+			array(
+				'type'          => 'string',
+				'single'        => true,
+				'description'   => __( 'Hours before start when reminder emails go out. Empty = 24. Zero = no reminders. (ROADMAP 5.2)', 'event-hub' ),
+				'auth_callback' => static fn ( bool $allowed, string $meta_key, int $post_id ): bool => current_user_can( 'edit_post', $post_id ),
+				'show_in_rest'  => array(
+					'schema' => array(
+						'type'    => 'string',
+						'pattern' => '^$|^[0-9]+$',
 						'default' => '',
 					),
 				),
