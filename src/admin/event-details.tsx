@@ -15,6 +15,7 @@
  * module runs.
  */
 import {
+	ComboboxControl,
 	DateTimePicker,
 	Notice,
 	PanelRow,
@@ -25,6 +26,7 @@ import {
 import type { ReactElement, ReactNode } from 'react';
 
 import { useEntityProp } from '@wordpress/core-data';
+import { useSelect } from '@wordpress/data';
 import { __ } from '@wordpress/i18n';
 
 /**
@@ -36,6 +38,8 @@ interface EventHubEventMeta {
 	eh_start?: string;
 	eh_end?: string;
 	eh_venue?: string;
+	eh_venue_id?: string;
+	eh_organizer_id?: string;
 	eh_capacity?: string;
 	eh_rsvp_open_hours?: string;
 	eh_rsvp_close_hours?: string;
@@ -73,6 +77,39 @@ interface WpEditorRuntime {
 }
 
 const wp = ( window as unknown as { wp?: WpEditorRuntime } ).wp;
+
+/** One selectable entry of the venue/organizer comboboxes. */
+interface ComboboxOption {
+	value: string;
+	label: string;
+}
+
+/**
+ * Combobox options for a linked-entity selector: the published entities plus
+ * a flagged placeholder when the stored ID is not among them (unpublished or
+ * deleted — the selection stays visible and clearable, never silently
+ * snapped to another entity).
+ *
+ * @param storedId Stored meta ID ('' = nothing selected).
+ * @param options  Published-entity options.
+ * @param fallback Placeholder label for a stored-but-missing ID.
+ * @return Option list for ComboboxControl.
+ */
+function withStored(
+	storedId: string,
+	options: Array< ComboboxOption >,
+	fallback: string
+): Array< ComboboxOption > {
+	if ( '' === storedId ) {
+		return options;
+	}
+
+	if ( options.some( ( option ) => option.value === storedId ) ) {
+		return options;
+	}
+
+	return [ { value: storedId, label: fallback }, ...options ];
+}
 
 /**
  * Normalizes any accepted stored format ('Y-m-d H:i:s' or 'Y-m-dTH:i:s',
@@ -161,6 +198,51 @@ function EventDetailsFields(): ReactElement {
 	const meta: EventHubEventMeta = entityMeta ?? {};
 
 	const venue = typeof meta.eh_venue === 'string' ? meta.eh_venue : '';
+	const venueIdRaw =
+		typeof meta.eh_venue_id === 'string' ? meta.eh_venue_id : '';
+	const organizerIdRaw =
+		typeof meta.eh_organizer_id === 'string' ? meta.eh_organizer_id : '';
+
+	// Linked-entity pickers (5.1): published entities only, so a selection is
+	// always a value the front-end resolver will honor. getEntityRecords is
+	// typed through a minimal facade (the store descriptor string form is
+	// not resolved by @wordpress/data's generic types here).
+	const { venueOptions, organizerOptions } = useSelect( ( select ) => {
+		const core = select( 'core' ) as {
+			getEntityRecords: (
+				kind: string,
+				name: string,
+				query?: Record< string, unknown >
+			) => Array< { id: number; title: { rendered: string } } > | null;
+		};
+
+		const toOptions = (
+			records: Array< { id: number; title: { rendered: string } } > | null
+		): Array< ComboboxOption > =>
+			( records ?? [] ).map( ( record ) => ( {
+				value: String( record.id ),
+				label: record.title.rendered || String( record.id ),
+			} ) );
+
+		return {
+			venueOptions: toOptions(
+				core.getEntityRecords( 'postType', 'eh_venue', {
+					status: 'publish',
+					per_page: 100,
+					orderby: 'title',
+					order: 'asc',
+				} )
+			),
+			organizerOptions: toOptions(
+				core.getEntityRecords( 'postType', 'eh_organizer', {
+					status: 'publish',
+					per_page: 100,
+					orderby: 'title',
+					order: 'asc',
+				} )
+			),
+		};
+	}, [] );
 	const startRaw = typeof meta.eh_start === 'string' ? meta.eh_start : '';
 	const endRaw = typeof meta.eh_end === 'string' ? meta.eh_end : '';
 	const capacityRaw =
@@ -292,8 +374,48 @@ function EventDetailsFields(): ReactElement {
 				</Notice>
 			) }
 			<PanelRow>
-				<TextControl
+				<ComboboxControl
 					label={ __( 'Venue', 'event-hub' ) }
+					value={ venueIdRaw }
+					options={ withStored(
+						venueIdRaw,
+						venueOptions,
+						__(
+							'Selected venue (unpublished or deleted)',
+							'event-hub'
+						)
+					) }
+					onChange={ ( next ) => update( 'eh_venue_id', next ?? '' ) }
+					help={ __(
+						'Reuse a venue across events. Manage venues under Events → Venues.',
+						'event-hub'
+					) }
+				/>
+			</PanelRow>
+			<PanelRow>
+				<ComboboxControl
+					label={ __( 'Organizer', 'event-hub' ) }
+					value={ organizerIdRaw }
+					options={ withStored(
+						organizerIdRaw,
+						organizerOptions,
+						__(
+							'Selected organizer (unpublished or deleted)',
+							'event-hub'
+						)
+					) }
+					onChange={ ( next ) =>
+						update( 'eh_organizer_id', next ?? '' )
+					}
+					help={ __(
+						'Reuse an organizer across events. Manage organizers under Events → Organizers.',
+						'event-hub'
+					) }
+				/>
+			</PanelRow>
+			<PanelRow>
+				<TextControl
+					label={ __( 'Venue note (free text)', 'event-hub' ) }
 					value={ venue }
 					placeholder={ __(
 						'e.g. Hall B, 12 Mercer St',
@@ -301,7 +423,7 @@ function EventDetailsFields(): ReactElement {
 					) }
 					onChange={ ( next ) => update( 'eh_venue', next ) }
 					help={ __(
-						'Shown on the event page and event cards.',
+						'Used when no venue is selected above (shown on cards and the event page).',
 						'event-hub'
 					) }
 				/>

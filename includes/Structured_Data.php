@@ -115,12 +115,43 @@ final class Structured_Data {
 			$event['image'] = $image;
 		}
 
-		$venue = trim( (string) $s['venue'] );
+		// Location (5.1): a linked venue enriches the Place with its address;
+		// the legacy free-text venue falls back to a name-only Place.
+		$venue_id = Render_Blocks::linked_entity( (int) $s['id'], 'eh_venue_id', 'eh_venue' );
 
-		if ( '' !== $venue ) {
-			$event['location'] = array(
+		if ( 0 !== $venue_id['id'] ) {
+			$location = array(
 				'@type' => 'Place',
-				'name'  => $venue,
+				'name'  => $venue_id['title'],
+			);
+
+			$address = trim( (string) get_post_meta( $venue_id['id'], 'eh_venue_address', true ) );
+
+			if ( '' !== $address ) {
+				$location['address'] = $address;
+			}
+
+			$event['location'] = $location;
+		} else {
+			$venue = trim( (string) $s['venue'] );
+
+			if ( '' !== $venue ) {
+				$event['location'] = array(
+					'@type' => 'Place',
+					'name'  => $venue,
+				);
+			}
+		}
+
+		// Organizer (5.1): emitted only when an organizer entity is linked —
+		// never fabricated from the legacy string (DECISIONS #36 honesty rule:
+		// Person vs Organization cannot be inferred from free text).
+		$organizer = Render_Blocks::linked_entity( (int) $s['id'], 'eh_organizer_id', 'eh_organizer' );
+
+		if ( 0 !== $organizer['id'] ) {
+			$event['organizer'] = array(
+				'@type' => 'Organization',
+				'name'  => $organizer['title'],
 			);
 		}
 

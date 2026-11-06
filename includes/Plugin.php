@@ -221,6 +221,63 @@ final class Plugin {
 				),
 			)
 		);
+
+		/*
+		 * Venue + Organizer entities (ROADMAP 5.1): reusable, editor-managed,
+		 * events link one of each via eh_venue_id / eh_organizer_id meta.
+		 * public ⇒ REST headless reads work; publicly_queryable ⇒ false means
+		 * NO front-end routes (and no permalinks — JSON-LD therefore never
+		 * fabricates entity URLs). No rewrites ⇒ no flush needed.
+		 */
+		register_post_type(
+			'eh_venue',
+			array(
+				'labels'             => array(
+					'name'          => __( 'Venues', 'event-hub' ),
+					'singular_name' => __( 'Venue', 'event-hub' ),
+					'add_new_item'  => __( 'Add New Venue', 'event-hub' ),
+					'edit_item'     => __( 'Edit Venue', 'event-hub' ),
+					'search_items'  => __( 'Search Venues', 'event-hub' ),
+					'not_found'     => __( 'No venues found', 'event-hub' ),
+					'all_items'     => __( 'All Venues', 'event-hub' ),
+					'menu_name'     => __( 'Venues', 'event-hub' ),
+				),
+				'public'             => true,
+				'publicly_queryable' => false,
+				'show_in_rest'       => true,
+				'rest_base'          => 'venues',
+				'show_ui'            => true,
+				'show_in_menu'       => 'edit.php?post_type=eh_event',
+				'supports'           => array( 'title', 'editor', 'thumbnail', 'custom-fields' ),
+				'capability_type'    => 'post',
+				'map_meta_cap'       => true,
+			)
+		);
+
+		register_post_type(
+			'eh_organizer',
+			array(
+				'labels'             => array(
+					'name'          => __( 'Organizers', 'event-hub' ),
+					'singular_name' => __( 'Organizer', 'event-hub' ),
+					'add_new_item'  => __( 'Add New Organizer', 'event-hub' ),
+					'edit_item'     => __( 'Edit Organizer', 'event-hub' ),
+					'search_items'  => __( 'Search Organizers', 'event-hub' ),
+					'not_found'     => __( 'No organizers found', 'event-hub' ),
+					'all_items'     => __( 'All Organizers', 'event-hub' ),
+					'menu_name'     => __( 'Organizers', 'event-hub' ),
+				),
+				'public'             => true,
+				'publicly_queryable' => false,
+				'show_in_rest'       => true,
+				'rest_base'          => 'organizers',
+				'show_ui'            => true,
+				'show_in_menu'       => 'edit.php?post_type=eh_event',
+				'supports'           => array( 'title', 'editor', 'thumbnail', 'custom-fields' ),
+				'capability_type'    => 'post',
+				'map_meta_cap'       => true,
+			)
+		);
 	}
 
 	/**
@@ -240,6 +297,50 @@ final class Plugin {
 		register_post_meta( 'eh_event', 'eh_start', array( 'description' => __( 'Start datetime (site timezone, Y-m-d H:i:s).', 'event-hub' ) ) + $args );
 		register_post_meta( 'eh_event', 'eh_end', array( 'description' => __( 'End datetime (site timezone, Y-m-d H:i:s).', 'event-hub' ) ) + $args );
 		register_post_meta( 'eh_event', 'eh_venue', array( 'description' => __( 'Venue name.', 'event-hub' ) ) + $args );
+
+		/*
+		 * Linked entities (ROADMAP 5.1): post ID of an eh_venue / eh_organizer
+		 * post, digits-only (same save-time schema as eh_capacity — junk
+		 * writes 400 at the REST meta schema). Read side: Render_Blocks::
+		 * linked_entity() ignores stale/missing IDs and falls back to the
+		 * legacy free-text fields, so an ID never MUST exist.
+		 */
+		foreach ( array( 'eh_venue_id', 'eh_organizer_id' ) as $entity_key ) {
+			register_post_meta(
+				'eh_event',
+				$entity_key,
+				array(
+					'type'          => 'string',
+					'single'        => true,
+					'description'   => __( 'Linked venue or organizer post ID. Empty = not linked. (ROADMAP 5.1)', 'event-hub' ),
+					'auth_callback' => static fn ( bool $allowed, string $meta_key, int $post_id ): bool => current_user_can( 'edit_post', $post_id ),
+					'show_in_rest'  => array(
+						'schema' => array(
+							'type'    => 'string',
+							'pattern' => '^$|^[0-9]+$',
+							'default' => '',
+						),
+					),
+				)
+			);
+		}
+
+		register_post_meta(
+			'eh_venue',
+			'eh_venue_address',
+			array(
+				'type'          => 'string',
+				'single'        => true,
+				'description'   => __( 'Street address of the venue (schema.org location address). (ROADMAP 5.1)', 'event-hub' ),
+				'auth_callback' => static fn ( bool $allowed, string $meta_key, int $post_id ): bool => current_user_can( 'edit_post', $post_id ),
+				'show_in_rest'  => array(
+					'schema' => array(
+						'type'    => 'string',
+						'default' => '',
+					),
+				),
+			)
+		);
 
 		register_post_meta(
 			'eh_event',

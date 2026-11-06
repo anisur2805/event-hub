@@ -653,6 +653,8 @@ final class Series_Engine {
 			'eh_start'            => $child_start->setTimezone( wp_timezone() )->format( 'Y-m-d H:i:s' ),
 			'eh_end'              => $child_end->setTimezone( wp_timezone() )->format( 'Y-m-d H:i:s' ),
 			'eh_venue'            => (string) get_post_meta( $seed_id, 'eh_venue', true ),
+			'eh_venue_id'         => (string) get_post_meta( $seed_id, 'eh_venue_id', true ),
+			'eh_organizer_id'     => (string) get_post_meta( $seed_id, 'eh_organizer_id', true ),
 			'eh_capacity'         => (string) get_post_meta( $seed_id, 'eh_capacity', true ),
 			'eh_rsvp_open_hours'  => (string) get_post_meta( $seed_id, 'eh_rsvp_open_hours', true ),
 			'eh_rsvp_close_hours' => (string) get_post_meta( $seed_id, 'eh_rsvp_close_hours', true ),

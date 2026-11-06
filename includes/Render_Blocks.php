@@ -58,7 +58,7 @@ final class Render_Blocks {
 		$permalink = (string) get_permalink( $post );
 		$excerpt   = wp_strip_all_tags( (string) get_the_excerpt( $post ) );
 		$excerpt   = (string) wp_specialchars_decode( $excerpt, ENT_QUOTES );
-		$venue     = (string) get_post_meta( $post->ID, 'eh_venue', true );
+		$venue     = self::venue_label( $post->ID );
 
 		$repository = Plugin::instance()->repository();
 		$counts     = $repository->counts( $post->ID );
@@ -103,6 +103,55 @@ final class Render_Blocks {
 			'cutoffNotOpen'  => $cutoffs['not_open'],
 			'categories'     => $categories,
 			'category_names' => $category_names,
+		);
+	}
+
+	/**
+	 * The venue string every display surface shows (ROADMAP 5.1): the linked
+	 * eh_venue post's title when `eh_venue_id` points at a published venue,
+	 * else the legacy free-text `eh_venue` meta. One read path so cards,
+	 * admin columns, REST and CLI can never drift.
+	 *
+	 * @param int $event_id Event post ID.
+	 * @return string Venue label ('' when unset).
+	 */
+	public static function venue_label( int $event_id ): string {
+		$linked = self::linked_entity( $event_id, 'eh_venue_id', 'eh_venue' );
+
+		return '' !== $linked['title'] ? $linked['title'] : (string) get_post_meta( $event_id, 'eh_venue', true );
+	}
+
+	/**
+	 * Resolves a linked-entity meta ID to its published post, ignoring stale
+	 * or non-existent IDs (fallback lives with the caller). The ID whitelist
+	 * is the digits-only read-side twin of the meta schema pattern.
+	 *
+	 * @param int    $event_id Event post ID.
+	 * @param string $meta_key Meta key holding the ID ('eh_venue_id' | 'eh_organizer_id').
+	 * @param string $post_type Expected entity post type.
+	 * @return array{title:string,id:int} Resolved entity ('' / 0 when unlinked or stale).
+	 */
+	public static function linked_entity( int $event_id, string $meta_key, string $post_type ): array {
+		$empty = array(
+			'title' => '',
+			'id'    => 0,
+		);
+
+		$raw = trim( (string) get_post_meta( $event_id, $meta_key, true ) );
+
+		if ( '' === $raw || ! ctype_digit( $raw ) || (int) $raw < 1 ) {
+			return $empty;
+		}
+
+		$post = get_post( (int) $raw );
+
+		if ( ! $post instanceof WP_Post || $post_type !== $post->post_type || 'publish' !== $post->post_status ) {
+			return $empty;
+		}
+
+		return array(
+			'title' => (string) get_the_title( $post ),
+			'id'    => (int) $post->ID,
 		);
 	}
 

@@ -45,9 +45,11 @@ delete_option( 'event_hub_confirmations' );
 
 // Delete all eh_event posts (forcing deletion skips the trash). Children
 // (series occurrences) are eh_event posts too — deleted by the same sweep.
+// Linked-entity posts (eh_venue / eh_organizer, ROADMAP 5.1) are deleted in
+// the same forced pass; their meta lands in the orphan sweep below.
 $event_hub_post_ids = get_posts(
 	array(
-		'post_type'      => 'eh_event',
+		'post_type'      => array( 'eh_event', 'eh_venue', 'eh_organizer' ),
 		'post_status'    => 'any',
 		'posts_per_page' => - 1,
 		'fields'         => 'ids',
@@ -62,14 +64,16 @@ foreach ( (array) $event_hub_post_ids as $event_hub_post_id ) {
 /*
  * Remove any orphaned event meta left behind by forced deletions — every
  * registered eh_* key: §1 core fields, §2.3/2.4 RSVP fields, §3.2 series
- * keys. Keys are hardcoded literals (no user input exists on this path);
- * must stay in sync with Plugin::register_meta().
+ * keys, §5.1 linked-entity keys and venue address. Keys are hardcoded
+ * literals (no user input exists on this path); must stay in sync with
+ * Plugin::register_meta().
  */
 $wpdb->query(
 	"DELETE FROM {$wpdb->postmeta}
 		WHERE meta_key IN ( 'eh_start', 'eh_end', 'eh_venue', 'eh_capacity',
 		'eh_rsvp_open_hours', 'eh_rsvp_close_hours', 'eh_series_freq',
-		'eh_series_interval', 'eh_series_byweekday', 'eh_series_until' )"
+		'eh_series_interval', 'eh_series_byweekday', 'eh_series_until',
+		'eh_venue_id', 'eh_organizer_id', 'eh_venue_address' )"
 );
 
 // Un-schedule the series horizon cron (Series_Engine::CRON_HOOK). An orphaned
