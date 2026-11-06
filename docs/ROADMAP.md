@@ -211,6 +211,16 @@ code).
   > slotted home). Tests: `Reminders_Test` (7).
 - **5.3 Event status** — Cancelled/Postponed meta surfaced on card + single + JSON-LD
   `eventStatus` (supersedes #36's always-`EventScheduled`).
+
+  > **Done (2026-11-07, DB 1.6.0, docs/DECISIONS.md #49).** `eh_status` enum
+  > meta; Cancelled > Postponed > Past pill ladder (PHP + JS mirror); inert
+  > RSVP form naming the state; 409 `eh_event_cancelled` guard (postponed
+  > stays open); JSON-LD eventStatus + Offer dropped when not scheduled;
+  > reminder stage skips non-scheduled events; ICS STATUS:CANCELLED (+
+  > summary prefixes); generation-counter notice dedupe riding the 5.2
+  > tick (`status_notified_gen` column; re-cancel re-notifies); series
+  > children follow the seed both ways, cancelled seeds pause spawning.
+  > Tests: `Event_Status_Test` (14).
 - **5.4 GDPR** — register WP Privacy `wp_privacy_personal_data_exporters`/`erasers`
   against the `eh_rsvps` table (PII: name, email).
 
@@ -256,4 +266,4 @@ code).
 2. §1.2 hardening — **done, Phase 1**.
 3. §1.3 waitlist promotion — **done, Phase 2**.
 4. §1.1 JSON-LD — **done (2026-11-04)**; was independent, slotted after Phase 2.
-5. Then pick by need: ~~2.1 (email flow; its cancellation now feeds §1.3's promotion)~~ **done (2026-11-04, DB 1.3.0)**; ~~2.2 (check-in)~~ **done (2026-11-04)**; ~~2.4 cutoffs~~ **done (2026-11-05)**; ~~2.3 seats~~ **done (2026-11-05, DB 1.4.0)**; ~~3.1 dashboard~~ **done (2026-11-05)**; ~~3.3 calendar block~~ **done (2026-11-05)**; ~~3.2 recurring events~~ **done (2026-11-05)**. ~~§4 WP-CLI extras~~ **done (2026-11-06)** + findings resolution **done (2026-11-06)**. ~~5.1 venue/organizer~~ **done (2026-11-06)**; ~~5.2 reminders~~ **done (2026-11-06, DB 1.5.0)**. Tier 1 remaining: 5.3 status → 5.4 GDPR, THEN §4 .pot/RTL + PCP re-baseline on final code; §3.4 Woo stays parked.
+5. Then pick by need: ~~2.1 (email flow; its cancellation now feeds §1.3's promotion)~~ **done (2026-11-04, DB 1.3.0)**; ~~2.2 (check-in)~~ **done (2026-11-04)**; ~~2.4 cutoffs~~ **done (2026-11-05)**; ~~2.3 seats~~ **done (2026-11-05, DB 1.4.0)**; ~~3.1 dashboard~~ **done (2026-11-05)**; ~~3.3 calendar block~~ **done (2026-11-05)**; ~~3.2 recurring events~~ **done (2026-11-05)**. ~~§4 WP-CLI extras~~ **done (2026-11-06)** + findings resolution **done (2026-11-06)**. ~~5.1 venue/organizer~~ **done (2026-11-06)**; ~~5.2 reminders~~ **done (2026-11-06, DB 1.5.0)**; ~~5.3 event status~~ **done (2026-11-07, DB 1.6.0)**. Tier 1 remaining: 5.4 GDPR, THEN §4 .pot/RTL + PCP re-baseline on final code; §3.4 Woo stays parked.
