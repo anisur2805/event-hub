@@ -161,6 +161,16 @@ final class Reminders {
 			foreach ( $rows as $row ) {
 				$event_id = (int) $row['event_id'];
 
+				// Anonymized/legacy rows (email without @, ROADMAP 5.4) can
+				// never receive mail: stamp them so no future tick re-examines
+				// (returning false alone would retry forever).
+				if ( false === is_email( (string) ( $row['email'] ?? '' ) ) ) {
+					$repository->mark_reminded( (int) $row['id'] );
+					++$stats['skipped'];
+
+					continue;
+				}
+
 				// A row created after its event's window opened is skipped and
 				// STAMPED: it never qualified for a reminder, and leaving it
 				// unstamped would make every future tick re-examine it.
@@ -323,6 +333,17 @@ final class Reminders {
 
 		foreach ( $rows as $row ) {
 			$event_id = (int) $row['event_id'];
+			$gen      = Event_Status::generation( $event_id );
+
+			// Anonymized/legacy rows (email without @, ROADMAP 5.4) can never
+			// receive mail: stamp them at the current generation so no future
+			// tick re-examines (a false return alone would retry forever).
+			if ( false === is_email( (string) ( $row['email'] ?? '' ) ) ) {
+				$repository->mark_status_notified( (int) $row['id'], $gen );
+				++$stats['skipped'];
+
+				continue;
+			}
 
 			$sent = Notifier::send_status_change( $row, $event_id );
 
@@ -331,8 +352,6 @@ final class Reminders {
 
 				continue; // Mail outage: retried next tick, unstamped.
 			}
-
-			$gen = Event_Status::generation( $event_id );
 
 			if ( $repository->mark_status_notified( (int) $row['id'], $gen ) ) {
 				++$stats['sent'];

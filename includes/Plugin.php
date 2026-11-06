@@ -139,6 +139,9 @@ final class Plugin {
 		$csv_exporter = new Csv_Exporter( $this->repository );
 		$csv_exporter->boot();
 
+		$privacy = new Privacy();
+		$privacy->boot();
+
 		$admin_columns = new Admin_Columns();
 		$admin_columns->boot();
 

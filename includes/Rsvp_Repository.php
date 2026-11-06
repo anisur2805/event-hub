@@ -746,6 +746,90 @@ final class Rsvp_Repository {
 	}
 
 	/**
+	 * All rows for one email address (privacy exporter/eraser surface,
+	 * ROADMAP 5.4). Exact match on the stored (sanitized-lowercase) address;
+	 * ordered oldest-first so the export reads chronologically.
+	 *
+	 * @param string $email Requested email (sanitized by the caller).
+	 * @return array<int,array<string,mixed>>
+	 */
+	public function list_by_email( string $email ): array {
+		global $wpdb;
+
+		$email = trim( $email );
+
+		if ( '' === $email ) {
+			return array();
+		}
+
+		$table = $this->table();
+
+		$rows = $wpdb->get_results(
+			$wpdb->prepare( "SELECT * FROM {$table} WHERE email = %s ORDER BY id ASC", $email ), // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $table from $wpdb->prefix, $email bound.
+			ARRAY_A
+		);
+
+		return is_array( $rows ) ? $rows : array();
+	}
+
+	/**
+	 * Anonymizes one RSVP row in place (privacy eraser, ROADMAP 5.4):
+	 * name → a redacted placeholder, email → 'erased-{id}' (unique per row,
+	 * UNIQUE-key safe; deliberately NO @ so is_email() rejects it — the
+	 * mail sweeps' self-healing guard stamps such rows never to be
+	 * re-examined), manage_token → NULL (kills the emailed manage link),
+	 * reminder/status stamps maximized (the hourly sweeps never target a
+	 * dead row). Capacity math is untouched — deleting would free seats
+	 * and skew every count surface.
+	 *
+	 * @param int $id RSVP row ID.
+	 * @return true|WP_Error True on success (including an already-anonymized
+	 *                       no-op), eh_db_error 500 on statement failure.
+	 */
+	public function anonymize_row( int $id ) {
+		global $wpdb;
+
+		$table = $this->table();
+
+		$update_query = "UPDATE {$table}
+			SET name = %s,
+				email = %s,
+				manage_token = NULL,
+				reminded_at = COALESCE( reminded_at, %s ),
+				status_notified_gen = GREATEST( status_notified_gen, %d )
+			WHERE id = %d";
+
+		$suppress = $wpdb->suppress_errors( true );
+
+		try {
+			$updated = (int) $wpdb->query(
+				$wpdb->prepare(
+					$update_query, // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $table interpolated at assignment; all values bound below.
+					'Erased', // phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralText -- a fixed data placeholder, not user-facing prose.
+					'erased-' . $id, // No @: is_email() rejects it (see docblock).
+					current_time( 'mysql' ),
+					PHP_INT_MAX,
+					$id
+				)
+			);
+
+			$error = (string) $wpdb->last_error;
+		} finally {
+			$wpdb->suppress_errors( $suppress );
+		}
+
+		if ( '' !== $error ) {
+			return new WP_Error(
+				'eh_db_error',
+				__( 'The RSVP could not be anonymized due to a database error.', 'event-hub' ),
+				array( 'status' => 500 )
+			);
+		}
+
+		return true;
+	}
+
+	/**
 	 * Deletes every RSVP row for one event. Runs on the event post's
 	 * permanent deletion (before_delete_post) so the eh_rsvps table never
 	 * accumulates orphaned rows pointing at dead post IDs.
