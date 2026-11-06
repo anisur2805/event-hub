@@ -192,6 +192,11 @@ code).
 - **5.1 Venue & Organizer as first-class entities** — CPTs (`eh_venue`, `eh_organizer`)
   reusable across events, address etc.; JSON-LD `location`/`organizer` enriched from
   them; event meta picks one of each.
+
+  > **Done (2026-11-06, docs/DECISIONS.md #47).** CPTs under the Events menu
+  > (no front-end routes), `eh_venue_id`/`eh_organizer_id` link meta with
+  > legacy free-text fallback on every surface, JSON-LD Place+address and
+  > organizer enrichment, editor comboboxes, series spawn inheritance.
 - **5.2 Reminders & notifications** — cron reminder N hours before start; attendee
   notice on cancel/reschedule; organizer notification on new RSVP.
 - **5.3 Event status** — Cancelled/Postponed meta surfaced on card + single + JSON-LD
