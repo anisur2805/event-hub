@@ -10,6 +10,11 @@
 	<exclude-pattern>/tests/*</exclude-pattern>
 	<!-- Dev-only PHPStan bootstrap: defines ABSPATH for analyse-time stubs. -->
 	<exclude-pattern>/phpstan-bootstrap\.php$</exclude-pattern>
+	<!-- Analyse-time WP_CLI signature stubs (loaded by phpstan-bootstrap only,
+	     never at runtime; declare external API names, so WPCS as a whole does
+	     not apply to them). -->
+	<exclude-pattern>/includes/class-wp-cli-stub\.php$</exclude-pattern>
+	<exclude-pattern>/includes/class-wp-cli-utils-stub\.php$</exclude-pattern>
 
 	<arg name="extensions" value="php"/>
 	<arg name="colors"/>
@@ -47,7 +52,5 @@
 		<!-- render.php templates receive $attributes/$content etc. from core by contract;
 		     WP core's own render.php files use the same unprefixed locals. -->
 		<exclude-pattern>includes/blocks/*/render\.php$</exclude-pattern>
-		<!-- Analyse-time WP_CLI signature stub (never loaded at runtime). -->
-		<exclude-pattern>includes/class-wp-cli-stub\.php$</exclude-pattern>
 	</rule>
 </ruleset>

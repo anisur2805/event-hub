@@ -134,6 +134,50 @@ final class Csv_Exporter {
 	}
 
 	/**
+	 * Header row, shared by the admin stream and the WP-CLI export (single
+	 * source of truth so the two surfaces cannot drift).
+	 *
+	 * @var array<int,string>
+	 */
+	public const COLUMNS = array(
+		'Event ID',
+		'Event Title',
+		'Name',
+		'Email',
+		'Status',
+		'Seats',
+		'Registered At',
+		'Checked In At',
+	);
+
+	/**
+	 * Builds one CSV row from a normalized repository row. Public: the
+	 * WP-CLI export command rides this exact builder (neutralization
+	 * included) instead of a parallel implementation.
+	 *
+	 * @param int                 $event_id    Event post ID.
+	 * @param string              $event_title Event title (entity-decoded by the caller).
+	 * @param array<string,mixed> $rsvp        Normalized RSVP row (Rsvp_Repository::list()).
+	 * @return array<int,string>
+	 */
+	public function csv_row( int $event_id, string $event_title, array $rsvp ): array {
+		$checked_in_at = isset( $rsvp['checked_in_at'] )
+			? Rest_Controller::to_iso8601( (string) $rsvp['checked_in_at'] )
+			: '';
+
+		return array(
+			$this->neutralize( (string) $event_id ),
+			$this->neutralize( $event_title ),
+			$this->neutralize( (string) ( $rsvp['name'] ?? '' ) ),
+			$this->neutralize( (string) ( $rsvp['email'] ?? '' ) ),
+			$this->neutralize( (string) ( $rsvp['status'] ?? '' ) ),
+			$this->neutralize( (string) ( isset( $rsvp['guests'] ) ? max( 1, (int) $rsvp['guests'] ) : 1 ) ),
+			$this->neutralize( Rest_Controller::to_iso8601( (string) ( $rsvp['created_at'] ?? '' ) ) ),
+			$this->neutralize( $checked_in_at ),
+		);
+	}
+
+	/**
 	 * Streams every RSVP of one event as CSV to php://output.
 	 *
 	 * @param int    $event_id    Event post ID.
@@ -164,7 +208,7 @@ final class Csv_Exporter {
 			$handle,
 			array_map(
 				array( $this, 'neutralize' ),
-				array( 'Event ID', 'Event Title', 'Name', 'Email', 'Status', 'Seats', 'Registered At', 'Checked In At' )
+				self::COLUMNS
 			),
 			',',
 			'"',
@@ -182,22 +226,9 @@ final class Csv_Exporter {
 			}
 
 			foreach ( $result['rsvps'] as $rsvp ) {
-				$checked_in_at = isset( $rsvp['checked_in_at'] )
-					? Rest_Controller::to_iso8601( (string) $rsvp['checked_in_at'] )
-					: '';
-
 				fputcsv(
 					$handle,
-					array(
-						$this->neutralize( (string) $event_id ),
-						$this->neutralize( $event_title ),
-						$this->neutralize( (string) ( $rsvp['name'] ?? '' ) ),
-						$this->neutralize( (string) ( $rsvp['email'] ?? '' ) ),
-						$this->neutralize( (string) ( $rsvp['status'] ?? '' ) ),
-						$this->neutralize( (string) ( isset( $rsvp['guests'] ) ? max( 1, (int) $rsvp['guests'] ) : 1 ) ),
-						$this->neutralize( Rest_Controller::to_iso8601( (string) ( $rsvp['created_at'] ?? '' ) ) ),
-						$this->neutralize( $checked_in_at ),
-					),
+					$this->csv_row( $event_id, $event_title, $rsvp ),
 					',',
 					'"',
 					'\\'

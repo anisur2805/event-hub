@@ -9,10 +9,21 @@ parameters:
 		# checkout (CI php-static job) analyses without it.
 		- build (?)
 		- tests
+		# Signature sources for WP-CLI symbols (loaded via bootstrapFiles),
+		# not code under analysis themselves.
+		- includes/class-wp-cli-stub.php
+		- includes/class-wp-cli-utils-stub.php
 	bootstrapFiles:
 		- phpstan-bootstrap.php
 	treatPhpDocTypesAsCertain: false
-	ignoreErrors: []
+	ignoreErrors:
+		# Runtime keeps the canonical WP-CLI guard `defined( '\WP_CLI' ) && \WP_CLI`
+		# (WP-CLI Commands cookbook). phpstan-bootstrap.php defines the constant
+		# as true for analysis only, which pins the right side of `&&` — the
+		# code is correct at runtime; this is an analyse-environment artifact.
+		-
+			identifier: booleanAnd.rightAlwaysTrue
+			path: includes/Plugin.php
 
 includes:
 	- vendor/szepeviktor/phpstan-wordpress/extension.neon

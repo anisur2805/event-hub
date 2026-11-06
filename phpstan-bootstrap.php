@@ -23,10 +23,18 @@ if ( ! defined( 'EVENT_HUB_VERSION' ) ) {
 
 /*
  * WP-CLI is not shipped with wordpress-stubs and is only touched behind a
- * defined( 'WP_CLI' ) guard at runtime. This analyse-time stub gives the
- * static call a signature so Plugin.php checks clean. Never loaded at
- * runtime: only PHPStan executes this file.
+ * defined( 'WP_CLI' ) guard at runtime. These analyse-time stubs give the
+ * static calls signatures so Plugin.php and Cli.php check clean. Never
+ * loaded at runtime: only PHPStan executes this file.
  */
+if ( ! defined( 'WP_CLI' ) ) {
+	define( 'WP_CLI', true );
+}
+
 if ( ! class_exists( 'WP_CLI' ) ) {
 	require_once __DIR__ . '/includes/class-wp-cli-stub.php';
+}
+
+if ( ! function_exists( 'WP_CLI\Utils\format_items' ) ) {
+	require_once __DIR__ . '/includes/class-wp-cli-utils-stub.php';
 }

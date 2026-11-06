@@ -140,14 +140,19 @@ final class Plugin {
 		$structured_data->boot();
 
 		/*
-		 * WP-CLI migration command. Registered as a closure so the command
-		 * class list stays minimal (docs/ARCHITECTURE.md step 3).
+		 * WP-CLI commands. The `event-hub` namespace dispatches to Cli's
+		 * public methods; Cli_Rsvp nests under `event-hub rsvp`. Registered
+		 * as explicit instances so the repository/exporter dependencies flow
+		 * through the constructor (no service location inside commands).
 		 */
-		if ( defined( 'WP_CLI' ) && WP_CLI ) {
+		if ( defined( '\\WP_CLI' ) && \WP_CLI ) {
 			\WP_CLI::add_command(
 				'event-hub-migrate',
 				static fn (): int => Migrations::migrate()
 			);
+
+			\WP_CLI::add_command( 'event-hub', new Cli( $this->repository ) );
+			\WP_CLI::add_command( 'event-hub rsvp', new Cli_Rsvp( $this->repository, $csv_exporter ) );
 		}
 	}
 
