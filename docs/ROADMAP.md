@@ -263,7 +263,17 @@ code).
 ## 4. Compliance / polish (cheap, pre-release hygiene)
 
 - **.pot template + RTL check** — `wp i18n make-pot`, verify `--eh-*` layout under RTL.
+  > Shipped (DECISIONS #51): POT generated (295 msgids, JS strings via build
+  > references; duplicate-comment warning resolved by harmonizing the
+  > `%s event found` translator comment); RTL was already logical-property
+  > clean — added the missing `wp_style_add_data( 'rtl', 'replace' )`
+  > wiring for both handles. **done (2026-11-07)**.
 - **PHPStan/PCP re-baseline** — run Plugin Check after each slice above, not just at release.
+  > Shipped (DECISIONS #51): PCP now reports ZERO errors on every runtime
+  > file — removed the example.com Plugin URI, ABSPATH guards on patterns +
+  > CLI stub, new .org-format readme.txt (Tested up to 7.1). Remaining
+  > errors are dev-infrastructure files only; warning classes documented
+  > as justified (#51). **done (2026-11-07)**.
 - **WP-CLI extras** — `wp event-hub rsvp export <event>` using `Csv_Exporter`, `wp event-hub list` counts.
 - **Uninstall audit** — confirm `Migrations::uninstall()` covers every new option/column added by any slice.
 
@@ -275,4 +285,4 @@ code).
 2. §1.2 hardening — **done, Phase 1**.
 3. §1.3 waitlist promotion — **done, Phase 2**.
 4. §1.1 JSON-LD — **done (2026-11-04)**; was independent, slotted after Phase 2.
-5. Then pick by need: ~~2.1 (email flow; its cancellation now feeds §1.3's promotion)~~ **done (2026-11-04, DB 1.3.0)**; ~~2.2 (check-in)~~ **done (2026-11-04)**; ~~2.4 cutoffs~~ **done (2026-11-05)**; ~~2.3 seats~~ **done (2026-11-05, DB 1.4.0)**; ~~3.1 dashboard~~ **done (2026-11-05)**; ~~3.3 calendar block~~ **done (2026-11-05)**; ~~3.2 recurring events~~ **done (2026-11-05)**. ~~§4 WP-CLI extras~~ **done (2026-11-06)** + findings resolution **done (2026-11-06)**. ~~5.1 venue/organizer~~ **done (2026-11-06)**; ~~5.2 reminders~~ **done (2026-11-06, DB 1.5.0)**; ~~5.3 event status~~ **done (2026-11-07, DB 1.6.0)**; ~~5.4 GDPR~~ **done (2026-11-07)**. Tier 1 remaining: §4 .pot/RTL + PCP re-baseline on final code; §3.4 Woo stays parked.
+5. Then pick by need: ~~2.1 (email flow; its cancellation now feeds §1.3's promotion)~~ **done (2026-11-04, DB 1.3.0)**; ~~2.2 (check-in)~~ **done (2026-11-04)**; ~~2.4 cutoffs~~ **done (2026-11-05)**; ~~2.3 seats~~ **done (2026-11-05, DB 1.4.0)**; ~~3.1 dashboard~~ **done (2026-11-05)**; ~~3.3 calendar block~~ **done (2026-11-05)**; ~~3.2 recurring events~~ **done (2026-11-05)**. ~~§4 WP-CLI extras~~ **done (2026-11-06)** + findings resolution **done (2026-11-06)**. ~~5.1 venue/organizer~~ **done (2026-11-06)**; ~~5.2 reminders~~ **done (2026-11-06, DB 1.5.0)**; ~~5.3 event status~~ **done (2026-11-07, DB 1.6.0)**; ~~5.4 GDPR~~ **done (2026-11-07)**. ~~§4 .pot/RTL + PCP re-baseline~~ **done (2026-11-07, DECISIONS #51)**. Tier 1 COMPLETE; §3.4 Woo stays parked. Remaining: uninstall audit (quick §4 item), Tier 2/3 by need.
