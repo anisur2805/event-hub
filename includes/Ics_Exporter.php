@@ -92,9 +92,24 @@ final class Ics_Exporter {
 			$lines[] = 'BEGIN:VEVENT';
 			$lines[] = 'UID:' . $this->escape_text( $uid );
 			$lines[] = 'DTSTAMP:' . $dtstamp;
+
+			// Status (5.3): STATUS:CANCELLED tells calendar clients to strike
+			// a stale entry (removing the event from the feed would leave the
+			// last sync forever on attendees' calendars). Postponed stays in
+			// the feed with the original time, flagged in DESCRIPTION — the
+			// new date does not exist yet.
+			if ( Event_Status::get( (int) $summary['id'] ) === 'cancelled' ) {
+				$lines[] = 'STATUS:CANCELLED';
+				$lines[] = 'SUMMARY:' . $this->escape_text( 'CANCELLED: ' . $summary_is );
+			} else {
+				$summary_ics = 'postponed' === Event_Status::get( (int) $summary['id'] )
+					? $summary_is . ' (POSTPONED — date to be announced)'
+					: $summary_is;
+				$lines[]     = 'SUMMARY:' . $this->escape_text( $summary_ics );
+			}
+
 			$lines[] = 'DTSTART:' . $this->to_utc_datetime( (string) $summary['start'] );
 			$lines[] = 'DTEND:' . $this->to_utc_datetime( (string) $summary['end'] );
-			$lines[] = 'SUMMARY:' . $this->escape_text( $summary_is );
 			$lines[] = 'LOCATION:' . $this->escape_text( (string) $summary['venue'] );
 			$lines[] = 'DESCRIPTION:' . $this->escape_text( (string) $summary['excerpt'] );
 			$lines[] = 'URL:' . $this->escape_text( $permalink );

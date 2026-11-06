@@ -971,6 +971,7 @@ final class Rest_Controller {
 			'categories'    => $summary['categories'],
 			'categoryNames' => (array) $summary['category_names'],
 			'rsvpOpen'      => (bool) $summary['rsvpOpen'],
+			'status'        => (string) $summary['status'],
 		);
 	}
 

@@ -136,12 +136,16 @@ final class Reminders {
 	 * return); the registered cron callback ignores it per WP cron contract.
 	 * No state is kept between runs.
 	 *
-	 * @return array{notified:int,skipped:int}
+	 * @return array{notified:int,skipped:int,status:array{sent:int,skipped:int}}
 	 */
 	public function run_tick(): array {
 		$stats = array(
 			'notified' => 0,
 			'skipped'  => 0,
+			'status'   => array(
+				'sent'    => 0,
+				'skipped' => 0,
+			),
 		);
 
 		if ( ! self::enabled() ) {
@@ -151,47 +155,47 @@ final class Reminders {
 		$repository = Plugin::instance()->repository();
 		$event_ids  = $this->events_in_window();
 
-		if ( array() === $event_ids ) {
-			return $stats;
-		}
+		if ( array() !== $event_ids ) {
+			$rows = $repository->list_for_reminder( $event_ids, self::BATCH_LIMIT );
 
-		$rows = $repository->list_for_reminder( $event_ids, self::BATCH_LIMIT );
+			foreach ( $rows as $row ) {
+				$event_id = (int) $row['event_id'];
 
-		foreach ( $rows as $row ) {
-			$event_id = (int) $row['event_id'];
+				// A row created after its event's window opened is skipped and
+				// STAMPED: it never qualified for a reminder, and leaving it
+				// unstamped would make every future tick re-examine it.
+				$row_created = $this->to_timestamp( (string) ( $row['created_at'] ?? '' ) );
+				$window_open = $this->window_opened_at( $event_id );
 
-			// A row created after its event's window opened is skipped and
-			// STAMPED: it never qualified for a reminder, and leaving it
-			// unstamped would make every future tick re-examine it.
-			$row_created = $this->to_timestamp( (string) ( $row['created_at'] ?? '' ) );
-			$window_open = $this->window_opened_at( $event_id );
+				if ( null === $row_created || null === $window_open || $row_created >= $window_open ) {
+					if ( null !== $row_created ) {
+						$repository->mark_reminded( (int) $row['id'] );
+						++$stats['skipped'];
+					}
 
-			if ( null === $row_created || null === $window_open || $row_created >= $window_open ) {
-				if ( null !== $row_created ) {
-					$repository->mark_reminded( (int) $row['id'] );
-					++$stats['skipped'];
+					continue;
 				}
 
-				continue;
-			}
+				$sent = Notifier::send_reminder( $row, $event_id );
 
-			$sent = Notifier::send_reminder( $row, $event_id );
+				// Stamp only on accepted send: a mail outage retries next tick.
+				if ( ! $sent ) {
+					++$stats['skipped'];
 
-			// Stamp only on accepted send: a mail outage retries next tick.
-			if ( ! $sent ) {
-				++$stats['skipped'];
+					continue;
+				}
 
-				continue;
-			}
-
-			if ( $repository->mark_reminded( (int) $row['id'] ) ) {
-				++$stats['notified'];
-			} else {
-				// The stamp raced away (row deleted mid-tick) — the email is
-				// harmless (a genuine attendee got it) but not countable.
-				++$stats['skipped'];
+				if ( $repository->mark_reminded( (int) $row['id'] ) ) {
+					++$stats['notified'];
+				} else {
+					// The stamp raced away (row deleted mid-tick) — the email is
+					// harmless (a genuine attendee got it) but not countable.
+					++$stats['skipped'];
+				}
 			}
 		}
+
+		$stats['status'] = $this->sweep_status_notices( $repository );
 
 		return $stats;
 	}
@@ -226,7 +230,13 @@ final class Reminders {
 
 		foreach ( $events as $event ) {
 			$event_id = (int) $event->ID;
-			$hours    = $this->window_hours( $event_id );
+
+			// Cancelled/postponed events (5.3) never mail "coming up".
+			if ( '' !== Event_Status::get( $event_id ) ) {
+				continue;
+			}
+
+			$hours = $this->window_hours( $event_id );
 
 			if ( $hours < 1 ) {
 				continue; // Reminders disabled for this event.
@@ -283,5 +293,54 @@ final class Reminders {
 		$datetime = date_create_immutable_from_format( 'Y-m-d H:i:s', $value, wp_timezone() );
 
 		return false !== $datetime ? $datetime->getTimestamp() : null;
+	}
+
+	/**
+	 * Status-notice sweep (ROADMAP 5.3): for every published event whose
+	 * notice generation is 1+ (i.e. it transitioned to cancelled/postponed
+	 * at least once), email the RSVP rows stamped behind the current
+	 * generation, stamping each with the current generation — only after
+	 * wp_mail accepts. The generation unit makes this idempotent AND
+	 * re-notify-capable: un-cancel then re-cancel bumps the generation, so
+	 * the new state reaches attendees that were told the previous one.
+	 *
+	 * @param Rsvp_Repository $repository Shared repository instance.
+	 * @return array{sent:int,skipped:int}
+	 */
+	private function sweep_status_notices( Rsvp_Repository $repository ): array {
+		$stats = array(
+			'sent'    => 0,
+			'skipped' => 0,
+		);
+
+		$event_ids = Event_Status::unswept_event_ids();
+
+		if ( array() === $event_ids ) {
+			return $stats;
+		}
+
+		$rows = $repository->list_behind_generation( $event_ids, self::BATCH_LIMIT );
+
+		foreach ( $rows as $row ) {
+			$event_id = (int) $row['event_id'];
+
+			$sent = Notifier::send_status_change( $row, $event_id );
+
+			if ( ! $sent ) {
+				++$stats['skipped'];
+
+				continue; // Mail outage: retried next tick, unstamped.
+			}
+
+			$gen = Event_Status::generation( $event_id );
+
+			if ( $repository->mark_status_notified( (int) $row['id'], $gen ) ) {
+				++$stats['sent'];
+			} else {
+				++$stats['skipped'];
+			}
+		}
+
+		return $stats;
 	}
 }

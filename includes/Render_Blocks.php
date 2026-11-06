@@ -27,7 +27,7 @@ final class Render_Blocks {
 	 * Builds the normalized event summary. Accepts a post ID or WP_Post.
 	 *
 	 * @param int|WP_Post $event Event post ID or object.
-	 * @return array{id:int,title:string,permalink:string,excerpt:string,start:string,end:string,venue:string,capacity:int|null,counts:array{going:int,waitlist:int},rsvpOpen:bool,cutoffClosed:bool,cutoffNotOpen:bool,categories:string[],category_names:string[]}
+	 * @return array{id:int,title:string,permalink:string,excerpt:string,start:string,end:string,venue:string,capacity:int|null,counts:array{going:int,waitlist:int},rsvpOpen:bool,status:string,cutoffClosed:bool,cutoffNotOpen:bool,categories:string[],category_names:string[]}
 	 */
 	public static function summary( int|WP_Post $event ): array {
 		$post = get_post( $event );
@@ -47,6 +47,7 @@ final class Render_Blocks {
 					'waitlist' => 0,
 				),
 				'rsvpOpen'       => false,
+				'status'         => '',
 				'cutoffClosed'   => false,
 				'cutoffNotOpen'  => false,
 				'categories'     => array(),
@@ -68,6 +69,13 @@ final class Render_Blocks {
 		// rsvpOpen; the flags drive the button/pill message choice.
 		$cutoffs   = $repository->rsvp_cutoffs( $post->ID );
 		$rsvp_open = true;
+
+		// Status (5.3): a cancelled/postponed event has no bookable surface.
+		$status = Event_Status::get( $post->ID );
+
+		if ( '' !== $status ) {
+			$rsvp_open = false;
+		}
 
 		if ( null !== $capacity && $counts['going'] >= $capacity ) {
 			$rsvp_open = false;
@@ -99,6 +107,7 @@ final class Render_Blocks {
 			'capacity'       => $capacity,
 			'counts'         => $counts,
 			'rsvpOpen'       => $rsvp_open,
+			'status'         => $status,
 			'cutoffClosed'   => $cutoffs['closed'],
 			'cutoffNotOpen'  => $cutoffs['not_open'],
 			'categories'     => $categories,
@@ -249,14 +258,34 @@ final class Render_Blocks {
 	}
 
 	/**
-	 * Resolves the card status pill: Past > Waitlist (full, list building) >
-	 * Sold out (full) > Few spots left (>=80% capacity, not full) > Open.
+	 * Resolves the card status pill: Cancelled > Postponed > Past > Waitlist
+	 * (full, list building) > Sold out (full) > Few spots left (>=80%
+	 * capacity, not full) > Open.
+	 *
+	 * Cancelled/Postponed outrank Past on purpose: a cancelled event never
+	 * "took place", so the Past pill would hide what attendees need to see
+	 * (5.3); a postponed event is not over either.
 	 *
 	 * @param array<string,mixed> $s Render_Blocks::summary() output.
 	 * @return array{key:string,label:string,past:bool}
 	 */
 	private static function status_pill( array $s ): array {
 		$past = self::is_past( $s );
+
+		// Status (5.3) outranks everything — the state attendees must see.
+		// 'past' stays false even for a past cancelled event: the pill is
+		// Cancelled, not the muted Past styling.
+		$status = (string) ( $s['status'] ?? '' );
+
+		if ( '' !== $status ) {
+			return array(
+				'key'   => $status,
+				'label' => 'cancelled' === $status
+					? __( 'Cancelled', 'event-hub' )
+					: __( 'Postponed', 'event-hub' ),
+				'past'  => false,
+			);
+		}
 
 		if ( $past ) {
 			return array(
@@ -377,6 +406,7 @@ final class Render_Blocks {
 		$past     = self::is_past( $summary );
 		$closed   = ! empty( $summary['cutoffClosed'] );
 		$not_open = ! empty( $summary['cutoffNotOpen'] );
+		$status   = (string) $summary['status'];
 
 		$user = wp_get_current_user();
 
@@ -417,6 +447,27 @@ final class Render_Blocks {
 				<p class="event-hub-rsvp__count"><?php echo esc_html( $going_text ); ?></p>
 			<?php endif; ?>
 			<p class="event-hub-rsvp__closed"><?php esc_html_e( 'This event has already taken place.', 'event-hub' ); ?></p>
+			<?php
+			return (string) ob_get_clean();
+		}
+
+		if ( '' !== $status ) {
+			// Cancelled/postponed (5.3) are inert like past, but name the
+			// state — the write guard would 409 (cancelled) anyway, and a
+			// postponed event must not invite signups while its date is
+			// unsettled. The count line stays when there are rows.
+			ob_start();
+			?>
+			<?php if ( '' !== $going_text ) : ?>
+				<p class="event-hub-rsvp__count"><?php echo esc_html( $going_text ); ?></p>
+			<?php endif; ?>
+			<p class="event-hub-rsvp__closed">
+				<?php
+				echo 'cancelled' === $status
+					? esc_html__( 'This event has been cancelled.', 'event-hub' )
+					: esc_html__( 'This event has been postponed — the new date will be announced.', 'event-hub' );
+				?>
+			</p>
 			<?php
 			return (string) ob_get_clean();
 		}
@@ -1438,6 +1489,10 @@ final class Render_Blocks {
 			'%s events found'                           => __( '%s events found', 'event-hub' ),
 			'Open'                                      => __( 'Open', 'event-hub' ),
 			'Closed'                                    => __( 'Closed', 'event-hub' ),
+			'Cancelled'                                 => __( 'Cancelled', 'event-hub' ),
+			'Postponed'                                 => __( 'Postponed', 'event-hub' ),
+			'This event has been cancelled.'            => __( 'This event has been cancelled.', 'event-hub' ),
+			'This event has been postponed — the new date will be announced.' => __( 'This event has been postponed — the new date will be announced.', 'event-hub' ),
 			'Few spots left'                            => __( 'Few spots left', 'event-hub' ),
 			'Waitlist'                                  => __( 'Waitlist', 'event-hub' ),
 			'Sold out'                                  => __( 'Sold out', 'event-hub' ),

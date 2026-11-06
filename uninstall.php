@@ -76,7 +76,7 @@ $wpdb->query(
 		'eh_rsvp_open_hours', 'eh_rsvp_close_hours', 'eh_series_freq',
 		'eh_series_interval', 'eh_series_byweekday', 'eh_series_until',
 		'eh_venue_id', 'eh_organizer_id', 'eh_venue_address',
-		'eh_reminder_hours' )"
+		'eh_reminder_hours', 'eh_status', 'eh_status_generation' )"
 );
 
 // Un-schedule the series horizon cron (Series_Engine::CRON_HOOK) and the

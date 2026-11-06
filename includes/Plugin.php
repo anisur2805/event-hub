@@ -171,6 +171,69 @@ final class Plugin {
 			2
 		);
 
+		/*
+		 * Status transitions (ROADMAP 5.3). Both hooks, same shape: a FIRST
+		 * write on an event without the meta fires added_post_meta, every
+		 * later write fires updated_post_meta (save_post alone would miss
+		 * meta-only edits; updated_* alone would miss the first one). Core
+		 * short-circuits unchanged single-key writes BEFORE its hooks, so
+		 * reaching either listener means the value truly changed.
+		 * Transitions INTO a non-scheduled status bump the notice generation
+		 * (the attendee sweep's re-notify unit) and fire the action the
+		 * integration hook rides; back-to-scheduled bumps nothing (un-cancel
+		 * is silent by design — the next transition re-notifies anyway).
+		 */
+		$status_transition = static function ( int $meta_id, int $object_id, string $meta_key, mixed $meta_value ): void {
+			if ( Event_Status::META !== $meta_key ) {
+				return;
+			}
+
+			$post = get_post( $object_id );
+
+			if ( ! $post instanceof \WP_Post || 'eh_event' !== $post->post_type ) {
+				return;
+			}
+
+			// Bump + action fire only for real transitions INTO a
+			// non-scheduled status; back-to-scheduled (and junk DB/CLI
+			// writes, which read as scheduled) stay silent — but still
+			// propagate below so children never disagree with the seed.
+			if ( in_array( $meta_value, Event_Status::STATUSES, true ) ) {
+				Event_Status::bump_generation( $object_id );
+
+				do_action( 'event_hub_event_status_changed', $object_id, (string) $meta_value );
+			}
+
+			/*
+			 * Series propagation (5.3): children follow the seed both ways
+			 * (an un-cancel must not leave occurrences cancelled). Each
+			 * child's own write re-enters this closure, bumping ITS
+			 * generation so ITS rows sweep — depth stays 1 because children
+			 * are never seeds (no post_parent chains).
+			 */
+			$children = get_posts(
+				array(
+					'post_type'      => 'eh_event',
+					'post_status'    => 'any',
+					'posts_per_page' => 200, // phpcs:ignore WordPress.WP.PostsPerPage.posts_per_page_posts_per_page -- bounded engine cap, matches materialize().
+					'post_parent'    => $object_id,
+					'fields'         => 'ids',
+					'no_found_rows'  => true,
+				)
+			);
+
+			foreach ( $children as $child_id ) {
+				if ( Event_Status::get( (int) $child_id ) === $meta_value ) {
+					continue;
+				}
+
+				update_post_meta( (int) $child_id, Event_Status::META, (string) $meta_value );
+			}
+		};
+
+		add_action( 'added_post_meta', $status_transition, 10, 4 );
+		add_action( 'updated_post_meta', $status_transition, 10, 4 );
+
 		$editor_panel = new Editor_Panel();
 		$editor_panel->boot();
 
@@ -541,6 +604,46 @@ final class Plugin {
 						'default' => '',
 					),
 				),
+			)
+		);
+
+		/*
+		 * Event status (ROADMAP 5.3): the attendee-facing state. The enum is
+		 * the same save-time rejection discipline as eh_series_freq (junk
+		 * REST writes 400 at the schema; Event_Status::get() is the defensive
+		 * read-side twin for DB/CLI writes — junk reads as scheduled).
+		 */
+		register_post_meta(
+			'eh_event',
+			Event_Status::META,
+			array(
+				'type'          => 'string',
+				'single'        => true,
+				'description'   => __( 'Event status. Empty = scheduled; cancelled or postponed. (ROADMAP 5.3)', 'event-hub' ),
+				'auth_callback' => static fn ( bool $allowed, string $meta_key, int $post_id ): bool => current_user_can( 'edit_post', $post_id ),
+				'show_in_rest'  => array(
+					'schema' => array(
+						'type'    => 'string',
+						'enum'    => array( '', 'cancelled', 'postponed' ),
+						'default' => '',
+					),
+				),
+			)
+		);
+
+		/*
+		 * Internal notice-generation counter (Event_Status::COLUMN seam).
+		 * Never in REST: only the status sweep writes it.
+		 */
+		register_post_meta(
+			'eh_event',
+			Event_Status::GENERATION_META,
+			array(
+				'type'          => 'integer',
+				'single'        => true,
+				'description'   => __( 'Internal: attendee status-notice generation counter. (ROADMAP 5.3)', 'event-hub' ),
+				'auth_callback' => static fn ( bool $allowed, string $meta_key, int $post_id ): bool => current_user_can( 'edit_post', $post_id ),
+				'show_in_rest'  => false,
 			)
 		);
 	}

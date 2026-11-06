@@ -187,6 +187,13 @@ final class Series_Engine {
 		);
 
 		foreach ( $seeds as $seed_id ) {
+			// A cancelled seed pauses spawning (5.3): no new occurrences of an
+			// event the organizer cancelled. Postponed keeps spawning — the
+			// series continues, dates unsettled, state inherited per spawn.
+			if ( 'cancelled' === Event_Status::get( (int) $seed_id ) ) {
+				continue;
+			}
+
 			$this->materialize( (int) $seed_id );
 		}
 	}
@@ -658,6 +665,10 @@ final class Series_Engine {
 			'eh_capacity'         => (string) get_post_meta( $seed_id, 'eh_capacity', true ),
 			'eh_rsvp_open_hours'  => (string) get_post_meta( $seed_id, 'eh_rsvp_open_hours', true ),
 			'eh_rsvp_close_hours' => (string) get_post_meta( $seed_id, 'eh_rsvp_close_hours', true ),
+			// Status (5.3): a cancelled/postponed seed's remaining spawns carry
+			// the state (their attendees must see it too). Spawning is paused
+			// while cancelled — this copy covers spawns already in flight.
+			Event_Status::META    => (string) get_post_meta( $seed_id, Event_Status::META, true ),
 		);
 
 		foreach ( $meta_copy as $key => $value ) {

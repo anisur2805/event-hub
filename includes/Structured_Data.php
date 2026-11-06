@@ -155,11 +155,14 @@ final class Structured_Data {
 			);
 		}
 
-		// No cancel/postpone meta exists in this plugin, so the only honest
-		// status is EventScheduled — for past events too (an event that
-		// happened on its scheduled date was not cancelled).
-		$event['eventStatus'] = 'https://schema.org/EventScheduled';
+		// Status (5.3): the meta maps to the schema.org eventStatus family.
+		// #36's honesty rule extends: a cancelled/postponed event must not
+		// advertise availability, so offers drop entirely for it.
+		$event['eventStatus'] = Event_Status::schema_status( (int) $s['id'] );
 
+		if ( '' !== Event_Status::get( (int) $s['id'] ) ) {
+			return $event;
+		}
 		if ( self::is_past( $s ) ) {
 			// An ended event must not advertise availability.
 			return $event;

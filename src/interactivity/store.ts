@@ -205,6 +205,9 @@ function* rsvp(
 			case 'eh_event_passed':
 				ctx.feedback = __( 'This event has already taken place.' );
 				break;
+			case 'eh_event_cancelled':
+				ctx.feedback = __( 'This event has been cancelled.' );
+				break;
 			case 'eh_rsvp_closed':
 				ctx.feedback = __( 'RSVPs are closed.' );
 				break;

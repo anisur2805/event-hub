@@ -76,6 +76,7 @@ final class Migrations {
 	checked_in_at DATETIME NULL DEFAULT NULL,
 	manage_token CHAR(64) NULL DEFAULT NULL,
 	reminded_at DATETIME NULL DEFAULT NULL,
+	status_notified_gen BIGINT UNSIGNED NOT NULL DEFAULT 0,
 	PRIMARY KEY  (id),
 	UNIQUE KEY uniq_event_email (event_id, email),
 	KEY manage_token (manage_token)

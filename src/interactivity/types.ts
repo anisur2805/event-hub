@@ -24,6 +24,8 @@ export interface EventSummary {
 	categories: string[];
 	categoryNames: string[];
 	rsvpOpen: boolean;
+	/** Event status ('' = scheduled; 'cancelled' | 'postponed'), ROADMAP 5.3. */
+	status: string;
 }
 
 /** Server state seeded by wp_interactivity_state( 'event-hub', ... ). */

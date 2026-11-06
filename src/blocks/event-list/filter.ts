@@ -340,14 +340,23 @@ function datePart( iso: string, part: 'day' | 'month' ): string {
 
 /**
  * Status pill for a REST event; mirrors the PHP status_pill() precedence:
- * Past > Waitlist (full with list takers) > Sold out (full) > Few spots
- * left (>=80%) > Open.
+ * Cancelled > Postponed > Past > Waitlist (full with list takers) > Sold
+ * out (full) > Few spots left (>=80%) > Open.
  * @param event
  */
 function pillFor( event: EventSummary ): {
 	key: string;
 	label: string;
 } {
+	// Status (5.3) outranks everything — mirror of the PHP ladder.
+	const status = event.status ?? '';
+	if ( 'cancelled' === status ) {
+		return { key: 'cancelled', label: __( 'Cancelled' ) };
+	}
+	if ( 'postponed' === status ) {
+		return { key: 'postponed', label: __( 'Postponed' ) };
+	}
+
 	const capacity = event.capacity ?? null;
 	const going = event.counts?.going ?? 0;
 	const waitlist = event.counts?.waitlist ?? 0;

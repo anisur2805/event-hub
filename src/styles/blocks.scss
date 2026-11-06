@@ -268,6 +268,18 @@
 	box-shadow: inset 0 0 0 1px #94a3b8;
 }
 
+// Status (5.3): Cancelled reads as alarm (red family), Postponed as caution
+//amber — same soft-pill palette as the other modifiers.
+.event-hub-card__pill--cancelled {
+	background: #fef2f2;
+	color: #b91c1c;
+}
+
+.event-hub-card__pill--postponed {
+	background: #fffbeb;
+	color: #92400e;
+}
+
 .event-hub-card__title {
 	margin: 0;
 	font-family: var( --eh-sans );

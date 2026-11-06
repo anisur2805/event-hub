@@ -43,6 +43,7 @@ interface EventHubEventMeta {
 	eh_capacity?: string;
 	eh_rsvp_open_hours?: string;
 	eh_rsvp_close_hours?: string;
+	eh_status?: string;
 	eh_series_freq?: string;
 	eh_series_interval?: string;
 	eh_series_byweekday?: string;
@@ -162,6 +163,9 @@ const WINDOW_PATTERN = /^\d+$/;
 /** Series frequency values (mirror of the REST meta schema enum). */
 const SERIES_FREQS = [ '', 'daily', 'weekly', 'monthly' ] as const;
 
+// Event status (5.3): same values as the eh_status meta enum (Plugin.php).
+const STATUS_VALUES = [ '', 'cancelled', 'postponed' ] as const;
+
 /** Valid Y-m-d series "until" value; '' legal. */
 const SERIES_UNTIL_PATTERN = /^$|^\d{4}-\d{2}-\d{2}$/;
 
@@ -267,6 +271,16 @@ function EventDetailsFields(): ReactElement {
 	// Plain-string alias: SelectControl's onChange hands back a bare string,
 	// so binding its value to the narrowed union type fights the component.
 	const seriesFreq: string = seriesFreqValidated;
+
+	// Status (5.3): validated against the schema enum; junk = scheduled.
+	const statusValidated =
+		typeof meta.eh_status === 'string' &&
+		STATUS_VALUES.includes(
+			meta.eh_status as ( typeof STATUS_VALUES )[ number ]
+		)
+			? meta.eh_status
+			: '';
+	const status: string = statusValidated;
 	const seriesIntervalRaw =
 		typeof meta.eh_series_interval === 'string'
 			? meta.eh_series_interval
@@ -556,6 +570,36 @@ function EventDetailsFields(): ReactElement {
 							update( 'eh_rsvp_close_hours', value );
 						}
 					} }
+				/>
+			</PanelRow>
+			<PanelRow>
+				<SelectControl
+					label={ __( 'Status', 'event-hub' ) }
+					value={ status }
+					options={
+						[
+							{
+								value: '',
+								label: __( 'Scheduled', 'event-hub' ),
+							},
+							{
+								value: 'cancelled',
+								label: __( 'Cancelled', 'event-hub' ),
+							},
+							{
+								value: 'postponed',
+								label: __( 'Postponed', 'event-hub' ),
+							},
+						] as Array< {
+							value: string;
+							label: string;
+						} >
+					}
+					onChange={ ( next ) => update( 'eh_status', next ) }
+					help={ __(
+						'Cancelled events stop taking RSVPs; attendees with an RSVP are emailed when notifications are on. Postponed keeps the list — announce the new date by rescheduling.',
+						'event-hub'
+					) }
 				/>
 			</PanelRow>
 			<PanelRow>

@@ -86,6 +86,13 @@ final class Rsvp_Repository {
 			return new WP_Error( 'eh_event_not_found', __( 'No such published event.', 'event-hub' ), array( 'status' => 404 ) );
 		}
 
+		// Cancelled events (5.3) take no more RSVPs. Postponed stays open —
+		// people may still join for the new date; the pill and the inert
+		// front-end branch are what keep the surface honest.
+		if ( Event_Status::blocked( $event_id ) ) {
+			return new WP_Error( 'eh_event_cancelled', __( 'This event has been cancelled.', 'event-hub' ), array( 'status' => 409 ) );
+		}
+
 		$end_gmt = $this->post_meta_gmt( $event_id, 'eh_end' );
 
 		// Unknown end date is treated as not-passed (conservative: never block a
@@ -641,6 +648,93 @@ final class Rsvp_Repository {
 		try {
 			$updated = (int) $wpdb->query(
 				$wpdb->prepare( $update_query, current_time( 'mysql' ), $id ) // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $table from $wpdb->prefix.
+			);
+
+			$error = (string) $wpdb->last_error;
+		} finally {
+			$wpdb->suppress_errors( $suppress );
+		}
+
+		return $updated > 0 && '' === $error;
+	}
+
+	/**
+	 * Rows owed a status notice (ROADMAP 5.3): their status_notified_gen
+	 * sits behind the event's current generation. Cancelled/draft rows can
+	 * appear behind only while their event is in a non-scheduled state —
+	 * events back to scheduled never enter the sweep's event list, so their
+	 * stale rows are never re-examined.
+	 *
+	 * @param array<int,int> $event_ids Event post IDs (pre-validated).
+	 * @param int            $limit     Max rows (clamped 1..500).
+	 * @return array<int,array<string,mixed>> Rows keyed by row id.
+	 */
+	public function list_behind_generation( array $event_ids, int $limit = 100 ): array {
+		global $wpdb;
+
+		$event_ids = array_values( array_unique( array_filter( array_map( 'absint', $event_ids ) ) ) );
+
+		if ( array() === $event_ids || $limit < 1 ) {
+			return array();
+		}
+
+		$table          = $this->table();
+		$gen_conditions = array();
+
+		foreach ( $event_ids as $event_id ) {
+			$gen              = Event_Status::generation( $event_id );
+			$gen_conditions[] = $wpdb->prepare(
+				'( event_id = %d AND status_notified_gen < %d )',
+				$event_id,
+				$gen
+			);
+		}
+
+		$limit = min( 500, $limit );
+
+		$query = 'SELECT * FROM ' . $table . '
+			WHERE ' . implode( ' OR ', $gen_conditions ) . '
+			ORDER BY id ASC
+			LIMIT %d';
+
+		$rows = $wpdb->get_results(
+			$wpdb->prepare( $query, $limit ), // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- per-event conditions prepared above; LIMIT bound here.
+			ARRAY_A
+		);
+
+		if ( ! is_array( $rows ) ) {
+			return array();
+		}
+
+		$indexed = array();
+
+		foreach ( $rows as $row ) {
+			$indexed[ (int) $row['id'] ] = $row;
+		}
+
+		return $indexed;
+	}
+
+	/**
+	 * Stamps an RSVP with the generation it was notified about. Single-column
+	 * UPDATE by PK (same pattern as mark_reminded).
+	 *
+	 * @param int $id            RSVP row ID.
+	 * @param int $generation    The status-notice generation just emailed.
+	 * @return bool True when a row was stamped.
+	 */
+	public function mark_status_notified( int $id, int $generation ): bool {
+		global $wpdb;
+
+		$table = $this->table();
+
+		$update_query = "UPDATE {$table} SET status_notified_gen = %d WHERE id = %d AND status_notified_gen < %d";
+
+		$suppress = $wpdb->suppress_errors( true );
+
+		try {
+			$updated = (int) $wpdb->query(
+				$wpdb->prepare( $update_query, $generation, $id, $generation ) // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $table from $wpdb->prefix.
 			);
 
 			$error = (string) $wpdb->last_error;

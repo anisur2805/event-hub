@@ -354,6 +354,91 @@ final class Notifier {
 	}
 
 	/**
+	 * Sends the status-change notice to one attendee (ROADMAP 5.3). Called
+	 * per RSVP row by the status sweep; the event status is re-read at send
+	 * time so a mail outage that outlives an un-cancel sends nothing stale
+	 * (the sweep's event list no longer contains the event in that case).
+	 *
+	 * @param array<string,mixed> $rsvp     Repository row (name, email).
+	 * @param int                 $event_id Event post ID.
+	 * @return bool True when wp_mail accepted the message.
+	 */
+	public static function send_status_change( array $rsvp, int $event_id ): bool {
+		$email = (string) ( $rsvp['email'] ?? '' );
+
+		if ( '' === $email || false === is_email( $email ) ) {
+			return false;
+		}
+
+		$event = get_post( $event_id );
+
+		if ( ! $event instanceof \WP_Post || 'eh_event' !== $event->post_type ) {
+			return false;
+		}
+
+		$status = Event_Status::get( $event_id );
+
+		if ( '' === $status ) {
+			return false; // Back to scheduled since queued — send nothing.
+		}
+
+		$event_title = html_entity_decode( get_the_title( $event ), ENT_QUOTES, 'UTF-8' );
+
+		$subject = sprintf(
+			/* translators: %s: event title. */
+			__( 'Event update: %s', 'event-hub' ),
+			$event_title
+		);
+
+		$rows = array(
+			sprintf( /* translators: %s: attendee name. */ __( 'Name: %s', 'event-hub' ), (string) ( $rsvp['name'] ?? '' ) ),
+		);
+
+		if ( 'cancelled' === $status ) {
+			$rows[] = __( 'Status: Cancelled', 'event-hub' );
+			$rows[] = '';
+			$rows[] = __( 'We are sorry — this event has been cancelled. Your RSVP stays on the list for the record, but the event will not take place.', 'event-hub' );
+		} else {
+			$start_line = self::start_line( $event_id );
+
+			$rows[] = __( 'Status: Postponed', 'event-hub' );
+			$rows[] = '';
+			$rows[] = __( 'This event has been postponed — the scheduled date is no longer valid. The new date will be announced; your RSVP carries over.', 'event-hub' );
+
+			if ( '' !== $start_line ) {
+				$rows[] = sprintf(
+					/* translators: %s: the no-longer-valid original start. */
+					__( 'The previously scheduled time (%s) is no longer valid.', 'event-hub' ),
+					(string) preg_replace( '/^Starts: /', '', $start_line )
+				);
+			}
+		}
+
+		$message = implode(
+			"\r\n",
+			array_merge(
+				$rows,
+				array(
+					'',
+					sprintf(
+						/* translators: %s: admin RSVP manager URL. */
+						__( 'Event page: %s', 'event-hub' ),
+						(string) get_permalink( $event )
+					),
+					'',
+					sprintf(
+						/* translators: %s: site name. */
+						__( '— %s', 'event-hub' ),
+						wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES )
+					),
+				)
+			)
+		);
+
+		return self::dispatch( $email, $subject, $message );
+	}
+
+	/**
 	 * Sends with the shared per-send SMTP timeout guard. Never throws.
 	 *
 	 * @param string $to      Recipient.
