@@ -153,8 +153,9 @@ class Stage3_Scale_Test extends WP_UnitTestCase {
 		// 400 seats emptied with nobody waiting).
 		$this->assertSame(
 			array(
-				'going'    => 50,
-				'waitlist' => 0,
+				'going'     => 50,
+				'waitlist'  => 0,
+				'checkedIn' => 0,
 			),
 			$repo->counts( $event_id ),
 			'End state: only the 50 promoted rows remain going.'
@@ -199,8 +200,9 @@ class Stage3_Scale_Test extends WP_UnitTestCase {
 		$this->assertSame( 200, $dups, 'Every duplicate attempt must map to eh_duplicate.' );
 		$this->assertSame(
 			array(
-				'going'    => 1,
-				'waitlist' => 0,
+				'going'     => 1,
+				'waitlist'  => 0,
+				'checkedIn' => 0,
 			),
 			$repo->counts( $event_id )
 		);

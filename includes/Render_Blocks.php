@@ -1136,8 +1136,14 @@ final class Render_Blocks {
 		}
 
 		return (string) sprintf(
-			/* translators: 1: number going, 2: number waitlisted. */
-			_x( '%1$s going · %2$s waitlisted', 'event count line', 'event-hub' ),
+			/* translators: 1: number going, 2: number of waitlisted seats. */
+			_nx(
+				'%1$s going · %2$s seat waitlisted',
+				'%1$s going · %2$s seats waitlisted',
+				$waitlist,
+				'event count line',
+				'event-hub'
+			),
 			(string) number_format_i18n( $going ),
 			(string) number_format_i18n( $waitlist )
 		);
@@ -1360,8 +1366,18 @@ final class Render_Blocks {
 			'This event has already taken place.'       => __( 'This event has already taken place.', 'event-hub' ),
 			'Something went wrong — please try again.'  => __( 'Something went wrong — please try again.', 'event-hub' ),
 			'Could not load events — please try again.' => __( 'Could not load events — please try again.', 'event-hub' ),
-			/* translators: 1: number going, 2: number waitlisted. */
-			'%1$s going · %2$s waitlisted'              => _x( '%1$s going · %2$s waitlisted', 'event count line', 'event-hub' ),
+			/* translators: 1: number going, 2: number of waitlisted seats. */
+			'%1$s going · %2$s seat waitlisted'         => _x(
+				'%1$s going · %2$s seat waitlisted',
+				'event count line',
+				'event-hub'
+			),
+			/* translators: 1: number going, 2: number of waitlisted seats. */
+			'%1$s going · %2$s seats waitlisted'        => _x(
+				'%1$s going · %2$s seats waitlisted',
+				'event count line',
+				'event-hub'
+			),
 			'Be the first to RSVP.'                     => __( 'Be the first to RSVP.', 'event-hub' ),
 			/* translators: %s: number of attendees. */
 			'%s person going'                           => __( '%s person going', 'event-hub' ),

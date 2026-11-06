@@ -185,7 +185,12 @@ final class Dashboard_Widget {
 
 		$waitlist_label = sprintf(
 			/* translators: %s: number of waitlisted seats. */
-			__( 'Waitlist: %s', 'event-hub' ),
+			_n(
+				'Waitlist: %s seat',
+				'Waitlist: %s seats',
+				$waitlist,
+				'event-hub'
+			),
 			number_format_i18n( $waitlist )
 		);
 

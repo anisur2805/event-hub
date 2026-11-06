@@ -7,7 +7,11 @@
  * and renders a context object per wrapper region (see types.ts for the shape).
  */
 import { store, getContext } from '@wordpress/interactivity';
-import { translate as __, translate, interpolate as sprintf } from './i18n';
+import {
+	translate as __,
+	choosePlural as _n,
+	interpolate as sprintf,
+} from './i18n';
 import { type EventHubStore, type RsvpContext } from './types';
 
 /**
@@ -240,8 +244,14 @@ function syncCountText( ctx: RsvpContext ): void {
 		return;
 	}
 
+	// Waitlist counts SEATS (§2.3): say seats, not people.
 	ctx.countText = sprintf(
-		translate( '%1$s going · %2$s waitlisted' ),
+		/* translators: 1: number going, 2: number of waitlisted seats. */
+		_n(
+			'%1$s going · %2$s seat waitlisted',
+			'%1$s going · %2$s seats waitlisted',
+			waitlist
+		),
 		String( going ),
 		String( waitlist )
 	);

@@ -299,9 +299,15 @@ function renderCard(
 		} else if ( going < 1 && waitlist < 1 ) {
 			count.textContent = __( 'Be the first to RSVP.' );
 		} else {
+			// Waitlist counts SEATS (§2.3 parties can carry up to 10), so the
+			// wording says seats — "3 waitlisted" would misread as people.
 			count.textContent = sprintf(
-				/* translators: 1: number going, 2: number waitlisted. */
-				__( '%1$s going · %2$s waitlisted' ),
+				/* translators: 1: number going, 2: number of waitlisted seats. */
+				_n(
+					'%1$s going · %2$s seat waitlisted',
+					'%1$s going · %2$s seats waitlisted',
+					waitlist
+				),
 				String( going ),
 				String( waitlist )
 			);

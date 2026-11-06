@@ -237,7 +237,7 @@ class Phase0_Fixes_Test extends WP_UnitTestCase {
 		$out = Render_Blocks::render_rsvp_button( $attended );
 
 		$this->assertStringContainsString( 'This event has already taken place.', $out );
-		$this->assertStringContainsString( '2 going · 1 waitlisted', $out );
+		$this->assertStringContainsString( '2 going · 1 seat waitlisted', $out );
 		$this->assertStringNotContainsString( 'data-wp-interactive', $out );
 		$this->assertStringNotContainsString( 'event_hub_name', $out );
 		$this->assertStringNotContainsString( 'event-hub-rsvp__feedback', $out );

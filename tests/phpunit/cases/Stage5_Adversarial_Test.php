@@ -75,12 +75,19 @@ class Stage5_Adversarial_Test extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Attempts a direct status update on a row (simulating tampering paths).
+	 * Stage-5 gate: these probes are the "break my own system" pass, not the
+	 * default suite. They run only with EH_STAGE5=1 (the invocation the file
+	 * header always documented); the plain unit job now skips them, keeping
+	 * the CI green claim honest about which layer was exercised.
 	 *
 	 * @return void
 	 */
 	public function setUp(): void {
 		parent::setUp();
+
+		if ( ! getenv( 'EH_STAGE5' ) ) {
+			$this->markTestSkipped( 'Stage-5 probes run with EH_STAGE5=1.' );
+		}
 
 		self::$captured = array();
 

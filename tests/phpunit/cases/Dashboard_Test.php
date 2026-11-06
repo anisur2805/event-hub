@@ -205,7 +205,7 @@ class Dashboard_Test extends WP_UnitTestCase {
 		);
 
 		$this->assertSame( '12 / 40 seats (30%)', $exact['fill'] );
-		$this->assertSame( 'Waitlist: 3', $exact['waitlist'] );
+		$this->assertSame( 'Waitlist: 3 seats', $exact['waitlist'] );
 
 		$over = Dashboard_Widget::fill_parts(
 			array(
@@ -240,7 +240,7 @@ class Dashboard_Test extends WP_UnitTestCase {
 		);
 
 		$this->assertSame( '7 seats (unlimited)', $parts['fill'] );
-		$this->assertSame( 'Waitlist: 1', $parts['waitlist'] );
+		$this->assertSame( 'Waitlist: 1 seat', $parts['waitlist'] );
 	}
 
 	/**
@@ -310,7 +310,7 @@ class Dashboard_Test extends WP_UnitTestCase {
 		// Fill uses SEATS (2 on the Ada row) and the waitlist is labeled in
 		// seats per the §2.3 counts contract.
 		$this->assertStringContainsString( '2 / 50 seats', $html );
-		$this->assertStringContainsString( 'Waitlist: 1', $html );
+		$this->assertStringContainsString( 'Waitlist: 1 seat', $html );
 		$this->assertStringContainsString( 'Going · 2 seats', $html );
 		$this->assertStringContainsString( 'tab=summary', $html );
 	}
