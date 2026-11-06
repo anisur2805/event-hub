@@ -276,6 +276,12 @@ code).
   > as justified (#51). **done (2026-11-07)**.
 - **WP-CLI extras** — `wp event-hub rsvp export <event>` using `Csv_Exporter`, `wp event-hub list` counts.
 - **Uninstall audit** — confirm `Migrations::uninstall()` covers every new option/column added by any slice.
+  > Shipped (DECISIONS #52): audit caught a latent FATAL (`\Migrations`
+  > global-namespace call against the namespaced class — real deletions
+  > would have died mid-uninstall) plus two gaps: eh_event_category terms
+  > now removed, migration cron unscheduled. Every sweep asserted by
+  > Uninstall_Test (DDL exempt — core testcase query filter, see #52).
+  > **done (2026-11-07)**. §4 complete.
 
 ---
 
@@ -285,4 +291,4 @@ code).
 2. §1.2 hardening — **done, Phase 1**.
 3. §1.3 waitlist promotion — **done, Phase 2**.
 4. §1.1 JSON-LD — **done (2026-11-04)**; was independent, slotted after Phase 2.
-5. Then pick by need: ~~2.1 (email flow; its cancellation now feeds §1.3's promotion)~~ **done (2026-11-04, DB 1.3.0)**; ~~2.2 (check-in)~~ **done (2026-11-04)**; ~~2.4 cutoffs~~ **done (2026-11-05)**; ~~2.3 seats~~ **done (2026-11-05, DB 1.4.0)**; ~~3.1 dashboard~~ **done (2026-11-05)**; ~~3.3 calendar block~~ **done (2026-11-05)**; ~~3.2 recurring events~~ **done (2026-11-05)**. ~~§4 WP-CLI extras~~ **done (2026-11-06)** + findings resolution **done (2026-11-06)**. ~~5.1 venue/organizer~~ **done (2026-11-06)**; ~~5.2 reminders~~ **done (2026-11-06, DB 1.5.0)**; ~~5.3 event status~~ **done (2026-11-07, DB 1.6.0)**; ~~5.4 GDPR~~ **done (2026-11-07)**. ~~§4 .pot/RTL + PCP re-baseline~~ **done (2026-11-07, DECISIONS #51)**. Tier 1 COMPLETE; §3.4 Woo stays parked. Remaining: uninstall audit (quick §4 item), Tier 2/3 by need.
+5. Then pick by need: ~~2.1 (email flow; its cancellation now feeds §1.3's promotion)~~ **done (2026-11-04, DB 1.3.0)**; ~~2.2 (check-in)~~ **done (2026-11-04)**; ~~2.4 cutoffs~~ **done (2026-11-05)**; ~~2.3 seats~~ **done (2026-11-05, DB 1.4.0)**; ~~3.1 dashboard~~ **done (2026-11-05)**; ~~3.3 calendar block~~ **done (2026-11-05)**; ~~3.2 recurring events~~ **done (2026-11-05)**. ~~§4 WP-CLI extras~~ **done (2026-11-06)** + findings resolution **done (2026-11-06)**. ~~5.1 venue/organizer~~ **done (2026-11-06)**; ~~5.2 reminders~~ **done (2026-11-06, DB 1.5.0)**; ~~5.3 event status~~ **done (2026-11-07, DB 1.6.0)**; ~~5.4 GDPR~~ **done (2026-11-07)**. ~~§4 .pot/RTL + PCP re-baseline~~ **done (2026-11-07, DECISIONS #51)**; ~~§4 uninstall audit~~ **done (2026-11-07, DECISIONS #52 — caught a latent uninstall fatal)**. Tier 1 + §4 COMPLETE; §3.4 Woo stays parked. Remaining: Tier 2/3 by need.
