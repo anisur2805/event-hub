@@ -171,7 +171,58 @@ core pagination). Month window is site-timezone; known cap: 200 events/month.
 
 ### 3.4 WooCommerce paid events (knowingly out of scope for now)
 RSVP gated by order/completion. Huge scope (HPOS, checkout blocks, refunds) — keep
-parked unless explicitly requested.
+parked unless explicitly requested. External review (2026-11-06) concurs: park it and
+perfect the free-event experience first.
+
+---
+
+## 5. Competitive parity wave (2026-11-07, from the external review)
+
+Order agreed with the user: WP-CLI extras (§4) FIRST, then these tiers, and ONLY THEN
+the §4 .pot/RTL + PCP re-baseline (so translation + check runs happen once, on final
+code).
+
+### WP-CLI extras (§4)
+
+> **Done (2026-11-06, docs/DECISIONS.md #46).** `wp event-hub list` (Cli.php) and
+> `wp event-hub rsvp export <id>` (Cli_Rsvp.php); the export rides Csv_Exporter's
+> COLUMNS + csv_row() so CLI output cannot drift from the admin stream.
+
+### Tier 1 — plugin feels incomplete without these
+- **5.1 Venue & Organizer as first-class entities** — CPTs (`eh_venue`, `eh_organizer`)
+  reusable across events, address etc.; JSON-LD `location`/`organizer` enriched from
+  them; event meta picks one of each.
+- **5.2 Reminders & notifications** — cron reminder N hours before start; attendee
+  notice on cancel/reschedule; organizer notification on new RSVP.
+- **5.3 Event status** — Cancelled/Postponed meta surfaced on card + single + JSON-LD
+  `eventStatus` (supersedes #36's always-`EventScheduled`).
+- **5.4 GDPR** — register WP Privacy `wp_privacy_personal_data_exporters`/`erasers`
+  against the `eh_rsvps` table (PII: name, email).
+
+### Tier 2 — parity
+- **5.5** Search & filter in Event List (keyword/date/venue/category).
+- **5.6** Virtual events — online URL shown only to confirmed attendees + emails.
+- **5.7** Add-to-Google/Outlook buttons (ICS exists).
+- **5.8** Custom RSVP fields + approval mode.
+- **5.9** Query Loop variation for `eh_event` + Block Bindings for event meta (the
+  block-first identity; cheap, high differentiation).
+
+### Tier 3 — later
+- **5.10** Front-end event submission (spam/moderation burden).
+- **5.11** iCal import; mobile-friendly check-in UI over the existing REST endpoint.
+- **5.12** Integration hooks (documented actions/filters) instead of built-in Zapier/
+  Mailchimp connectors.
+
+### Findings resolution (user-approved 2026-11-06, do alongside Tier 1)
+
+> **Done (2026-11-06, docs/DECISIONS.md #45).** Waitlist labels pluralized with real
+> `_n()`/`_nx()` forms at all three PHP sites + both JS sites (view_strings() seeds
+> both msgids); Stage-3 assertions carry the three-key counts shape; Stage-5 probes
+> gated behind `EH_STAGE5=1`.
+- Waitlist labels change to explicit seat language ("N seats waiting") — semantics stay
+  seat-based (correct under §2.3), only wording matters.
+- Fix the 2 stale Stage-3 counts-shape assertions (three-key incl. checkedIn).
+- Wire the EH_STAGE5 gate the Stage5 header already promises.
 
 ---
 
@@ -190,4 +241,4 @@ parked unless explicitly requested.
 2. §1.2 hardening — **done, Phase 1**.
 3. §1.3 waitlist promotion — **done, Phase 2**.
 4. §1.1 JSON-LD — **done (2026-11-04)**; was independent, slotted after Phase 2.
-5. Then pick by need: ~~2.1 (email flow; its cancellation now feeds §1.3's promotion)~~ **done (2026-11-04, DB 1.3.0)**; ~~2.2 (check-in)~~ **done (2026-11-04)**; ~~2.4 cutoffs~~ **done (2026-11-05)**; ~~2.3 seats~~ **done (2026-11-05, DB 1.4.0)**; ~~3.1 dashboard~~ **done (2026-11-05)**; ~~3.3 calendar block~~ **done (2026-11-05)**; ~~3.2 recurring events~~ **done (2026-11-05)**. Remaining: §4 compliance; 3.4 Woo stays parked.
+5. Then pick by need: ~~2.1 (email flow; its cancellation now feeds §1.3's promotion)~~ **done (2026-11-04, DB 1.3.0)**; ~~2.2 (check-in)~~ **done (2026-11-04)**; ~~2.4 cutoffs~~ **done (2026-11-05)**; ~~2.3 seats~~ **done (2026-11-05, DB 1.4.0)**; ~~3.1 dashboard~~ **done (2026-11-05)**; ~~3.3 calendar block~~ **done (2026-11-05)**; ~~3.2 recurring events~~ **done (2026-11-05)**. ~~§4 WP-CLI extras~~ **done (2026-11-06)** + findings resolution **done (2026-11-06)**. Remaining: §5 Tier 1 (5.1→5.4) → THEN §4 .pot/RTL + PCP re-baseline on final code; §3.4 Woo stays parked.
