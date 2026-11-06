@@ -223,6 +223,15 @@ code).
   > Tests: `Event_Status_Test` (14).
 - **5.4 GDPR** — register WP Privacy `wp_privacy_personal_data_exporters`/`erasers`
   against the `eh_rsvps` table (PII: name, email).
+  > Shipped (DECISIONS #50): exporter = all rows for the email as one
+  > grouped item (Event/Name/Email/Status/Seats/Registered/Checked-in);
+  > eraser ANONYMIZES in place — name → 'Erased', email → `erased-{id}`
+  > (no @, so every mail-path `is_email()` gate rejects it), token NULL,
+  > both stamp columns maxed — never delete (deleting frees capacity and
+  > would fire the cancellation mail AT the person being erased). Both
+  > sweeps stamp+skip undeliverable rows (self-healing, no livelock).
+  > No DB bump (existing columns only). Tests: `Privacy_Test` (7).
+  > **done (2026-11-07)**.
 
 ### Tier 2 — parity
 - **5.5** Search & filter in Event List (keyword/date/venue/category).
@@ -266,4 +275,4 @@ code).
 2. §1.2 hardening — **done, Phase 1**.
 3. §1.3 waitlist promotion — **done, Phase 2**.
 4. §1.1 JSON-LD — **done (2026-11-04)**; was independent, slotted after Phase 2.
-5. Then pick by need: ~~2.1 (email flow; its cancellation now feeds §1.3's promotion)~~ **done (2026-11-04, DB 1.3.0)**; ~~2.2 (check-in)~~ **done (2026-11-04)**; ~~2.4 cutoffs~~ **done (2026-11-05)**; ~~2.3 seats~~ **done (2026-11-05, DB 1.4.0)**; ~~3.1 dashboard~~ **done (2026-11-05)**; ~~3.3 calendar block~~ **done (2026-11-05)**; ~~3.2 recurring events~~ **done (2026-11-05)**. ~~§4 WP-CLI extras~~ **done (2026-11-06)** + findings resolution **done (2026-11-06)**. ~~5.1 venue/organizer~~ **done (2026-11-06)**; ~~5.2 reminders~~ **done (2026-11-06, DB 1.5.0)**; ~~5.3 event status~~ **done (2026-11-07, DB 1.6.0)**. Tier 1 remaining: 5.4 GDPR, THEN §4 .pot/RTL + PCP re-baseline on final code; §3.4 Woo stays parked.
+5. Then pick by need: ~~2.1 (email flow; its cancellation now feeds §1.3's promotion)~~ **done (2026-11-04, DB 1.3.0)**; ~~2.2 (check-in)~~ **done (2026-11-04)**; ~~2.4 cutoffs~~ **done (2026-11-05)**; ~~2.3 seats~~ **done (2026-11-05, DB 1.4.0)**; ~~3.1 dashboard~~ **done (2026-11-05)**; ~~3.3 calendar block~~ **done (2026-11-05)**; ~~3.2 recurring events~~ **done (2026-11-05)**. ~~§4 WP-CLI extras~~ **done (2026-11-06)** + findings resolution **done (2026-11-06)**. ~~5.1 venue/organizer~~ **done (2026-11-06)**; ~~5.2 reminders~~ **done (2026-11-06, DB 1.5.0)**; ~~5.3 event status~~ **done (2026-11-07, DB 1.6.0)**; ~~5.4 GDPR~~ **done (2026-11-07)**. Tier 1 remaining: §4 .pot/RTL + PCP re-baseline on final code; §3.4 Woo stays parked.
