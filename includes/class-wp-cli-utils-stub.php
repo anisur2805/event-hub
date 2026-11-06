@@ -14,6 +14,10 @@ declare( strict_types=1 );
 
 namespace WP_CLI\Utils;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 if ( ! function_exists( 'WP_CLI\Utils\format_items' ) ) {
 	/**
 	 * Renders items as table/json/csv/yaml/ids/count. Signature matches the

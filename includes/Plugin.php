@@ -671,6 +671,12 @@ final class Plugin {
 			array(),
 			EVENT_HUB_VERSION
 		);
+
+		// RTL locales get the mirrored sheet (build output alongside the
+		// LTR file) when the built stylesheet exists.
+		if ( is_readable( EVENT_HUB_DIR . 'build/css/event-hub-rtl.css' ) ) {
+			wp_style_add_data( 'event-hub-blocks', 'rtl', 'replace' );
+		}
 	}
 
 	/**

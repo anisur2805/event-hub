@@ -1,7 +1,6 @@
 <?php
 /**
  * Plugin Name:       Event Hub
- * Plugin URI:        https://example.com/event-hub
  * Description:       Events + RSVP with capacity-aware registration, admin RSVP management, ICS export, and Interactivity API blocks.
  * Version:           1.0.0
  * Requires at least: 6.7

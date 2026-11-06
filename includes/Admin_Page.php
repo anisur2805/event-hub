@@ -138,6 +138,13 @@ final class Admin_Page {
 			$version
 		);
 
+		// RTL locales get the mirrored (currently byte-identical) build
+		// output when it exists, so future physical properties flip
+		// automatically.
+		if ( is_readable( EVENT_HUB_DIR . 'build/admin/index-rtl.css' ) ) {
+			wp_style_add_data( 'event-hub-admin', 'rtl', 'replace' );
+		}
+
 		wp_enqueue_script(
 			'event-hub-admin',
 			EVENT_HUB_URL . 'build/admin/index.js',

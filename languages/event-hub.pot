@@ -1,0 +1,1441 @@
+# Copyright (C) 2026 Event Hub
+# This file is distributed under the GPL-2.0-or-later.
+msgid ""
+msgstr ""
+"Project-Id-Version: Event Hub 1.0.0\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/event-hub\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2026-11-06T18:25:58+00:00\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"X-Generator: WP-CLI 2.12.0\n"
+"X-Domain: event-hub\n"
+
+#. Plugin Name of the plugin
+#. Author of the plugin
+#: event-hub.php
+#: includes/Admin_Page.php:40
+#: includes/Dashboard_Widget.php:61
+#: includes/Plugin.php:721
+msgid "Event Hub"
+msgstr ""
+
+#. Plugin URI of the plugin
+#: event-hub.php
+msgid "https://example.com/event-hub"
+msgstr ""
+
+#. Description of the plugin
+#: event-hub.php
+msgid "Events + RSVP with capacity-aware registration, admin RSVP management, ICS export, and Interactivity API blocks."
+msgstr ""
+
+#: includes/Admin_Columns.php:55
+#: includes/Admin_Columns.php:64
+#: includes/Admin_Page.php:373
+msgid "When"
+msgstr ""
+
+#: includes/Admin_Columns.php:56
+#: includes/Admin_Columns.php:65
+#: includes/Plugin.php:347
+#: build/admin/event-details.js:1
+msgid "Venue"
+msgstr ""
+
+#: includes/Admin_Columns.php:57
+#: includes/Admin_Columns.php:66
+#: build/admin/event-details.js:1
+msgid "Capacity"
+msgstr ""
+
+#: includes/Admin_Columns.php:58
+#: includes/Admin_Columns.php:67
+msgid "Series"
+msgstr ""
+
+#: includes/Admin_Columns.php:101
+#: includes/Admin_Columns.php:216
+#: includes/Admin_Columns.php:293
+#: includes/Admin_Columns.php:305
+#: includes/Dashboard_Widget.php:212
+#: includes/Dashboard_Widget.php:222
+#: includes/Dashboard_Widget.php:267
+#: build/admin/index.js:1
+msgid "—"
+msgstr ""
+
+#: includes/Admin_Columns.php:115
+msgid "Unlimited"
+msgstr ""
+
+#. translators: %s: invalid stored capacity value.
+#: includes/Admin_Columns.php:121
+#, php-format
+msgid "Invalid (%s) — treated as Unlimited"
+msgstr ""
+
+#. translators: 1: number going, 2: total capacity.
+#: includes/Admin_Columns.php:131
+#, php-format
+msgid "%1$s of %2$s"
+msgstr ""
+
+#: includes/Admin_Columns.php:191
+#: includes/Admin_Page.php:234
+#: includes/Admin_Page.php:284
+#: includes/Admin_Page.php:326
+msgid "RSVPs"
+msgstr ""
+
+#: includes/Admin_Columns.php:197
+msgid "Export CSV"
+msgstr ""
+
+#. translators: %s: series seed event title.
+#: includes/Admin_Columns.php:229
+#, php-format
+msgid "↳ %s"
+msgstr ""
+
+#: includes/Admin_Columns.php:232
+msgid "↳ (deleted series)"
+msgstr ""
+
+#: includes/Admin_Columns.php:240
+#: build/admin/event-details.js:1
+msgid "Daily"
+msgstr ""
+
+#: includes/Admin_Columns.php:241
+#: build/admin/event-details.js:1
+msgid "Weekly"
+msgstr ""
+
+#: includes/Admin_Columns.php:242
+#: build/admin/event-details.js:1
+msgid "Monthly"
+msgstr ""
+
+#. translators: %s: invalid stored frequency value.
+#: includes/Admin_Columns.php:254
+#, php-format
+msgid "Invalid (%s) — treated as one-off"
+msgstr ""
+
+#. translators: %d: interval (every N days/weeks/months).
+#: includes/Admin_Columns.php:267
+#, php-format
+msgid " ×%d"
+msgstr ""
+
+#. translators: %s: last occurrence date (Y-m-d).
+#: includes/Admin_Columns.php:276
+#, php-format
+msgid ", until %s"
+msgstr ""
+
+#: includes/Admin_Page.php:39
+msgid "Event Hub RSVPs"
+msgstr ""
+
+#: includes/Admin_Page.php:68
+msgid "You are not allowed to change this setting."
+msgstr ""
+
+#: includes/Admin_Page.php:69
+#: includes/Csv_Exporter.php:96
+msgid "Forbidden"
+msgstr ""
+
+#: includes/Admin_Page.php:230
+#: includes/Admin_Page.php:322
+msgid "Event Hub sections"
+msgstr ""
+
+#: includes/Admin_Page.php:238
+#: includes/Admin_Page.php:330
+msgid "Summary"
+msgstr ""
+
+#: includes/Admin_Page.php:242
+msgid "Settings saved."
+msgstr ""
+
+#: includes/Admin_Page.php:250
+msgid "Confirmation emails"
+msgstr ""
+
+#: includes/Admin_Page.php:260
+msgid "Send RSVP confirmation emails with a manage-booking link"
+msgstr ""
+
+#: includes/Admin_Page.php:265
+msgid "Notifications"
+msgstr ""
+
+#: includes/Admin_Page.php:275
+msgid "Email attendees a reminder before the event, a cancellation notice, and organizers each new RSVP"
+msgstr ""
+
+#: includes/Admin_Page.php:287
+msgid "The admin app bundle is missing — run the plugin build."
+msgstr ""
+
+#: includes/Admin_Page.php:333
+#: includes/Dashboard_Widget.php:87
+msgid "Upcoming events"
+msgstr ""
+
+#: includes/Admin_Page.php:336
+#: includes/Dashboard_Widget.php:90
+#: includes/Render_Blocks.php:680
+msgid "No upcoming events."
+msgstr ""
+
+#: includes/Admin_Page.php:341
+#: includes/Admin_Page.php:378
+#: includes/Plugin.php:280
+#: includes/Privacy.php:94
+#: build/admin/index.js:1
+#: build/blocks/event-card/index.js:2
+#: build/blocks/rsvp-button/index.js:1
+msgid "Event"
+msgstr ""
+
+#: includes/Admin_Page.php:342
+#: build/admin/event-details.js:1
+msgid "Starts"
+msgstr ""
+
+#: includes/Admin_Page.php:343
+msgid "Fill"
+msgstr ""
+
+#: includes/Admin_Page.php:344
+#: includes/Dashboard_Widget.php:241
+#: includes/Notifier.php:101
+#: includes/Notifier.php:193
+#: includes/Notifier.php:310
+#: includes/Privacy.php:108
+#: includes/Render_Blocks.php:317
+#: includes/Render_Blocks.php:1497
+#: includes/templates/manage-rsvp.php:69
+#: build/admin/index.js:1
+msgid "Waitlist"
+msgstr ""
+
+#: includes/Admin_Page.php:365
+#: includes/Dashboard_Widget.php:118
+msgid "Recent RSVPs"
+msgstr ""
+
+#: includes/Admin_Page.php:368
+#: includes/Dashboard_Widget.php:121
+#: build/admin/index.js:1
+msgid "No RSVPs yet."
+msgstr ""
+
+#: includes/Admin_Page.php:374
+#: includes/Privacy.php:98
+#: includes/Render_Blocks.php:505
+#: includes/templates/manage-rsvp.php:88
+#: build/admin/index.js:1
+#: build/blocks/rsvp-button/index.js:1
+msgid "Name"
+msgstr ""
+
+#: includes/Admin_Page.php:375
+#: includes/Privacy.php:102
+#: includes/Render_Blocks.php:515
+#: build/admin/index.js:1
+#: build/blocks/rsvp-button/index.js:1
+msgid "Email"
+msgstr ""
+
+#: includes/Admin_Page.php:376
+#: includes/Privacy.php:112
+#: includes/Render_Blocks.php:530
+#: build/admin/index.js:1
+msgid "Seats"
+msgstr ""
+
+#: includes/Admin_Page.php:377
+#: includes/Privacy.php:106
+#: build/admin/event-details.js:1
+#: build/admin/index.js:1
+msgid "Status"
+msgstr ""
+
+#: includes/Csv_Exporter.php:95
+msgid "You are not allowed to export RSVPs."
+msgstr ""
+
+#: includes/Csv_Exporter.php:108
+msgid "Unknown event."
+msgstr ""
+
+#: includes/Csv_Exporter.php:109
+msgid "Not found"
+msgstr ""
+
+#: includes/Dashboard_Widget.php:81
+msgid "No upcoming events or RSVPs yet."
+msgstr ""
+
+#: includes/Dashboard_Widget.php:141
+msgid "View the organizer summary"
+msgstr ""
+
+#. translators: %s: number of seats booked.
+#: includes/Dashboard_Widget.php:161
+#, php-format
+msgid "%s seats (unlimited)"
+msgstr ""
+
+#. translators: 1: seats booked, 2: total capacity, 3: percentage.
+#: includes/Dashboard_Widget.php:179
+#, php-format
+msgid "%1$s / %2$s seats (%3$s%%)"
+msgstr ""
+
+#. translators: %s: number of waitlisted seats.
+#: includes/Dashboard_Widget.php:188
+#, php-format
+msgid "Waitlist: %s seat"
+msgid_plural "Waitlist: %s seats"
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/Dashboard_Widget.php:242
+#: includes/Notifier.php:102
+#: includes/Notifier.php:194
+#: includes/Notifier.php:311
+#: includes/Privacy.php:109
+#: includes/templates/manage-rsvp.php:70
+#: build/admin/index.js:1
+msgid "Going"
+msgstr ""
+
+#. translators: 1: status, 2: number of seats.
+#: includes/Dashboard_Widget.php:250
+#, php-format
+msgid "%1$s · %2$s seats"
+msgstr ""
+
+#. translators: %s: human-readable time difference, e.g. "5 mins".
+#: includes/Dashboard_Widget.php:274
+#, php-format
+msgid "%s ago"
+msgstr ""
+
+#: includes/Form_Guard.php:145
+msgid "This RSVP form has expired — please reload the page and try again."
+msgstr ""
+
+#: includes/Manage_Page.php:106
+#: includes/Manage_Page.php:118
+#: includes/Manage_Page.php:124
+#: includes/Rest_Controller.php:540
+#: includes/Rest_Controller.php:544
+#: includes/Rest_Controller.php:566
+#: includes/Rest_Controller.php:578
+#: includes/templates/manage-rsvp.php:34
+#: includes/templates/manage-rsvp.php:51
+msgid "This management link is not valid."
+msgstr ""
+
+#: includes/Manage_Page.php:112
+msgid "Your session expired. Please go back and reload the page."
+msgstr ""
+
+#. translators: %s: event title.
+#: includes/Notifier.php:90
+#, php-format
+msgid "Your RSVP is confirmed: %s"
+msgstr ""
+
+#. translators: %s: attendee name.
+#: includes/Notifier.php:95
+#: includes/Notifier.php:188
+#: includes/Notifier.php:250
+#: includes/Notifier.php:304
+#: includes/Notifier.php:394
+#, php-format
+msgid "Name: %s"
+msgstr ""
+
+#. translators: %s: attendee email.
+#: includes/Notifier.php:96
+#: includes/Notifier.php:305
+#, php-format
+msgid "Email: %s"
+msgstr ""
+
+#. translators: %s: attendance status (going / waitlist).
+#: includes/Notifier.php:99
+#: includes/Notifier.php:191
+#: includes/Notifier.php:308
+#, php-format
+msgid "Status: %s"
+msgstr ""
+
+#. translators: %s: number of seats.
+#: includes/Notifier.php:106
+#: includes/Notifier.php:315
+#, php-format
+msgid "Seats: %s"
+msgstr ""
+
+#. translators: %s: event start date and time.
+#: includes/Notifier.php:118
+#: includes/Notifier.php:349
+#, php-format
+msgid "Starts: %s"
+msgstr ""
+
+#: includes/Notifier.php:131
+msgid "Manage your booking (cancel or update your name):"
+msgstr ""
+
+#. translators: %s: site name.
+#: includes/Notifier.php:136
+#: includes/Notifier.php:210
+#: includes/Notifier.php:257
+#: includes/Notifier.php:431
+#, php-format
+msgid "— %s"
+msgstr ""
+
+#. translators: %s: event title.
+#: includes/Notifier.php:183
+#, php-format
+msgid "Reminder: %s is coming up"
+msgstr ""
+
+#: includes/Notifier.php:206
+msgid "We look forward to seeing you."
+msgstr ""
+
+#. translators: %s: event title.
+#: includes/Notifier.php:243
+#, php-format
+msgid "Your RSVP was cancelled: %s"
+msgstr ""
+
+#: includes/Notifier.php:253
+msgid "Your registration has been removed and your seats are free again. You can RSVP again at any time while the event is open."
+msgstr ""
+
+#. translators: 1: attendee name, 2: event title.
+#: includes/Notifier.php:296
+#, php-format
+msgid "New RSVP: %1$s for %2$s"
+msgstr ""
+
+#. translators: %s: admin RSVP manager URL.
+#: includes/Notifier.php:321
+#, php-format
+msgid "Manage RSVPs: %s"
+msgstr ""
+
+#. translators: %s: event title.
+#: includes/Notifier.php:389
+#, php-format
+msgid "Event update: %s"
+msgstr ""
+
+#: includes/Notifier.php:398
+msgid "Status: Cancelled"
+msgstr ""
+
+#: includes/Notifier.php:400
+msgid "We are sorry — this event has been cancelled. Your RSVP stays on the list for the record, but the event will not take place."
+msgstr ""
+
+#: includes/Notifier.php:404
+msgid "Status: Postponed"
+msgstr ""
+
+#: includes/Notifier.php:406
+msgid "This event has been postponed — the scheduled date is no longer valid. The new date will be announced; your RSVP carries over."
+msgstr ""
+
+#. translators: %s: the no-longer-valid original start.
+#: includes/Notifier.php:411
+#, php-format
+msgid "The previously scheduled time (%s) is no longer valid."
+msgstr ""
+
+#. translators: %s: admin RSVP manager URL.
+#: includes/Notifier.php:425
+#, php-format
+msgid "Event page: %s"
+msgstr ""
+
+#: includes/Plugin.php:279
+#: includes/Plugin.php:288
+msgid "Events"
+msgstr ""
+
+#: includes/Plugin.php:281
+msgid "Add New Event"
+msgstr ""
+
+#: includes/Plugin.php:282
+msgid "Edit Event"
+msgstr ""
+
+#: includes/Plugin.php:283
+msgid "New Event"
+msgstr ""
+
+#: includes/Plugin.php:284
+msgid "View Event"
+msgstr ""
+
+#: includes/Plugin.php:285
+msgid "Search Events"
+msgstr ""
+
+#: includes/Plugin.php:286
+msgid "No events found"
+msgstr ""
+
+#: includes/Plugin.php:287
+msgid "All Events"
+msgstr ""
+
+#: includes/Plugin.php:321
+msgid "Event Categories"
+msgstr ""
+
+#: includes/Plugin.php:322
+msgid "Event Category"
+msgstr ""
+
+#: includes/Plugin.php:346
+#: includes/Plugin.php:353
+msgid "Venues"
+msgstr ""
+
+#: includes/Plugin.php:348
+msgid "Add New Venue"
+msgstr ""
+
+#: includes/Plugin.php:349
+msgid "Edit Venue"
+msgstr ""
+
+#: includes/Plugin.php:350
+msgid "Search Venues"
+msgstr ""
+
+#: includes/Plugin.php:351
+msgid "No venues found"
+msgstr ""
+
+#: includes/Plugin.php:352
+msgid "All Venues"
+msgstr ""
+
+#: includes/Plugin.php:371
+#: includes/Plugin.php:378
+msgid "Organizers"
+msgstr ""
+
+#: includes/Plugin.php:372
+#: build/admin/event-details.js:1
+msgid "Organizer"
+msgstr ""
+
+#: includes/Plugin.php:373
+msgid "Add New Organizer"
+msgstr ""
+
+#: includes/Plugin.php:374
+msgid "Edit Organizer"
+msgstr ""
+
+#: includes/Plugin.php:375
+msgid "Search Organizers"
+msgstr ""
+
+#: includes/Plugin.php:376
+msgid "No organizers found"
+msgstr ""
+
+#: includes/Plugin.php:377
+msgid "All Organizers"
+msgstr ""
+
+#: includes/Plugin.php:407
+msgid "Start datetime (site timezone, Y-m-d H:i:s)."
+msgstr ""
+
+#: includes/Plugin.php:408
+msgid "End datetime (site timezone, Y-m-d H:i:s)."
+msgstr ""
+
+#: includes/Plugin.php:409
+msgid "Venue name."
+msgstr ""
+
+#: includes/Plugin.php:425
+msgid "Linked venue or organizer post ID. Empty = not linked. (ROADMAP 5.1)"
+msgstr ""
+
+#: includes/Plugin.php:444
+msgid "Street address of the venue (schema.org location address). (ROADMAP 5.1)"
+msgstr ""
+
+#: includes/Plugin.php:467
+msgid "Hours before start when reminder emails go out. Empty = 24. Zero = no reminders. (ROADMAP 5.2)"
+msgstr ""
+
+#: includes/Plugin.php:485
+msgid "Going capacity. Empty = unlimited (docs/ARCHITECTURE.md)."
+msgstr ""
+
+#: includes/Plugin.php:520
+msgid "Hours before start when RSVPs open or close. Empty = no boundary. (ROADMAP 2.4)"
+msgstr ""
+
+#: includes/Plugin.php:547
+msgid "Recurrence frequency. Empty = one-off event; daily, weekly or monthly = series seed. (ROADMAP 3.2)"
+msgstr ""
+
+#: includes/Plugin.php:565
+msgid "Recurrence interval (every N days/weeks/months). Empty = 1. (ROADMAP 3.2)"
+msgstr ""
+
+#: includes/Plugin.php:583
+msgid "Weekly recurrence weekdays, 0=Sunday..6=Saturday, comma-separated. Empty = the start weekday. (ROADMAP 3.2)"
+msgstr ""
+
+#: includes/Plugin.php:601
+msgid "Last date occurrences are generated (Y-m-d, inclusive). Empty = rolling 6-month horizon. (ROADMAP 3.2)"
+msgstr ""
+
+#: includes/Plugin.php:625
+msgid "Event status. Empty = scheduled; cancelled or postponed. (ROADMAP 5.3)"
+msgstr ""
+
+#: includes/Plugin.php:647
+msgid "Internal: attendee status-notice generation counter. (ROADMAP 5.3)"
+msgstr ""
+
+#: includes/Plugin.php:728
+msgid "Events grid"
+msgstr ""
+
+#: includes/Plugin.php:732
+msgid "Featured event hero"
+msgstr ""
+
+#: includes/Privacy.php:46
+#: includes/Privacy.php:58
+msgid "Event Hub bookings"
+msgstr ""
+
+#: includes/Privacy.php:116
+msgid "Registered at"
+msgstr ""
+
+#: includes/Privacy.php:123
+#: build/admin/index.js:1
+msgid "Checked in"
+msgstr ""
+
+#: includes/Privacy.php:126
+msgid "No"
+msgstr ""
+
+#: includes/Privacy.php:134
+msgid "Event bookings"
+msgstr ""
+
+#. translators: %d: RSVP row ID.
+#: includes/Privacy.php:176
+#, php-format
+msgid "RSVP #%d could not be anonymized due to a database error and was retained."
+msgstr ""
+
+#: includes/Render_Blocks.php:284
+#: includes/Render_Blocks.php:1492
+#: build/admin/event-details.js:1
+msgid "Cancelled"
+msgstr ""
+
+#: includes/Render_Blocks.php:285
+#: includes/Render_Blocks.php:1493
+#: build/admin/event-details.js:1
+msgid "Postponed"
+msgstr ""
+
+#: includes/Render_Blocks.php:293
+#: includes/Render_Blocks.php:1499
+msgid "Past"
+msgstr ""
+
+#: includes/Render_Blocks.php:303
+#: includes/Render_Blocks.php:1491
+msgid "Closed"
+msgstr ""
+
+#: includes/Render_Blocks.php:324
+#: includes/Render_Blocks.php:1498
+msgid "Sold out"
+msgstr ""
+
+#: includes/Render_Blocks.php:332
+#: includes/Render_Blocks.php:1496
+msgid "Few spots left"
+msgstr ""
+
+#: includes/Render_Blocks.php:339
+#: includes/Render_Blocks.php:1490
+msgid "Open"
+msgstr ""
+
+#: includes/Render_Blocks.php:449
+#: includes/Render_Blocks.php:1466
+msgid "This event has already taken place."
+msgstr ""
+
+#: includes/Render_Blocks.php:467
+#: includes/Render_Blocks.php:1494
+#: includes/Rsvp_Repository.php:93
+msgid "This event has been cancelled."
+msgstr ""
+
+#: includes/Render_Blocks.php:468
+#: includes/Render_Blocks.php:1495
+msgid "This event has been postponed — the new date will be announced."
+msgstr ""
+
+#: includes/Render_Blocks.php:485
+#: includes/Render_Blocks.php:1501
+msgid "RSVPs have not opened yet."
+msgstr ""
+
+#: includes/Render_Blocks.php:485
+#: includes/Render_Blocks.php:1500
+msgid "RSVPs are closed."
+msgstr ""
+
+#: includes/Render_Blocks.php:567
+msgid "Join waitlist"
+msgstr ""
+
+#: includes/Render_Blocks.php:574
+#: build/blocks/rsvp-button/index.js:1
+msgid "RSVP"
+msgstr ""
+
+#: includes/Render_Blocks.php:578
+msgid "Enable JavaScript to RSVP."
+msgstr ""
+
+#. translators: %s: number of events found.
+#: includes/Render_Blocks.php:619
+#: includes/Render_Blocks.php:1487
+#, php-format
+msgid "%s event found"
+msgid_plural "%s events found"
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/Render_Blocks.php:659
+#: build/blocks/event-list/index.js:1
+msgid "Filter by category"
+msgstr ""
+
+#: includes/Render_Blocks.php:666
+#: build/blocks/event-list/index.js:1
+msgid "All categories"
+msgstr ""
+
+#: includes/Render_Blocks.php:671
+msgid "Apply"
+msgstr ""
+
+#: includes/Render_Blocks.php:708
+msgid "View details"
+msgstr ""
+
+#: includes/Render_Blocks.php:982
+msgid "Use the month links to browse other months."
+msgstr ""
+
+#. translators: %s: number of events.
+#: includes/Render_Blocks.php:999
+#, php-format
+msgid "%s event this month"
+msgid_plural "%s events this month"
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: %s: number of events.
+#: includes/Render_Blocks.php:1150
+#: build/blocks/event-categories/index.js:2
+msgid "No categories yet."
+msgstr ""
+
+#. translators: %s: number of events in the category.
+#: includes/Render_Blocks.php:1163
+#, php-format
+msgctxt "category count wrapper"
+msgid "(%s)"
+msgstr ""
+
+#: includes/Render_Blocks.php:1232
+#: includes/Render_Blocks.php:1481
+msgid "Be the first to RSVP."
+msgstr ""
+
+#. translators: 1: number going, 2: number of waitlisted seats.
+#: includes/Render_Blocks.php:1240
+#: includes/Render_Blocks.php:1470
+#, php-format
+msgctxt "event count line"
+msgid "%1$s going · %2$s seat waitlisted"
+msgid_plural "%1$s going · %2$s seats waitlisted"
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: 1: number going, 2: total capacity.
+#: includes/Render_Blocks.php:1429
+#: includes/Render_Blocks.php:1503
+#, php-format
+msgid "%1$s of %2$s spots filled"
+msgstr ""
+
+#: includes/Render_Blocks.php:1459
+msgid "Please enter your name."
+msgstr ""
+
+#: includes/Render_Blocks.php:1460
+msgid "Please enter a valid email address."
+msgstr ""
+
+#: includes/Render_Blocks.php:1461
+msgid "You're already registered."
+msgstr ""
+
+#: includes/Render_Blocks.php:1462
+msgid "You are registered."
+msgstr ""
+
+#: includes/Render_Blocks.php:1463
+msgid "You are on the waitlist."
+msgstr ""
+
+#: includes/Render_Blocks.php:1464
+msgid "This event is full — join the waitlist."
+msgstr ""
+
+#: includes/Render_Blocks.php:1465
+msgid "Too many attempts — try again in a few minutes."
+msgstr ""
+
+#: includes/Render_Blocks.php:1467
+msgid "Something went wrong — please try again."
+msgstr ""
+
+#: includes/Render_Blocks.php:1468
+msgid "Could not load events — please try again."
+msgstr ""
+
+#. translators: 1: number going, 2: number of waitlisted seats.
+#: includes/Render_Blocks.php:1476
+#, php-format
+msgctxt "event count line"
+msgid "%1$s going · %2$s seats waitlisted"
+msgstr ""
+
+#. translators: %s: number of attendees.
+#: includes/Render_Blocks.php:1483
+#, php-format
+msgid "%s person going"
+msgstr ""
+
+#. translators: %s: number of attendees.
+#: includes/Render_Blocks.php:1485
+#, php-format
+msgid "%s people going"
+msgstr ""
+
+#. translators: %s: number of events.
+#: includes/Render_Blocks.php:1489
+#, php-format
+msgid "%s events found"
+msgstr ""
+
+#: includes/Rest_Controller.php:395
+msgid "Cookie check failed: a valid REST nonce is required."
+msgstr ""
+
+#: includes/Rest_Controller.php:412
+msgid "You are not allowed to manage RSVPs."
+msgstr ""
+
+#: includes/Rest_Controller.php:432
+msgid "A valid eventId is required."
+msgstr ""
+
+#: includes/Rest_Controller.php:438
+msgid "Please provide a name of 1 to 100 characters."
+msgstr ""
+
+#: includes/Rest_Controller.php:444
+#: includes/Rsvp_Repository.php:80
+msgid "Please provide a valid email address."
+msgstr ""
+
+#: includes/Rest_Controller.php:450
+#: includes/Rsvp_Repository.php:68
+msgid "Status must be either going or waitlist."
+msgstr ""
+
+#: includes/Rest_Controller.php:456
+msgid "RSVP could not be saved."
+msgstr ""
+
+#: includes/Rest_Controller.php:684
+#: includes/Rest_Controller.php:811
+#: includes/Rsvp_Repository.php:86
+msgid "No such published event."
+msgstr ""
+
+#: includes/Rest_Controller.php:707
+msgid "The eventId parameter is required."
+msgstr ""
+
+#: includes/Rest_Controller.php:747
+#: includes/Rest_Controller.php:775
+#: includes/Rest_Controller.php:783
+msgid "No RSVP found with that ID."
+msgstr ""
+
+#: includes/Rest_Controller.php:820
+#: includes/Rsvp_Repository.php:101
+msgid "This event has already ended."
+msgstr ""
+
+#: includes/Rest_Controller.php:937
+msgid "Too many RSVP attempts. Please try again later."
+msgstr ""
+
+#: includes/Rsvp_Repository.php:72
+msgid "Guests must be between 1 and 10."
+msgstr ""
+
+#: includes/Rsvp_Repository.php:112
+msgid "RSVPs for this event are closed."
+msgstr ""
+
+#: includes/Rsvp_Repository.php:116
+msgid "RSVPs for this event have not opened yet."
+msgstr ""
+
+#: includes/Rsvp_Repository.php:126
+#: includes/Rsvp_Repository.php:386
+msgid "The event is busy processing another RSVP. Please retry."
+msgstr ""
+
+#: includes/Rsvp_Repository.php:142
+#: includes/Rsvp_Repository.php:208
+msgid "This email address is already registered for the event."
+msgstr ""
+
+#: includes/Rsvp_Repository.php:211
+msgid "This event is fully booked."
+msgstr ""
+
+#: includes/Rsvp_Repository.php:220
+msgid "The RSVP could not be read back after insert."
+msgstr ""
+
+#: includes/Rsvp_Repository.php:418
+msgid "The RSVP could not be deleted due to a database error."
+msgstr ""
+
+#: includes/Rsvp_Repository.php:471
+msgid "The waitlist promotion failed due to a database error."
+msgstr ""
+
+#: includes/Rsvp_Repository.php:561
+msgid "The check-in could not be saved due to a database error."
+msgstr ""
+
+#: includes/Rsvp_Repository.php:824
+msgid "The RSVP could not be anonymized due to a database error."
+msgstr ""
+
+#: includes/Rsvp_Repository.php:964
+msgid "The name could not be saved due to a database error."
+msgstr ""
+
+#: includes/templates/archive-eh_event.php:44
+msgid "No events found."
+msgstr ""
+
+#: includes/templates/archive-eh_event.php:49
+#: build/admin/index.js:1
+msgid "Previous"
+msgstr ""
+
+#: includes/templates/archive-eh_event.php:50
+#: build/admin/index.js:2
+msgid "Next"
+msgstr ""
+
+#: includes/templates/manage-rsvp.php:32
+msgid "Your RSVP has been cancelled."
+msgstr ""
+
+#: includes/templates/manage-rsvp.php:33
+msgid "Your changes have been saved."
+msgstr ""
+
+#: includes/templates/manage-rsvp.php:35
+msgid "Your session expired. Please reload the page and try again."
+msgstr ""
+
+#: includes/templates/manage-rsvp.php:36
+msgid "Something went wrong. Please try again."
+msgstr ""
+
+#: includes/templates/manage-rsvp.php:42
+msgid "Manage your RSVP"
+msgstr ""
+
+#: includes/templates/manage-rsvp.php:60
+msgid "Attendee:"
+msgstr ""
+
+#: includes/templates/manage-rsvp.php:65
+msgid "Status:"
+msgstr ""
+
+#: includes/templates/manage-rsvp.php:75
+msgid "Seats:"
+msgstr ""
+
+#: includes/templates/manage-rsvp.php:82
+msgid "Update your name"
+msgstr ""
+
+#: includes/templates/manage-rsvp.php:92
+msgid "Save name"
+msgstr ""
+
+#: includes/templates/manage-rsvp.php:97
+msgid "Cancel your RSVP"
+msgstr ""
+
+#: includes/templates/manage-rsvp.php:102
+msgid "Cancel my RSVP"
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Sun"
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Mon"
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Tue"
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Wed"
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Thu"
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Fri"
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Sat"
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Every N days"
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Every N weeks"
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Every N months"
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Ends"
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "The end time is before the start time."
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "The RSVP window closes before it opens. Closing hours must be smaller than opening hours."
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Selected venue (unpublished or deleted)"
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Reuse a venue across events. Manage venues under Events → Venues."
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Selected organizer (unpublished or deleted)"
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Reuse an organizer across events. Manage organizers under Events → Organizers."
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Venue note (free text)"
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "e.g. Hall B, 12 Mercer St"
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Used when no venue is selected above (shown on cards and the event page)."
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Reminder (hours before start)"
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Attendees get a reminder email this many hours before the start. Empty = 24. 0 = no reminder."
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Limit the number of spots"
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Attendees above this number are waitlisted."
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Leave off for unlimited spots."
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Open RSVPs (hours before start)"
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Always open"
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Leave empty to accept RSVPs from publish time. 0 opens them right at the start time."
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Close RSVPs (hours before start)"
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Never closes"
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Leave empty to keep RSVPs open until the event ends. 0 closes them right at the start time."
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Scheduled"
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Cancelled events stop taking RSVPs; attendees with an RSVP are emailed when notifications are on. Postponed keeps the list — announce the new date by rescheduling."
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Repeats"
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Does not repeat"
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Upcoming copies of this event are created automatically (up to 6 months ahead). Each copy has its own RSVP list."
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Repeat on"
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Until (Y–m–d)"
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "e.g. 2027–06–30"
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Leave empty to keep generating 6 months ahead on an ongoing basis."
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Repeats needs a start date. Set one above and the copies will be created on save."
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Already-created copies keep their dates when you change this schedule. Deleting this event never deletes the copies."
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Event details"
+msgstr ""
+
+#: build/admin/index.js:1
+msgid "Event Hub admin data is missing — reload the page."
+msgstr ""
+
+#: build/admin/index.js:1
+msgid "Could not load RSVPs — please reload the page."
+msgstr ""
+
+#: build/admin/index.js:1
+#: build/blocks/event-card/index.js:2
+#: build/blocks/rsvp-button/index.js:1
+msgid "Select an event"
+msgstr ""
+
+#: build/admin/index.js:1
+msgid "Event Hub — RSVPs"
+msgstr ""
+
+#: build/admin/index.js:1
+msgid "All"
+msgstr ""
+
+#: build/admin/index.js:1
+msgid "Download CSV"
+msgstr ""
+
+#: build/admin/index.js:1
+msgid "Date"
+msgstr ""
+
+#: build/admin/index.js:1
+msgid "Actions"
+msgstr ""
+
+#: build/admin/index.js:1
+msgid "Select an event to see its RSVPs."
+msgstr ""
+
+#: build/admin/index.js:1
+msgid "Could not save the check-in — please try again."
+msgstr ""
+
+#: build/admin/index.js:1
+msgid "Undo check-in"
+msgstr ""
+
+#: build/admin/index.js:1
+msgid "Check in"
+msgstr ""
+
+#: build/admin/index.js:1
+msgid "Could not delete the RSVP — please try again."
+msgstr ""
+
+#: build/admin/index.js:1
+msgid "Confirm delete"
+msgstr ""
+
+#: build/admin/index.js:1
+msgid "Cancel"
+msgstr ""
+
+#: build/admin/index.js:1
+msgid "Delete"
+msgstr ""
+
+#. translators: 1: current page, 2: total pages, 3: total RSVPs.
+#: build/admin/index.js:2
+#, js-format
+msgid "Page %1$d of %2$d (%3$d total)"
+msgstr ""
+
+#: build/blocks/event-calendar/index.js:1
+#: build/blocks/event-card/index.js:2
+#: build/blocks/event-list/index.js:2
+#: build/blocks/rsvp-button/index.js:1
+msgid "Settings"
+msgstr ""
+
+#: build/blocks/event-calendar/index.js:1
+msgid "Initial month"
+msgstr ""
+
+#: build/blocks/event-calendar/index.js:1
+msgid "First month the calendar shows, as YYYY–MM (for example 2026–11). Leave empty to always start at the current month."
+msgstr ""
+
+#: build/blocks/event-calendar/index.js:1
+msgid "Event Calendar"
+msgstr ""
+
+#: build/blocks/event-calendar/index.js:1
+msgid "The month grid renders on the site; this is a static preview."
+msgstr ""
+
+#: build/blocks/event-card/index.js:1
+#: build/blocks/event-list/index.js:1
+msgid "Sample event title"
+msgstr ""
+
+#: build/blocks/event-card/index.js:1
+#: build/blocks/event-list/index.js:1
+msgid "Sat, Jan 17 · 6:00 pm — Main Hall"
+msgstr ""
+
+#. translators: placeholder text for the editor preview.
+#: build/blocks/event-card/index.js:2
+#: build/blocks/event-list/index.js:2
+msgid "A short excerpt of the event description shows here."
+msgstr ""
+
+#: build/blocks/event-card/index.js:2
+#: build/blocks/event-list/index.js:2
+msgid "12 people going"
+msgstr ""
+
+#: build/blocks/event-card/index.js:2
+#: build/blocks/rsvp-button/index.js:1
+msgid "Loading events…"
+msgstr ""
+
+#: build/blocks/event-card/index.js:2
+#: build/blocks/rsvp-button/index.js:1
+msgid "Pick the event this block renders. Leave empty to show the current event in a Query Loop."
+msgstr ""
+
+#: build/blocks/event-card/index.js:2
+msgid "Event Card"
+msgstr ""
+
+#: build/blocks/event-card/index.js:2
+msgid "The selected event renders on the site; this is a static preview."
+msgstr ""
+
+#: build/blocks/event-list/index.js:1
+msgid "Leave on “All categories” to list every upcoming event."
+msgstr ""
+
+#: build/blocks/event-list/index.js:1
+msgid "Events to show"
+msgstr ""
+
+#: build/blocks/event-list/index.js:1
+msgid "Between 1 and 50."
+msgstr ""
+
+#: build/blocks/event-list/index.js:1
+msgid "Show category filter"
+msgstr ""
+
+#: build/blocks/event-list/index.js:2
+msgid "Event List"
+msgstr ""
+
+#: build/blocks/event-list/index.js:2
+msgid "Upcoming events render on the site; this is a static preview."
+msgstr ""
+
+#: build/blocks/rsvp-button/index.js:1
+msgid "RSVP Button"
+msgstr ""
+
+#: build/blocks/rsvp-button/index.js:1
+msgid "The interactive RSVP form renders on the site; this is a static preview."
+msgstr ""
+
+#: build/blocks/event-calendar/block.json
+#: src/blocks/event-calendar/block.json
+msgctxt "block title"
+msgid "Event Calendar"
+msgstr ""
+
+#: build/blocks/event-calendar/block.json
+#: src/blocks/event-calendar/block.json
+msgctxt "block description"
+msgid "Month grid of upcoming events with prev/next month navigation."
+msgstr ""
+
+#: build/blocks/event-card/block.json
+#: src/blocks/event-card/block.json
+msgctxt "block title"
+msgid "Event Card"
+msgstr ""
+
+#: build/blocks/event-card/block.json
+#: src/blocks/event-card/block.json
+msgctxt "block description"
+msgid "Single event card with datetime, venue, and RSVP button."
+msgstr ""
+
+#: build/blocks/event-categories/block.json
+#: src/blocks/event-categories/block.json
+msgctxt "block title"
+msgid "Event Categories"
+msgstr ""
+
+#: build/blocks/event-categories/block.json
+#: src/blocks/event-categories/block.json
+msgctxt "block description"
+msgid "Category term list for events; links apply the event list filter."
+msgstr ""
+
+#: build/blocks/event-list/block.json
+#: src/blocks/event-list/block.json
+msgctxt "block title"
+msgid "Event List"
+msgstr ""
+
+#: build/blocks/event-list/block.json
+#: src/blocks/event-list/block.json
+msgctxt "block description"
+msgid "Filterable grid of upcoming events with live RSVP counts."
+msgstr ""
+
+#: build/blocks/rsvp-button/block.json
+#: src/blocks/rsvp-button/block.json
+msgctxt "block title"
+msgid "RSVP Button"
+msgstr ""
+
+#: build/blocks/rsvp-button/block.json
+#: src/blocks/rsvp-button/block.json
+msgctxt "block description"
+msgid "Capacity-aware RSVP button with live count."
+msgstr ""

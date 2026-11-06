@@ -1483,8 +1483,8 @@ final class Render_Blocks {
 			'%s person going'                           => __( '%s person going', 'event-hub' ),
 			/* translators: %s: number of attendees. */
 			'%s people going'                           => __( '%s people going', 'event-hub' ),
-			/* translators: %s: number of events. */
-				'%s event found'                        => __( '%s event found', 'event-hub' ),
+			/* translators: %s: number of events found. */
+			'%s event found'                            => __( '%s event found', 'event-hub' ),
 			/* translators: %s: number of events. */
 			'%s events found'                           => __( '%s events found', 'event-hub' ),
 			'Open'                                      => __( 'Open', 'event-hub' ),

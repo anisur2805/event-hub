@@ -5,6 +5,10 @@
  * @package event-hub
  */
 
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 /**
  * Pattern content. The Title/Slug header lives in Plugin::register_patterns()
  * because plugin patterns are registered programmatically (WP core only
