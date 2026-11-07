@@ -236,10 +236,45 @@ code).
 ### Tier 2 — parity
 - **5.5** Search & filter in Event List (keyword/date/venue/category).
 - **5.6** Virtual events — online URL shown only to confirmed attendees + emails.
-- **5.7** Add-to-Google/Outlook buttons (ICS exists).
-- **5.8** Custom RSVP fields + approval mode.
-- **5.9** Query Loop variation for `eh_event` + Block Bindings for event meta (the
-  block-first identity; cheap, high differentiation).
+- **5.7** Waitlist management + who's-in notices.
+
+### 5A. Review wave P1 (2026-11-07, second external review — verified against code)
+
+> Both "gaps in spirit" VERIFIED before adoption: (1) the manage token exists only in
+> the confirmation email and confirmations default OFF — with stock settings nobody can
+> reach the manage page; (2) `event_hub_rsvp_promoted` fires but Notifier has no
+> promotion mail (send_confirmation/reminders/cancel_notice/organizer_notice/
+> status_change exist; no send_* for promotion), and the manage page shows "Waitlist"
+> with no position. Approved scope: P1 only (4 items), review's suggested order.
+
+- ~~**5A.1 Success panel + token in the 201**~~ **done (2026-11-07, DECISIONS #53)** —
+  `manageToken` rides the `POST /rsvp` 201 body (creator-only by construction,
+  never logged); hidden-at-SSR success panel with the manage link, copy button
+  and cancel hint; works with confirmations OFF (that is the point); no DB change.
+- **5A.2 Promotion email + waitlist position** — `Notifier::send_promotion_notice()`
+  on `event_hub_rsvp_promoted` (gated by `event_hub_notifications`, same
+  stamp-free one-shot shape as the other notices), and the manage page gains
+  "You're #N on the waitlist" (FIFO position via a repo helper; going rows show
+  the plain Going status). No DB change.
+- **5A.3 Add to Google / Outlook buttons** — URL builders over existing ICS data
+  (Google Calendar template URL; Outlook web deep link), rendered on the single
+  event page next to the existing .ics download link, only when `eh_start` parses.
+  No API keys, no new deps, no DB change.
+- **5A.4 External registration URL** — per-event `eh_external_url` meta (save-time
+  esc_url_raw schema, show_in_rest); when set and parseable, `summary()` exposes it
+  and the RSVP form/button folds to a single outbound "Register" button
+  (target=_blank rel="nofollow noopener"); capacity pill still renders from counts;
+  the write guard is bypassed (no internal RSVP is created). Editor panel + REST
+  serialization + series meta_copy carry it.
+
+### 5B. Deferred from the review (not adopted now)
+- Email attendees (admin compose), duplicate-event row action, phone check-in screen,
+  settings screen with editable email copy, per-event phone/note fields (DB 1.7.0 +
+  privacy pairing), calendar list view, venue directions link — revisit after 5A.
+- Approval mode REJECTED (would corrupt the atomic seat math). Ticketing/Zoom/Maps
+  embeds/front-end submission rejected (projects of their own).
+- Per-event timezone: deferred to 5.6 (virtual events) where the wall-clock contract
+  must be revisited anyway.
 
 ### Tier 3 — later
 - **5.10** Front-end event submission (spam/moderation burden).
@@ -291,4 +326,4 @@ code).
 2. §1.2 hardening — **done, Phase 1**.
 3. §1.3 waitlist promotion — **done, Phase 2**.
 4. §1.1 JSON-LD — **done (2026-11-04)**; was independent, slotted after Phase 2.
-5. Then pick by need: ~~2.1 (email flow; its cancellation now feeds §1.3's promotion)~~ **done (2026-11-04, DB 1.3.0)**; ~~2.2 (check-in)~~ **done (2026-11-04)**; ~~2.4 cutoffs~~ **done (2026-11-05)**; ~~2.3 seats~~ **done (2026-11-05, DB 1.4.0)**; ~~3.1 dashboard~~ **done (2026-11-05)**; ~~3.3 calendar block~~ **done (2026-11-05)**; ~~3.2 recurring events~~ **done (2026-11-05)**. ~~§4 WP-CLI extras~~ **done (2026-11-06)** + findings resolution **done (2026-11-06)**. ~~5.1 venue/organizer~~ **done (2026-11-06)**; ~~5.2 reminders~~ **done (2026-11-06, DB 1.5.0)**; ~~5.3 event status~~ **done (2026-11-07, DB 1.6.0)**; ~~5.4 GDPR~~ **done (2026-11-07)**. ~~§4 .pot/RTL + PCP re-baseline~~ **done (2026-11-07, DECISIONS #51)**; ~~§4 uninstall audit~~ **done (2026-11-07, DECISIONS #52 — caught a latent uninstall fatal)**. Tier 1 + §4 COMPLETE; §3.4 Woo stays parked. Remaining: Tier 2/3 by need.
+5. Then pick by need: ~~2.1 (email flow; its cancellation now feeds §1.3's promotion)~~ **done (2026-11-04, DB 1.3.0)**; ~~2.2 (check-in)~~ **done (2026-11-04)**; ~~2.4 cutoffs~~ **done (2026-11-05)**; ~~2.3 seats~~ **done (2026-11-05, DB 1.4.0)**; ~~3.1 dashboard~~ **done (2026-11-05)**; ~~3.3 calendar block~~ **done (2026-11-05)**; ~~3.2 recurring events~~ **done (2026-11-05)**. ~~§4 WP-CLI extras~~ **done (2026-11-06)** + findings resolution **done (2026-11-06)**. ~~5.1 venue/organizer~~ **done (2026-11-06)**; ~~5.2 reminders~~ **done (2026-11-06, DB 1.5.0)**; ~~5.3 event status~~ **done (2026-11-07, DB 1.6.0)**; ~~5.4 GDPR~~ **done (2026-11-07)**. ~~§4 .pot/RTL + PCP re-baseline~~ **done (2026-11-07, DECISIONS #51)**; ~~§4 uninstall audit~~ **done (2026-11-07, DECISIONS #52 — caught a latent uninstall fatal)**. Tier 1 + §4 COMPLETE; §3.4 Woo stays parked. 6. **Review wave P1 (5A): ~~5A.1 success panel/token~~ **done (2026-11-07)** → 5A.2 promotion email + waitlist position → 5A.3 add-to-calendar → 5A.4 external URL** (approved 2026-11-07; both spirit-gaps verified against code before adoption). Then Tier 2 (5.5/5.6/5.7) by need.
