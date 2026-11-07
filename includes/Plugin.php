@@ -145,6 +145,9 @@ final class Plugin {
 		$admin_columns = new Admin_Columns();
 		$admin_columns->boot();
 
+		$venue_meta_box = new Venue_Meta_Box();
+		$venue_meta_box->boot();
+
 		$duplicator = new Event_Duplicator();
 		$duplicator->boot();
 
@@ -523,6 +526,31 @@ final class Plugin {
 				'type'          => 'string',
 				'single'        => true,
 				'description'   => __( 'Street address of the venue (schema.org location address). (ROADMAP 5.1)', 'event-hub' ),
+				'auth_callback' => static fn ( bool $allowed, string $meta_key, int $post_id ): bool => current_user_can( 'edit_post', $post_id ),
+				'show_in_rest'  => array(
+					'schema' => array(
+						'type'    => 'string',
+						'default' => '',
+					),
+				),
+			)
+		);
+
+		/*
+		 * Directions link (ROADMAP §5B): the organizer-provided URL venue
+		 * visitors follow for directions (a Maps deep link, transit page, PDF
+		 * map — any absolute http(s) URL). Organizer-PROVIDED, never
+		 * fabricated from the address string (geocoding ambiguity — the plugin
+		 * will not guess a place). The URL-pattern-free schema + read-side
+		 * validity gate is the 5A.4 external-URL contract.
+		 */
+		register_post_meta(
+			'eh_venue',
+			'eh_venue_directions_url',
+			array(
+				'type'          => 'string',
+				'single'        => true,
+				'description'   => __( 'Directions URL for the venue (absolute http(s) link shown on the event page). (ROADMAP §5B)', 'event-hub' ),
 				'auth_callback' => static fn ( bool $allowed, string $meta_key, int $post_id ): bool => current_user_can( 'edit_post', $post_id ),
 				'show_in_rest'  => array(
 					'schema' => array(

@@ -133,6 +133,47 @@ final class Render_Blocks {
 	}
 
 	/**
+	 * The gated directions URL for an event's LINKED venue (ROADMAP §5B),
+	 * or '' when the event has no link/it is junk. Same shape as the 5A.4
+	 * external_url() twin: esc_url_raw + scheme/host requirement — junk,
+	 * relative or non-http values degrade to ''. Only a linked eh_venue
+	 * carries the meta, so a free-text venue (legacy `eh_venue` meta) has
+	 * nowhere to store a URL and renders '' — the plugin never fabricates a
+	 * directions link from the venue NAME.
+	 *
+	 * @param int $event_id Event post ID.
+	 * @return string Absolute http(s) URL, or '' when unset/unlinked/invalid.
+	 */
+	public static function venue_directions_url( int $event_id ): string {
+		$venue = self::linked_entity( $event_id, 'eh_venue_id', 'eh_venue' );
+
+		if ( 0 === $venue['id'] ) {
+			return '';
+		}
+
+		$raw = trim( (string) get_post_meta( $venue['id'], 'eh_venue_directions_url', true ) );
+
+		if ( '' === $raw ) {
+			return '';
+		}
+
+		$url = esc_url_raw( $raw );
+
+		if ( '' === $url ) {
+			return '';
+		}
+
+		$scheme = (string) wp_parse_url( $url, PHP_URL_SCHEME );
+		$host   = (string) wp_parse_url( $url, PHP_URL_HOST );
+
+		if ( ! in_array( $scheme, array( 'http', 'https' ), true ) || '' === $host ) {
+			return '';
+		}
+
+		return $url;
+	}
+
+	/**
 	 * The validated external registration URL for an event (ROADMAP 5A.4),
 	 * or '' when the event uses the internal RSVP form. One read path so the
 	 * front-end fold, REST surfaces and admin columns can never drift. The
@@ -1516,7 +1557,19 @@ final class Render_Blocks {
 						<time datetime="<?php echo esc_attr( (string) $s['start'] ); ?>"><?php echo esc_html( self::human_range( (string) $s['start'], (string) $s['end'] ) ); ?></time>
 					</p>
 					<?php if ( '' !== (string) $s['venue'] ) : ?>
-						<p class="event-hub-single__venue"><?php echo esc_html( (string) $s['venue'] ); ?></p>
+						<?php
+						// §5B directions link: the venue line becomes an anchor
+						// when the LINKED venue carries a valid directions URL
+						// (organizer-provided; free-text venues render plain).
+						$directions = self::venue_directions_url( (int) $s['id'] );
+						?>
+						<p class="event-hub-single__venue">
+							<?php if ( '' !== $directions ) : ?>
+								<a href="<?php echo esc_url( $directions ); ?>"><?php echo esc_html( (string) $s['venue'] ); ?></a>
+							<?php else : ?>
+								<?php echo esc_html( (string) $s['venue'] ); ?>
+							<?php endif; ?>
+						</p>
 					<?php endif; ?>
 					<?php if ( self::is_virtual( (int) $s['id'] ) ) : ?>
 						<?php // 5.6: public FACT only — joining details reach confirmed attendees via the manage page and emails (docblock DECISIONS #58). ?>

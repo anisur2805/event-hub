@@ -207,4 +207,150 @@ class Venue_Organizer_Test extends WP_UnitTestCase {
 		$this->assertSame( (string) $organizer_id, get_post_meta( $child_id, 'eh_organizer_id', true ) );
 		$this->assertSame( 'Spawn Hall', Render_Blocks::venue_label( $child_id ) );
 	}
+
+	/**
+	 * Directions URL gate (§5B): junk/relative/non-http values degrade to ''
+	 * on the READ side; a valid http(s) URL passes through untouched.
+	 *
+	 * @return void
+	 */
+	public function test_directions_url_read_gate(): void {
+		$venue_id = self::make_entity( 'eh_venue', 'Gated Hall' );
+		$event_id = self::make_event();
+		update_post_meta( $event_id, 'eh_venue_id', (string) $venue_id );
+
+		// Unset: ''.
+		$this->assertSame( '', Render_Blocks::venue_directions_url( $event_id ) );
+
+		// Relative, scheme-relative, non-http scheme: all '' (the 5A.4 twin
+		// case list). Schemeless word junk is NOT in the list: esc_url_raw
+		// repairs it to http://… (core localhost fallback) which passes the
+		// host check — same accepted behavior the twin tests pin.
+		$cases = array(
+			'//example.com/map'  => '',
+			'ftp://example.com'  => '',
+			'javascript:alert(1' => '',
+			'/relative/path'     => '',
+		);
+
+		foreach ( $cases as $raw => $expected ) {
+			update_post_meta( $venue_id, 'eh_venue_directions_url', $raw );
+			$this->assertSame( $expected, Render_Blocks::venue_directions_url( $event_id ), "'{$raw}' must degrade to ''" );
+		}
+
+		$good = 'https://maps.example.com/dir/?api=1&destination=Grand+Hall';
+		update_post_meta( $venue_id, 'eh_venue_directions_url', $good );
+		$this->assertSame( $good, Render_Blocks::venue_directions_url( $event_id ) );
+	}
+
+	/**
+	 * Directions URL requires a LINKED venue: free-text-only events have
+	 * nowhere to store a URL — the plugin never fabricates a directions link
+	 * from the venue name.
+	 *
+	 * @return void
+	 */
+	public function test_directions_url_needs_linked_venue(): void {
+		// Free-text venue only.
+		$event_id = self::make_event();
+		update_post_meta( $event_id, 'eh_venue', 'Name Only Hall' );
+
+		$this->assertSame( '', Render_Blocks::venue_directions_url( $event_id ) );
+
+		// A URL on an UNLINKED venue never leaks through the free text.
+		$unlinked_venue_id = self::make_entity( 'eh_venue', 'Unlinked Hall' );
+		update_post_meta( $unlinked_venue_id, 'eh_venue_directions_url', 'https://maps.example.com/unlinked' );
+		$this->assertSame( '', Render_Blocks::venue_directions_url( $event_id ) );
+
+		// Stale venue id degrades to ''.
+		update_post_meta( $event_id, 'eh_venue_id', (string) ( $unlinked_venue_id + 4321 ) );
+		$this->assertSame( '', Render_Blocks::venue_directions_url( $event_id ) );
+
+		// Linking the venue lights it up.
+		update_post_meta( $event_id, 'eh_venue_id', (string) $unlinked_venue_id );
+		$this->assertSame( 'https://maps.example.com/unlinked', Render_Blocks::venue_directions_url( $event_id ) );
+	}
+
+	/**
+	 * Single-event render: the venue line becomes an anchor when a valid
+	 * directions URL exists and stays plain text otherwise.
+	 *
+	 * @return void
+	 */
+	public function test_single_render_venue_link(): void {
+		$venue_id = self::make_entity( 'eh_venue', 'Linked Hall' );
+		$event_id = self::make_event( '2099-06-01 18:00:00' );
+		update_post_meta( $event_id, 'eh_venue_id', (string) $venue_id );
+
+		// No URL: plain text venue line.
+		$html = Render_Blocks::render_single_event( get_post( $event_id ) );
+		$this->assertStringContainsString( 'event-hub-single__venue', $html );
+		$this->assertStringNotContainsString( '<a href', $this->venue_line( $html ) );
+
+		// With URL: the venue line anchors to it.
+		$url = 'https://maps.example.com/dir?destination=Linked+Hall';
+		update_post_meta( $venue_id, 'eh_venue_directions_url', $url );
+
+		$html = Render_Blocks::render_single_event( get_post( $event_id ) );
+		$line = $this->venue_line( $html );
+
+		$this->assertStringContainsString( '<a href="' . esc_url( $url ) . '"', $line );
+		$this->assertStringContainsString( 'Linked Hall</a>', $line );
+	}
+
+	/**
+	 * Extracts the single-render venue paragraph from full HTML.
+	 *
+	 * @param string $html Rendered single-event HTML.
+	 * @return string The <p class="event-hub-single__venue"> line.
+	 */
+	private function venue_line( string $html ): string {
+		if ( 1 === preg_match( '/<p class="event-hub-single__venue">.*?<\/p>/s', $html, $m ) ) {
+			return (string) $m[0];
+		}
+
+		return '';
+	}
+
+	/**
+	 * Metabox save path (§5B): nonce + capability gates hold; a valid URL
+	 * sanitizes into the meta; an emptied field DELETES the meta (clearing
+	 * the field truly removes the link).
+	 *
+	 * @return void
+	 */
+	public function test_metabox_save_gates_and_delete(): void {
+		$admin_id = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		wp_set_current_user( $admin_id );
+
+		$venue_id = self::make_entity( 'eh_venue', 'Box Hall' );
+		$box      = new Venue_Meta_Box();
+
+		// No nonce: no write.
+		$_POST['event_hub_venue_directions_url'] = 'https://maps.example.com/no-nonce';
+		$box->save( $venue_id, get_post( $venue_id ) );
+		$this->assertSame( '', get_post_meta( $venue_id, 'eh_venue_directions_url', true ) );
+
+		// With nonce: URL sanitizes in (whitespace trimmed).
+		$_POST['event_hub_venue_directions_nonce'] = wp_create_nonce( 'event_hub_venue_directions' );
+		$_POST['event_hub_venue_directions_url']   = '  https://maps.example.com/ok  ';
+		$box->save( $venue_id, get_post( $venue_id ) );
+		$this->assertSame( 'https://maps.example.com/ok', get_post_meta( $venue_id, 'eh_venue_directions_url', true ) );
+
+		// Subscribed low-privilege user: no write.
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'subscriber' ) ) );
+		$_POST['event_hub_venue_directions_url']   = 'https://maps.example.com/subscriber';
+		$_POST['event_hub_venue_directions_nonce'] = wp_create_nonce( 'event_hub_venue_directions' );
+		$box->save( $venue_id, get_post( $venue_id ) );
+		$this->assertSame( 'https://maps.example.com/ok', get_post_meta( $venue_id, 'eh_venue_directions_url', true ) );
+
+		// Back as admin, emptying the field deletes the meta.
+		wp_set_current_user( $admin_id );
+		$_POST['event_hub_venue_directions_url']   = '   ';
+		$_POST['event_hub_venue_directions_nonce'] = wp_create_nonce( 'event_hub_venue_directions' );
+		$box->save( $venue_id, get_post( $venue_id ) );
+		$this->assertSame( '', get_post_meta( $venue_id, 'eh_venue_directions_url', true ) );
+
+		unset( $_POST['event_hub_venue_directions_url'], $_POST['event_hub_venue_directions_nonce'] );
+	}
 }

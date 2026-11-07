@@ -20,7 +20,9 @@ window.
 Features:
 
 * Events CPT (`eh_event`) with start/end datetimes, venue and organizer
-  entities, capacity, cutoff windows, and an `eh_event_category` taxonomy.
+  entities (venues carry a street address and an optional directions link
+  shown on the event page), capacity, cutoff windows, and an
+  `eh_event_category` taxonomy.
 * Capacity-aware RSVP — atomic `INSERT … SELECT … WHERE going < capacity`.
 * Waitlist auto-promotion on every removal path.
 * Blocks — Event List (grid of cards or compact list), Event Card, Event
