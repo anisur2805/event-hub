@@ -416,22 +416,30 @@ final class Render_Blocks {
 		$going_text = self::count_text( (int) $counts['going'], (int) $counts['waitlist'], $past );
 
 		$context = array(
-			'eventId'   => $event_id,
-			'capacity'  => $capacity,
-			'counts'    => array(
+			'eventId'    => $event_id,
+			'capacity'   => $capacity,
+			'counts'     => array(
 				'going'    => (int) $counts['going'],
 				'waitlist' => (int) $counts['waitlist'],
 			),
-			'mine'      => null,
-			'busy'      => false,
-			'feedback'  => '',
-			'full'      => $full,
-			'rsvpOpen'  => (bool) $summary['rsvpOpen'],
-			'past'      => $past,
-			'countText' => $going_text,
-			'name'      => 0 !== $user->ID ? $user->display_name : '',
-			'email'     => 0 !== $user->ID ? $user->user_email : '',
-			'guests'    => 1,
+			'mine'       => null,
+			'busy'       => false,
+			'feedback'   => '',
+			'full'       => $full,
+			'rsvpOpen'   => (bool) $summary['rsvpOpen'],
+			'past'       => $past,
+			'countText'  => $going_text,
+			'name'       => 0 !== $user->ID ? $user->display_name : '',
+			'email'      => 0 !== $user->ID ? $user->user_email : '',
+			'guests'     => 1,
+			// 5A.1: PHP NEVER pre-renders a token; the store fills this from
+			// the 201 body client-side. Server default '' keeps the SSR
+			// region directive-safe (every bind target resolves in PHP, #30).
+			'manageUrl'  => '',
+			'linkCopied' => false,
+			// Filled by the store alongside manageUrl; SSR default stays ''
+			// because the panel itself is hidden until the 201 arrives.
+			'successTitle' => '',
 		);
 
 		self::seed_interactivity_state( $user );
@@ -574,6 +582,36 @@ final class Render_Blocks {
 					><?php esc_html_e( 'RSVP', 'event-hub' ); ?></button>
 				<?php endif; ?>
 			<p class="event-hub-rsvp__feedback" data-wp-text="context.feedback"></p>
+			<?php
+			/*
+			 * 5A.1 success panel. Hidden server-side (empty manageUrl +
+			 * hidden class); the store fills the URL from the 201 and both
+			 * binds flip together. Without JS it never renders visible —
+			 * the form above stays the RSVP surface (no-JS honesty, #30).
+			 * The confirmation emails stay opt-in: this panel works either
+			 * way, because the token came in the 201 body.
+			 */
+			?>
+			<div
+				class="event-hub-rsvp__success"
+				data-wp-bind--hidden="!context.manageUrl"
+				data-wp-class--event-hub-rsvp__success--active="context.manageUrl"
+			>
+				<p class="event-hub-rsvp__success-title" data-wp-text="context.successTitle"></p>
+				<p class="event-hub-rsvp__success-help"><?php esc_html_e( 'Keep this link — it manages your booking.', 'event-hub' ); ?></p>
+				<p class="event-hub-rsvp__success-link">
+					<a data-wp-bind--href="context.manageUrl" data-wp-text="context.manageUrl" href=""></a>
+				</p>
+				<p>
+					<button
+						type="button"
+						class="event-hub-rsvp__button event-hub-rsvp__button--copy"
+						data-wp-on--click="actions.copyManageLink"
+						data-wp-text="context.linkCopied ? '<?php echo esc_js( __( 'Copied!', 'event-hub' ) ); ?>' : '<?php echo esc_js( __( 'Copy link', 'event-hub' ) ); ?>'"
+					><?php esc_html_e( 'Copy link', 'event-hub' ); ?></button>
+				</p>
+				<p class="event-hub-rsvp__success-hint"><?php esc_html_e( 'You can also cancel or rename from the link at any time.', 'event-hub' ); ?></p>
+			</div>
 			<noscript>
 				<p class="event-hub-rsvp__noscript"><?php esc_html_e( 'Enable JavaScript to RSVP.', 'event-hub' ); ?></p>
 			</noscript>
@@ -1499,6 +1537,10 @@ final class Render_Blocks {
 			'Past'                                      => __( 'Past', 'event-hub' ),
 			'RSVPs are closed.'                         => __( 'RSVPs are closed.', 'event-hub' ),
 			'RSVPs have not opened yet.'                => __( 'RSVPs have not opened yet.', 'event-hub' ),
+			'Keep this link — it manages your booking.' => __( 'Keep this link — it manages your booking.', 'event-hub' ),
+			'Copy link'                                 => __( 'Copy link', 'event-hub' ),
+			'Copied!'                                   => __( 'Copied!', 'event-hub' ),
+			'You can also cancel or rename from the link at any time.' => __( 'You can also cancel or rename from the link at any time.', 'event-hub' ),
 			/* translators: 1: number going, 2: total capacity. */
 			'%1$s of %2$s spots filled'                 => __( '%1$s of %2$s spots filled', 'event-hub' ),
 		);

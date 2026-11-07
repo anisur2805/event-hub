@@ -62,6 +62,17 @@ export interface RsvpContext {
 	email: string;
 	/** Seats this RSVP reserves (2.3); 1..10, kept in context via actions.setGuests. */
 	guests: number;
+	/**
+	 * Manage link for the JUST-created booking (5A.1), or '' before the
+	 * first successful POST. Non-empty flips the form region to the
+	 * success panel. The raw token lives only in this URL (client memory);
+	 * PHP never pre-renders it.
+	 */
+	manageUrl: string;
+	/** True after the visitor taps "Copy link" (transient button feedback). */
+	linkCopied: boolean;
+	/** Success panel title ('You are registered.' / waitlist variant). */
+	successTitle: string;
 }
 
 /** REST error payload: { code, message, data: { status } }. */
@@ -82,6 +93,12 @@ export interface RsvpResponse {
 		createdAt: string;
 	};
 	counts: { going: number; waitlist: number };
+	/**
+	 * One-time manage credential for the creator (ROADMAP 5A.1). Present
+	 * only on a fresh create; lets the success panel build the manage link
+	 * client-side even with confirmation emails off.
+	 */
+	manageToken?: string | null;
 }
 
 /** Category option for the list filter select (REST /wp/v2 shape, trimmed). */
@@ -134,6 +151,7 @@ export interface EventHubStore {
 		setGuests: ( event: Event ) => void;
 		rsvpGoing: () => Generator< unknown, void, unknown >;
 		rsvpWaitlist: () => Generator< unknown, void, unknown >;
+		copyManageLink: ( event: Event ) => Promise< void >;
 		filterCategory: ( event: Event ) => Generator< unknown, void, unknown >;
 		filterSubmit: ( event: Event ) => void;
 		calendarNav: ( event: Event ) => Generator< unknown, void, unknown >;

@@ -497,11 +497,28 @@ final class Rest_Controller {
 		 */
 		do_action( 'event_hub_rsvp_created', $result['rsvp'], $event_id );
 
+		/*
+		 * ROADMAP 5A.1: return the raw manage token ONCE, to its creator.
+		 * This is the manage-by-default fix — with confirmations OFF (the
+		 * default), the confirmation mail never carries the token, so the
+		 * 201 body is the only channel the attendee has. The response goes
+		 * to the submitter alone (creator-only by construction); nothing
+		 * logs response bodies, and the token is not email/personal data.
+		 * Absent when the row was created without a token (confirmations
+		 * have never been on), or on promoted/duplicate replays where
+		 * create() returns no fresh token.
+		 */
+		$manage_token = isset( $result['manage_token'] ) && is_string( $result['manage_token'] ) && '' !== $result['manage_token']
+			? $result['manage_token']
+			: null;
+
 		return new WP_REST_Response(
 			array(
 				// Public 201 body: counts only + non-PII rsvp echo (docs/API.md).
-				'rsvp'   => $this->serialize_public_rsvp( $result['rsvp'] ),
-				'counts' => $result['counts'],
+				'rsvp'        => $this->serialize_public_rsvp( $result['rsvp'] ),
+				'counts'      => $result['counts'],
+				// One-time manage credential for the creator (5A.1).
+				'manageToken' => $manage_token,
 			),
 			201
 		);

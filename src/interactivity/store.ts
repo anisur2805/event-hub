@@ -106,6 +106,25 @@ const { state } = store< EventHubStore >( 'event-hub', {
 					: null;
 			yield* rsvp( 'waitlist', el );
 		},
+		/**
+		 * 5A.1: copies the success panel's manage link. Best-effort — on
+		 * clipboard refusal the link stays selectable in the panel.
+		 * @param event
+		 */
+		async copyManageLink( event: Event ) {
+			event.preventDefault();
+			const ctx = getContext< RsvpContext >();
+			if ( ! ctx.manageUrl ) {
+				return;
+			}
+			try {
+				await navigator.clipboard.writeText( ctx.manageUrl );
+				ctx.linkCopied = true;
+			} catch {
+				// Clipboard unavailable (permissions/insecure context): the
+				// anchor remains visible and selectable — no error UI needed.
+			}
+		},
 	},
 } );
 
@@ -175,6 +194,24 @@ function* rsvp(
 				body.rsvp.status === 'going'
 					? __( 'You are registered.' )
 					: __( 'You are on the waitlist.' );
+
+			// 5A.1: the creator's one-time manage credential rides the 201.
+			// Building the URL client-side keeps the raw token out of the
+			// server-rendered markup entirely; with confirmations off this
+			// panel is the ONLY channel to the manage page.
+			const token =
+				'manageToken' in body && typeof body.manageToken === 'string'
+					? body.manageToken
+					: '';
+			if ( token ) {
+				ctx.manageUrl = `${ window.location.origin }${
+					window.location.pathname
+				}?eh_manage=${ encodeURIComponent( token ) }`;
+				// The success panel is titled by successTitle; the inline
+				// feedback line is silenced so the message isn't doubled.
+				ctx.successTitle = ctx.feedback;
+				ctx.feedback = '';
+			}
 			return;
 		}
 

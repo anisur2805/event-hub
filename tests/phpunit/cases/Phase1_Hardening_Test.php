@@ -238,6 +238,20 @@ class Phase1_Hardening_Test extends WP_UnitTestCase {
 		// No email in the 201 body (standing PII rule).
 		$this->assertStringNotContainsString( 'honest@example.com', (string) wp_json_encode( $ok->get_data() ) );
 
+		/*
+		 * 5A.1: the creator's one-time manage token rides the 201 (the
+		 * manage-by-default fix — with confirmations OFF, the default, this
+		 * is the ONLY channel to the manage page). Shape: 64 hex chars,
+		 * the raw pre-hash form; confirmations are OFF here (stock state).
+		 */
+		$this->assertArrayHasKey( 'manageToken', $ok->get_data() );
+		$this->assertMatchesRegularExpression( '/^[0-9a-f]{64}$/', (string) $ok->get_data()['manageToken'] );
+
+		// The token actually resolves the row on the manage page contract.
+		$row = Plugin::instance()->repository()->find_by_token( (string) $ok->get_data()['manageToken'] );
+		$this->assertIsArray( $row );
+		$this->assertSame( 'Honest Visitor', $row['name'] );
+
 		$html = Render_Blocks::render_rsvp_button( $event_id );
 
 		$this->assertStringContainsString( 'name="event_hub_website"', $html );

@@ -234,4 +234,31 @@ class Render_Blocks_Card_Test extends WP_UnitTestCase {
 		$this->assertStringContainsString( 'event-hub-card__month">', $out );
 		$this->assertStringContainsString( 'aria-hidden="true"', $out );
 	}
+
+	/**
+	 * 5A.1 success panel SSR contract: the region renders hidden with an
+	 * empty manageUrl server default, the panel directives are present,
+	 * and NO token ever appears in server markup (the 201 body is the only
+	 * token channel; the store builds the client-side URL).
+	 *
+	 * @return void
+	 */
+	public function test_success_panel_hidden_and_tokenless(): void {
+		$id  = $this->make_event( '2099-03-15 18:00:00', '2099-03-15 20:00:00' );
+		$out = Render_Blocks::render_rsvp_button( $id );
+
+		// Panel region + directives are in the markup.
+		$this->assertStringContainsString( 'event-hub-rsvp__success', $out );
+		$this->assertStringContainsString( 'data-wp-bind--hidden', $out );
+		$this->assertStringContainsString( 'actions.copyManageLink', $out );
+
+		// Server default keeps it hidden and tokenless.
+		$this->assertStringContainsString( '"manageUrl":""', $out );
+		$this->assertStringContainsString( '"successTitle":""', $out );
+		$this->assertStringContainsString( 'context.successTitle', $out );
+		$this->assertStringNotContainsString( 'eh_manage', $out );
+
+		// The seeded client strings are present in the state.
+		$this->assertStringContainsString( 'Keep this link', $out );
+	}
 }

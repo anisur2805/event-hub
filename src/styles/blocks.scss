@@ -509,6 +509,57 @@
 	font-size: var( --eh-font-s );
 }
 
+/* 5A.1 success panel: hidden until the store fills context.manageUrl
+ * (data-wp-bind--hidden carries the reveal; the class binding adds the
+ * accent border). Server-default is hidden, so no-JS never sees it. */
+.event-hub-rsvp__success {
+	display: none;
+}
+
+.event-hub-rsvp__success--active {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	margin: 0;
+	padding-block-start: 0.75rem;
+	border-block-start: 1px solid var( --eh-line );
+}
+
+.event-hub-rsvp__success-title {
+	margin: 0;
+	font-size: var( --eh-font );
+	font-weight: 700;
+}
+
+.event-hub-rsvp__success-help,
+.event-hub-rsvp__success-hint {
+	margin: 0;
+	color: var( --eh-muted );
+	font-size: var( --eh-font-s );
+}
+
+.event-hub-rsvp__success-link {
+	margin: 0;
+	font-size: var( --eh-font-s );
+	overflow-wrap: anywhere;
+
+	a {
+		color: var( --eh-accent );
+		font-weight: 600;
+		text-decoration: none;
+
+		&:focus-visible,
+		&:hover {
+			text-decoration: underline;
+		}
+	}
+}
+
+.event-hub-rsvp__button--copy {
+	width: auto;
+	align-self: flex-start;
+}
+
 /* Honeypot trap field (T15): in the DOM for bots, clipped away
  * (-9999px + 1px box + no pointer events) so humans can never see or
  * reach it. display:none would push some autofillers to skip it. */
