@@ -38,12 +38,14 @@ require_once __DIR__ . '/includes/Migrations.php';
 
 /*
  * Plugin options beyond the schema version: the §2.1 email-confirmation
- * toggle and the §5.2 notifications toggle. (Names must be hardcoded — the
- * Notifier / Reminders classes are not loaded and must not be, per the
+ * toggle, the §5.2 notifications toggle, and the §5B editable email-copy
+ * map. (Names must be hardcoded — the Notifier / Reminders /
+ * Email_Settings classes are not loaded and must not be, per the
  * autoload note above.)
  */
 delete_option( 'event_hub_confirmations' );
 delete_option( 'event_hub_notifications' );
+delete_option( 'event_hub_email_copy' );
 
 // Delete all eh_event posts (forcing deletion skips the trash). Children
 // (series occurrences) are eh_event posts too — deleted by the same sweep.

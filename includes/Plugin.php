@@ -175,7 +175,7 @@ final class Plugin {
 
 				printf(
 					'<div class="notice notice-success is-dismissible"><p>%s</p></div>',
-					esc_html(
+					wp_kses_post(
 						sprintf(
 							/* translators: %s: draft event edit link. */
 							__( 'Event copied as a draft. %s', 'event-hub' ),

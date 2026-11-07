@@ -23,12 +23,19 @@ Features:
   entities, capacity, cutoff windows, and an `eh_event_category` taxonomy.
 * Capacity-aware RSVP — atomic `INSERT … SELECT … WHERE going < capacity`.
 * Waitlist auto-promotion on every removal path.
-* Blocks — Event List, Event Card, Event Categories, Calendar, RSVP Button —
-  built on the WordPress Interactivity API (server-rendered, progressive
-  enhancement; counts and forms work without JavaScript).
+* Blocks — Event List (grid of cards or compact list), Event Card, Event
+  Categories, Calendar, RSVP Button — built on the WordPress Interactivity
+  API (server-rendered, progressive enhancement; counts and forms work
+  without JavaScript).
 * Recurring events (daily/weekly/monthly) as real child posts.
+* Per-event timezone override on top of the site timezone.
 * Event status (cancelled / postponed) with attendee notices and JSON-LD.
+* One-click duplicate: copies an event as a draft, carrying its dates,
+  venue, organizer and settings.
 * Pre-event reminder emails (opt-in) and status-notice emails (opt-in).
+* Settings screen with email copy overrides — rewrite the subject and
+  opening paragraph of all five attendee emails; empty fields keep the
+  built-in copy.
 * Admin RSVP manager with check-in tracking, CSV export, and WP-CLI export.
 * ICS calendar feed; per-event CSV export.
 * Privacy: WP personal-data exporter and eraser (anonymize in place).

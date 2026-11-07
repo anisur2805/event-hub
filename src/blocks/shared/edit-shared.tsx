@@ -88,17 +88,21 @@ export function EditorLoading(): ReactElement {
  * @param props.categoryId
  * @param props.postsPerPage
  * @param props.showFilters
+ * @param props.layout
  * @param props.onCategory
  * @param props.onPerPage
  * @param props.onShowFilters
+ * @param props.onLayout
  */
 export function ListInspector( props: {
 	categoryId: string;
 	postsPerPage: string;
 	showFilters: boolean;
+	layout: 'grid' | 'list';
 	onCategory: ( value: string ) => void;
 	onPerPage: ( value: string ) => void;
 	onShowFilters: ( value: boolean ) => void;
+	onLayout: ( value: 'grid' | 'list' ) => void;
 } ): ReactElement {
 	const { options, resolved } = useEventCategories();
 	return (
@@ -136,6 +140,25 @@ export function ListInspector( props: {
 				label={ __( 'Show category filter', 'event-hub' ) }
 				checked={ props.showFilters }
 				onChange={ props.onShowFilters }
+			/>
+			<SelectControl
+				label={ __( 'Layout', 'event-hub' ) }
+				value={ props.layout }
+				onChange={ props.onLayout }
+				options={ [
+					{
+						value: 'grid',
+						label: __( 'Grid of cards', 'event-hub' ),
+					},
+					{
+						value: 'list',
+						label: __( 'Compact list', 'event-hub' ),
+					},
+				] }
+				help={ __(
+					'Grid shows full cards; list shows one compact row per event.',
+					'event-hub'
+				) }
 			/>
 		</>
 	);

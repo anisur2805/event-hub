@@ -87,6 +87,14 @@ final class Admin_Page {
 		// one Notifications toggle governs all 5.2 email paths.
 		update_option( Reminders::OPTION, 'on' === $notify );
 
+		// §5B editable email copy: the settings tab posts the full map; the
+		// reader sanitizes and drops empty pairs (empty field = built-in copy).
+		$raw_copy = isset( $_POST['eh_email_copy'] ) && is_array( $_POST['eh_email_copy'] )
+			? wp_unslash( $_POST['eh_email_copy'] ) // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Email_Settings::save() sanitizes every value it keeps.
+			: array();
+
+		Email_Settings::save( $raw_copy );
+
 		wp_safe_redirect(
 			add_query_arg(
 				array( 'eh_settings' => 'saved' ),
@@ -228,8 +236,12 @@ final class Admin_Page {
 			return;
 		}
 
-		$confirmations = Notifier::enabled();
-		$notifications = Reminders::enabled();
+		if ( 'settings' === $this->current_tab() ) {
+			$this->render_settings_tab();
+
+			return;
+		}
+
 		?>
 		<div class="wrap event-hub-admin-page">
 			<h1><?php echo esc_html( get_admin_page_title() ); ?></h1>
@@ -237,12 +249,130 @@ final class Admin_Page {
 			<nav class="nav-tab-wrapper" aria-label="<?php esc_attr_e( 'Event Hub sections', 'event-hub' ); ?>">
 				<a
 					href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::SLUG ) ); ?>"
-					class="nav-tab<?php echo 'summary' !== $this->current_tab() ? ' nav-tab-active' : ''; ?>"
+					class="nav-tab<?php echo 'rsvps' === $this->current_tab() ? ' nav-tab-active' : ''; ?>"
 				><?php esc_html_e( 'RSVPs', 'event-hub' ); ?></a>
 				<a
 					href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::SLUG . '&tab=summary' ) ); ?>"
 					class="nav-tab<?php echo 'summary' === $this->current_tab() ? ' nav-tab-active' : ''; ?>"
 				><?php esc_html_e( 'Summary', 'event-hub' ); ?></a>
+				<a
+					href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::SLUG . '&tab=settings' ) ); ?>"
+					class="nav-tab<?php echo 'settings' === $this->current_tab() ? ' nav-tab-active' : ''; ?>"
+				><?php esc_html_e( 'Settings', 'event-hub' ); ?></a>
+			</nav>
+
+			<?php if ( isset( $_GET['eh_settings'] ) && 'saved' === sanitize_key( wp_unslash( (string) $_GET['eh_settings'] ) ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only display flag, no state change. ?>
+				<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Settings saved.', 'event-hub' ); ?></p></div>
+			<?php endif; ?>
+
+			<h2><?php esc_html_e( 'RSVPs', 'event-hub' ); ?></h2>
+			<div id="event-hub-rsvps-root">
+				<?php if ( ! is_readable( EVENT_HUB_DIR . 'build/admin/index.js' ) ) : ?>
+					<p><?php esc_html_e( 'The admin app bundle is missing — run the plugin build.', 'event-hub' ); ?></p>
+				<?php endif; ?>
+			</div>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Resolves the active tab from a whitelisted GET value. Anything absent or
+	 * unknown is the default RSVPs tab (read-only GET, no state change).
+	 *
+	 * @return string 'summary', 'settings' or 'rsvps'.
+	 */
+	private function current_tab(): string {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only view selector, no state change.
+		$tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( (string) $_GET['tab'] ) ) : '';
+
+		if ( 'summary' === $tab || 'settings' === $tab ) {
+			return $tab;
+		}
+
+		return 'rsvps';
+	}
+
+	/**
+	 * The five editable emails with their field labels and the placeholder
+	 * each `%s` stands for. One source of truth for the form and the tests.
+	 *
+	 * @return array<string,array{label:string, placeholder:string, subject:string, intro:string}>
+	 */
+	private function email_fields(): array {
+		$event = __( 'the event title', 'event-hub' );
+
+		return array(
+			'confirmation' => array(
+				/* translators: %s: the event title. */
+				'label'       => __( 'RSVP confirmation (to the attendee)', 'event-hub' ),
+				'placeholder' => $event,
+				/* translators: %s: the event title. */
+				'subject'     => __( 'Your RSVP is confirmed: %s', 'event-hub' ),
+				'intro'       => '',
+			),
+			'reminder'     => array(
+				/* translators: %s: the event title. */
+				'label'       => __( 'Pre-event reminder (to the attendee)', 'event-hub' ),
+				'placeholder' => $event,
+				/* translators: %s: the event title. */
+				'subject'     => __( 'Reminder: %s is coming up', 'event-hub' ),
+				'intro'       => '',
+			),
+			'cancel'       => array(
+				/* translators: %s: the event title. */
+				'label'       => __( 'Cancellation notice (to the attendee)', 'event-hub' ),
+				'placeholder' => $event,
+				/* translators: %s: the event title. */
+				'subject'     => __( 'Your RSVP was cancelled: %s', 'event-hub' ),
+				'intro'       => '',
+			),
+			'promotion'    => array(
+				/* translators: %s: the event title. */
+				'label'       => __( 'Waitlist promotion (to the attendee)', 'event-hub' ),
+				'placeholder' => $event,
+				/* translators: %s: the event title. */
+				'subject'     => __( 'You are in: %s', 'event-hub' ),
+				'intro'       => '',
+			),
+			'status'       => array(
+				/* translators: %s: the event title. */
+				'label'       => __( 'Event status change (to attendees)', 'event-hub' ),
+				'placeholder' => $event,
+				/* translators: %s: the event title. */
+				'subject'     => __( 'Event update: %s', 'event-hub' ),
+				'intro'       => '',
+			),
+		);
+	}
+
+	/**
+	 * Server-rendered settings tab (ROADMAP §5B): the two email toggles
+	 * (moved from the RSVPs tab) plus per-email subject/intro copy overrides;
+	 * empty fields keep the built-in copy.
+	 *
+	 * @return void
+	 */
+	private function render_settings_tab(): void {
+		$confirmations = Notifier::enabled();
+		$notifications = Reminders::enabled();
+		$fields        = $this->email_fields();
+		?>
+		<div class="wrap event-hub-admin-page">
+			<h1><?php echo esc_html( get_admin_page_title() ); ?></h1>
+
+			<nav class="nav-tab-wrapper" aria-label="<?php esc_attr_e( 'Event Hub sections', 'event-hub' ); ?>">
+				<a
+					href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::SLUG ) ); ?>"
+					class="nav-tab"
+				><?php esc_html_e( 'RSVPs', 'event-hub' ); ?></a>
+				<a
+					href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::SLUG . '&tab=summary' ) ); ?>"
+					class="nav-tab"
+				><?php esc_html_e( 'Summary', 'event-hub' ); ?></a>
+				<a
+					href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::SLUG . '&tab=settings' ) ); ?>"
+					class="nav-tab nav-tab-active"
+				><?php esc_html_e( 'Settings', 'event-hub' ); ?></a>
 			</nav>
 
 			<?php if ( isset( $_GET['eh_settings'] ) && 'saved' === sanitize_key( wp_unslash( (string) $_GET['eh_settings'] ) ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only display flag, no state change. ?>
@@ -284,31 +414,51 @@ final class Admin_Page {
 						</td>
 					</tr>
 				</table>
+
+				<h2 class="title"><?php esc_html_e( 'Email copy', 'event-hub' ); ?></h2>
+				<p class="description">
+					<?php
+					/* translators: %s: the literal placeholder token the organizer types (a percent-sign followed by s). */
+					esc_html_e( 'Leave a field empty to keep the built-in copy. %s stands for the event title.', 'event-hub' );
+					?>
+				</p>
+				<table class="form-table" role="presentation">
+					<?php foreach ( $fields as $key => $field ) : ?>
+						<?php
+						$stored = Email_Settings::get( $key );
+						?>
+						<tr>
+							<th scope="row"><?php echo esc_html( $field['label'] ); ?></th>
+							<td>
+								<p>
+									<label for="eh-copy-<?php echo esc_attr( $key ); ?>-subject"><?php esc_html_e( 'Subject', 'event-hub' ); ?></label><br />
+									<input
+										type="text"
+										class="large-text"
+										id="eh-copy-<?php echo esc_attr( $key ); ?>-subject"
+										name="eh_email_copy[<?php echo esc_attr( $key ); ?>][subject]"
+										value="<?php echo esc_attr( $stored['subject'] ); ?>"
+										placeholder="<?php echo esc_attr( $field['subject'] ); ?>"
+									/>
+								</p>
+								<p>
+									<label for="eh-copy-<?php echo esc_attr( $key ); ?>-intro"><?php esc_html_e( 'Intro paragraph', 'event-hub' ); ?></label><br />
+									<textarea
+										class="large-text"
+										rows="3"
+										id="eh-copy-<?php echo esc_attr( $key ); ?>-intro"
+										name="eh_email_copy[<?php echo esc_attr( $key ); ?>][intro]"
+										placeholder="<?php esc_attr_e( 'Prepended to the email body when set.', 'event-hub' ); ?>"
+									><?php echo esc_textarea( $stored['intro'] ); ?></textarea>
+								</p>
+							</td>
+						</tr>
+					<?php endforeach; ?>
+				</table>
 				<?php submit_button(); ?>
 			</form>
-
-			<hr />
-			<h2><?php esc_html_e( 'RSVPs', 'event-hub' ); ?></h2>
-			<div id="event-hub-rsvps-root">
-				<?php if ( ! is_readable( EVENT_HUB_DIR . 'build/admin/index.js' ) ) : ?>
-					<p><?php esc_html_e( 'The admin app bundle is missing — run the plugin build.', 'event-hub' ); ?></p>
-				<?php endif; ?>
-			</div>
 		</div>
 		<?php
-	}
-
-	/**
-	 * Resolves the active tab from a whitelisted GET value. Anything absent or
-	 * unknown is the default RSVPs tab (read-only GET, no state change).
-	 *
-	 * @return string 'summary' or 'rsvps'.
-	 */
-	private function current_tab(): string {
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only view selector, no state change.
-		$tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( (string) $_GET['tab'] ) ) : '';
-
-		return 'summary' === $tab ? 'summary' : 'rsvps';
 	}
 
 	/**

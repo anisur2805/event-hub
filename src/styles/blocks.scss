@@ -140,6 +140,121 @@
 }
 
 /* --------------------------------------------------------------------------
+ * 2b. Event list — compact list layout (§5B)
+ * ----------------------------------------------------------------------- */
+
+/* The layout modifier collapses the card grid to a single-column stack of
+ * compact rows: no multi-column reflow, tighter gap. */
+.event-hub-event-list--layout-list .eh-list-grid {
+	grid-template-columns: 1fr;
+	gap: 0;
+}
+
+.event-hub-event-list--layout-list .event-hub-event-list__empty {
+	margin-bottom: var( --eh-gap );
+}
+
+.event-hub-row {
+	display: flex;
+	gap: var( --eh-gap );
+	align-items: center;
+	padding: 0.875rem 0.25rem;
+	border-bottom: 1px solid var( --eh-line );
+}
+
+.event-hub-row:last-child {
+	border-bottom: 0;
+}
+
+/* Date chip: same visual language as the card's __date block. */
+.event-hub-row__date {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	flex: 0 0 auto;
+	min-width: 3rem;
+	padding: 0.5rem 0.625rem;
+	border: 1px solid var( --eh-line );
+	border-radius: var( --eh-radius );
+	background: var( --eh-surface, #fff );
+}
+
+.event-hub-row__day {
+	font-size: 1.25rem;
+	font-weight: 600;
+	line-height: 1.1;
+}
+
+.event-hub-row__month {
+	color: var( --eh-muted );
+	font-size: var( --eh-font-s );
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+.event-hub-row__body {
+	min-width: 0;
+	flex: 1 1 auto;
+}
+
+.event-hub-row__title {
+	margin: 0;
+	font-size: 1rem;
+	line-height: 1.35;
+
+	display: flex;
+	gap: 0.5rem;
+
+	/* Title + pill on one line: the pill shrinks first. */
+	align-items: baseline;
+	flex-wrap: wrap;
+}
+
+.event-hub-row__title a {
+	font-weight: 600;
+}
+
+.event-hub-row__pill {
+	font-size: var( --eh-font-s );
+	font-weight: 400;
+	color: var( --eh-muted );
+	white-space: nowrap;
+}
+
+/* Same pill vocabulary as the card's status colors. */
+.event-hub-row__pill--cancelled {
+	color: #b42318;
+}
+
+.event-hub-row__pill--postponed {
+	color: #b54708;
+}
+
+.event-hub-row__meta {
+	display: flex;
+	gap: 0.75rem;
+	flex-wrap: wrap;
+
+	margin: 0.25rem 0 0;
+	color: var( --eh-muted );
+	font-size: var( --eh-font-s );
+}
+
+.event-hub-row__meta time {
+	color: inherit;
+}
+
+.event-hub-row__count {
+	margin: 0.25rem 0 0;
+	font-size: var( --eh-font-s );
+	color: var( --eh-muted );
+}
+
+.event-hub-row--past .event-hub-row__title a {
+	color: var( --eh-muted );
+}
+
+/* --------------------------------------------------------------------------
  * 3. Card
  * ----------------------------------------------------------------------- */
 

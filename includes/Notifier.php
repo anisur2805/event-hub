@@ -85,9 +85,13 @@ final class Notifier {
 			return false;
 		}
 
-		$subject = sprintf(
-			/* translators: %s: event title. */
-			__( 'Your RSVP is confirmed: %s', 'event-hub' ),
+		$subject = Email_Settings::subject(
+			'confirmation',
+			sprintf(
+				/* translators: %s: event title. */
+				__( 'Your RSVP is confirmed: %s', 'event-hub' ),
+				html_entity_decode( get_the_title( $event ), ENT_QUOTES, 'UTF-8' )
+			),
 			html_entity_decode( get_the_title( $event ), ENT_QUOTES, 'UTF-8' )
 		);
 
@@ -143,6 +147,7 @@ final class Notifier {
 		$message = implode(
 			"\r\n",
 			array_merge(
+				self::maybe_intro_rows( 'confirmation', html_entity_decode( get_the_title( $event ), ENT_QUOTES, 'UTF-8' ) ),
 				$rows,
 				array(
 					'',
@@ -196,9 +201,13 @@ final class Notifier {
 
 		$event_title = html_entity_decode( get_the_title( $event ), ENT_QUOTES, 'UTF-8' );
 
-		$subject = sprintf(
-			/* translators: %s: event title. */
-			__( 'Reminder: %s is coming up', 'event-hub' ),
+		$subject = Email_Settings::subject(
+			'reminder',
+			sprintf(
+				/* translators: %s: event title. */
+				__( 'Reminder: %s is coming up', 'event-hub' ),
+				$event_title
+			),
 			$event_title
 		);
 
@@ -236,6 +245,7 @@ final class Notifier {
 		$message = implode(
 			"\r\n",
 			array_merge(
+				self::maybe_intro_rows( 'reminder', $event_title ),
 				$rows,
 				array(
 					'',
@@ -274,25 +284,32 @@ final class Notifier {
 			return false;
 		}
 
-		$subject = sprintf(
-			/* translators: %s: event title. */
-			__( 'Your RSVP was cancelled: %s', 'event-hub' ),
+		$subject = Email_Settings::subject(
+			'cancel',
+			sprintf(
+				/* translators: %s: event title. */
+				__( 'Your RSVP was cancelled: %s', 'event-hub' ),
+				html_entity_decode( get_the_title( $event ), ENT_QUOTES, 'UTF-8' )
+			),
 			html_entity_decode( get_the_title( $event ), ENT_QUOTES, 'UTF-8' )
 		);
 
 		$message = implode(
 			"\r\n",
-			array(
-				sprintf( /* translators: %s: attendee name. */ __( 'Name: %s', 'event-hub' ), (string) ( $deleted['name'] ?? '' ) ),
-				self::start_line( $event_id ),
-				'',
-				__( 'Your registration has been removed and your seats are free again. You can RSVP again at any time while the event is open.', 'event-hub' ),
-				'',
-				sprintf(
-					/* translators: %s: site name. */
-					__( '— %s', 'event-hub' ),
-					wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES )
-				),
+			array_merge(
+				self::maybe_intro_rows( 'cancel', html_entity_decode( get_the_title( $event ), ENT_QUOTES, 'UTF-8' ) ),
+				array(
+					sprintf( /* translators: %s: attendee name. */ __( 'Name: %s', 'event-hub' ), (string) ( $deleted['name'] ?? '' ) ),
+					self::start_line( $event_id ),
+					'',
+					__( 'Your registration has been removed and your seats are free again. You can RSVP again at any time while the event is open.', 'event-hub' ),
+					'',
+					sprintf(
+						/* translators: %s: site name. */
+						__( '— %s', 'event-hub' ),
+						wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES )
+					),
+				)
 			)
 		);
 
@@ -421,9 +438,13 @@ final class Notifier {
 
 		$event_title = html_entity_decode( get_the_title( $event ), ENT_QUOTES, 'UTF-8' );
 
-		$subject = sprintf(
-			/* translators: %s: event title. */
-			__( 'Event update: %s', 'event-hub' ),
+		$subject = Email_Settings::subject(
+			'status',
+			sprintf(
+				/* translators: %s: event title. */
+				__( 'Event update: %s', 'event-hub' ),
+				$event_title
+			),
 			$event_title
 		);
 
@@ -454,6 +475,7 @@ final class Notifier {
 		$message = implode(
 			"\r\n",
 			array_merge(
+				self::maybe_intro_rows( 'status', $event_title ),
 				$rows,
 				array(
 					'',
@@ -502,32 +524,39 @@ final class Notifier {
 
 		$event_title = html_entity_decode( get_the_title( $event ), ENT_QUOTES, 'UTF-8' );
 
-		$subject = sprintf(
-			/* translators: %s: event title. */
-			__( 'You are in: %s', 'event-hub' ),
+		$subject = Email_Settings::subject(
+			'promotion',
+			sprintf(
+				/* translators: %s: event title. */
+				__( 'You are in: %s', 'event-hub' ),
+				$event_title
+			),
 			$event_title
 		);
 
 		$message = implode(
 			"\r\n",
-			array(
-				sprintf( /* translators: %s: attendee name. */ __( 'Name: %s', 'event-hub' ), (string) ( $rsvp['name'] ?? '' ) ),
-				__( 'Status: Going', 'event-hub' ),
-				self::start_line( $event_id ),
-				'',
-				__( 'Good news — a spot opened up and your waitlisted RSVP is now a confirmed booking. No action needed.', 'event-hub' ),
-				'',
-				sprintf(
-					/* translators: %s: event page URL. */
-					__( 'Event page: %s', 'event-hub' ),
-					(string) get_permalink( $event )
-				),
-				'',
-				sprintf(
-					/* translators: %s: site name. */
-					__( '— %s', 'event-hub' ),
-					wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES )
-				),
+			array_merge(
+				self::maybe_intro_rows( 'promotion', $event_title ),
+				array(
+					sprintf( /* translators: %s: attendee name. */ __( 'Name: %s', 'event-hub' ), (string) ( $rsvp['name'] ?? '' ) ),
+					__( 'Status: Going', 'event-hub' ),
+					self::start_line( $event_id ),
+					'',
+					__( 'Good news — a spot opened up and your waitlisted RSVP is now a confirmed booking. No action needed.', 'event-hub' ),
+					'',
+					sprintf(
+						/* translators: %s: event page URL. */
+						__( 'Event page: %s', 'event-hub' ),
+						(string) get_permalink( $event )
+					),
+					'',
+					sprintf(
+						/* translators: %s: site name. */
+						__( '— %s', 'event-hub' ),
+						wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES )
+					),
+				)
 			)
 		);
 
@@ -546,6 +575,26 @@ final class Notifier {
 		}
 
 		return self::dispatch( $email, $subject, $message );
+	}
+
+	/**
+	 * The stored intro paragraph as body rows (§5B editable copy): a
+	 * one-element rows array when set (the implode turns it into a leading
+	 * body paragraph), else the empty array — the built-in body proceeds
+	 * byte-identical to the pre-settings behavior.
+	 *
+	 * @param string $key             Email key (Email_Settings::KEYS).
+	 * @param string $placeholder_val Event-title value for a `%s` in the copy.
+	 * @return array<int,string> Rows to prepend to the body.
+	 */
+	private static function maybe_intro_rows( string $key, string $placeholder_val = '' ): array {
+		$intro = Email_Settings::intro( $key, $placeholder_val );
+
+		if ( '' === $intro ) {
+			return array();
+		}
+
+		return array( $intro, '' );
 	}
 
 	/**

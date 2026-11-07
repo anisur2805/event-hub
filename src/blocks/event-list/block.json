@@ -19,6 +19,11 @@
     "showFilters": {
       "type": "boolean",
       "default": true
+    },
+    "layout": {
+      "type": "string",
+      "enum": [ "grid", "list" ],
+      "default": "grid"
     }
   },
   "supports": {

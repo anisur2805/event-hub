@@ -332,6 +332,53 @@ final class Render_Blocks {
 	}
 
 	/**
+	 * Compact one-row rendering for the list layout (§5B): date chip, status
+	 * pill, title link, datetime/venue meta line, and the going count. Same
+	 * escaping discipline as render_card() — every dynamic value through an
+	 * esc_ helper, status pill reusing status_pill().
+	 *
+	 * @param array<string,mixed> $s Event summary (Render_Blocks::summary()).
+	 * @return string
+	 */
+	public static function render_row( array $s ): string {
+		if ( empty( $s['id'] ) ) {
+			return '';
+		}
+
+		$day   = self::date_part( (string) $s['start'], 'j' );
+		$month = self::date_part( (string) $s['start'], 'M' );
+		$pill  = self::status_pill( $s );
+		$past  = $pill['past'];
+
+		ob_start();
+		?>
+		<article class="event-hub-row<?php echo $past ? ' event-hub-row--past' : ''; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- constant string. ?>">
+			<div class="event-hub-row__date" aria-hidden="true">
+				<span class="event-hub-row__day"><?php echo esc_html( $day ); ?></span>
+				<span class="event-hub-row__month"><?php echo esc_html( $month ); ?></span>
+			</div>
+			<div class="event-hub-row__body">
+				<h3 class="event-hub-row__title">
+					<a href="<?php echo esc_url( (string) $s['permalink'] ); ?>"><?php echo esc_html( (string) $s['title'] ); ?></a>
+					<span class="event-hub-row__pill event-hub-row__pill--<?php echo esc_attr( (string) $pill['key'] ); ?>"><?php echo esc_html( (string) $pill['label'] ); ?></span>
+				</h3>
+				<p class="event-hub-row__meta">
+					<time datetime="<?php echo esc_attr( (string) $s['start'] ); ?>"><?php echo esc_html( self::human_range( (string) $s['start'], (string) $s['end'] ) ); ?></time>
+					<?php if ( '' !== (string) $s['venue'] ) : ?>
+						<span class="event-hub-row__venue"><?php echo esc_html( (string) $s['venue'] ); ?></span>
+					<?php endif; ?>
+					<?php if ( self::is_virtual( (int) $s['id'] ) ) : ?>
+						<span class="event-hub-row__online"><?php esc_html_e( 'Online', 'event-hub' ); ?></span>
+					<?php endif; ?>
+				</p>
+				<p class="event-hub-row__count"><?php echo esc_html( self::count_text( (int) $s['counts']['going'], (int) $s['counts']['waitlist'], $past ) ); ?></p>
+			</div>
+		</article>
+		<?php
+		return (string) ob_get_clean();
+	}
+
+	/**
 	 * Formats one date part of an ISO 8601 value ('j' day, 'M' month).
 	 * Empty on absent/unparsable input.
 	 *
@@ -754,6 +801,9 @@ final class Render_Blocks {
 		$category_slug = isset( $attributes['categoryId'] ) ? sanitize_title( (string) $attributes['categoryId'] ) : '';
 		$per_page      = isset( $attributes['postsPerPage'] ) ? max( 1, absint( $attributes['postsPerPage'] ) ) : 6;
 		$show_filters  = ! isset( $attributes['showFilters'] ) || (bool) $attributes['showFilters'];
+		// Layout (§5B): 'grid' (full cards) or 'list' (compact rows). Junk
+		// attribute values render the grid — the pre-layout look.
+		$layout = isset( $attributes['layout'] ) && 'list' === $attributes['layout'] ? 'list' : 'grid';
 
 		// No-JS filter (DECISIONS.md #13): the controls sit in a GET <form>, so
 		// a JavaScript-less submit reloads with ?eh_category=slug&eh_q=…&…. With
@@ -862,7 +912,7 @@ final class Render_Blocks {
 		ob_start();
 		?>
 		<div
-			<?php echo get_block_wrapper_attributes( array( 'class' => 'event-hub-event-list' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- core helper output. ?>
+			<?php echo get_block_wrapper_attributes( array( 'class' => 'event-hub-event-list' . ( 'list' === $layout ? ' event-hub-event-list--layout-list' : '' ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- core helper output. ?>
 			data-wp-interactive="event-hub"
 			data-wp-router-region="event-hub-list"
 			data-wp-class--is-busy="context.busy"
@@ -931,12 +981,17 @@ final class Render_Blocks {
 				}
 
 				foreach ( $events as $summary ) {
-					// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- render_card() escapes internally.
-					echo self::render_card( $summary );
+					// List layout (§5B): one compact row per event — date
+					// chip, title link, datetime/venue meta line, and the
+					// count line; no excerpt, progress bar, or categories.
+					// All values echo through render_card()'s escaped
+					// summary fields (render_row keeps the same discipline).
+					// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- render_row() escapes internally.
+					echo 'list' === $layout ? self::render_row( $summary ) : self::render_card( $summary );
 				}
 				?>
 			</div>
-			<?php if ( $show_filters ) : ?>
+			<?php if ( $show_filters && 'grid' === $layout ) : ?>
 				<?php // Card skeleton for client-side filtering (filter.ts clones it); slot placeholders only, no live directives. ?>
 				<template data-eh-card-tpl>
 					<article class="event-hub-card event-hub-card--filtered">

@@ -16,6 +16,7 @@ type Attributes = {
 	categoryId: string;
 	postsPerPage: number;
 	showFilters: boolean;
+	layout: 'grid' | 'list';
 };
 
 type EditProps = {
@@ -35,6 +36,7 @@ function Edit( { attributes, setAttributes }: EditProps ): ReactElement {
 						}
 						postsPerPage={ String( attributes.postsPerPage ) }
 						showFilters={ attributes.showFilters }
+						layout={ attributes.layout ?? 'grid' }
 						onCategory={ ( value ) =>
 							setAttributes( { categoryId: value } )
 						}
@@ -51,6 +53,9 @@ function Edit( { attributes, setAttributes }: EditProps ): ReactElement {
 						}
 						onShowFilters={ ( value ) =>
 							setAttributes( { showFilters: value } )
+						}
+						onLayout={ ( value ) =>
+							setAttributes( { layout: value } )
 						}
 					/>
 				</PanelBody>
