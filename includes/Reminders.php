@@ -252,7 +252,8 @@ final class Reminders {
 				continue; // Reminders disabled for this event.
 			}
 
-			$start = $this->to_timestamp( (string) get_post_meta( $event_id, 'eh_start', true ) );
+			// Per-event timezone: eh_start is the event-zone wall clock.
+			$start = $this->event_start_ts( $event_id );
 
 			if ( null === $start ) {
 				continue;
@@ -282,25 +283,38 @@ final class Reminders {
 			return null;
 		}
 
-		$start = $this->to_timestamp( (string) get_post_meta( $event_id, 'eh_start', true ) );
+		$start = $this->event_start_ts( $event_id );
 
 		return null === $start ? null : $start - ( $hours * HOUR_IN_SECONDS );
 	}
 
 	/**
-	 * Parses 'Y-m-d H:i:s' in site time (the stored format) to a timestamp.
+	 * Parses the event's eh_start wall clock IN THE EVENT'S ZONE (per-event
+	 * timezone) to a timestamp.
 	 *
-	 * @param string $value Stored datetime.
+	 * @param int $event_id Event post ID.
+	 * @return int|null Unix timestamp, null when unset/unparseable.
+	 */
+	private function event_start_ts( int $event_id ): ?int {
+		return self::to_timestamp( (string) get_post_meta( $event_id, 'eh_start', true ), Event_Timezone::for_event( $event_id ) );
+	}
+
+	/**
+	 * Parses 'Y-m-d H:i:s' in the given zone (site zone when null — the
+	 * stored created_at format is site-local) to a timestamp.
+	 *
+	 * @param string             $value Stored datetime.
+	 * @param \DateTimeZone|null $zone  Interpretation zone (null = site).
 	 * @return int|null
 	 */
-	private function to_timestamp( string $value ): ?int {
+	private static function to_timestamp( string $value, ?\DateTimeZone $zone = null ): ?int {
 		$value = trim( $value );
 
 		if ( '' === $value ) {
 			return null;
 		}
 
-		$datetime = date_create_immutable_from_format( 'Y-m-d H:i:s', $value, wp_timezone() );
+		$datetime = date_create_immutable_from_format( 'Y-m-d H:i:s', $value, null !== $zone ? $zone : wp_timezone() );
 
 		return false !== $datetime ? $datetime->getTimestamp() : null;
 	}

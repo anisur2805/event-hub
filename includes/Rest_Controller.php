@@ -763,6 +763,13 @@ final class Rest_Controller {
 				continue;
 			}
 
+			// Per-event timezone: the SQL month clause is a widened
+			// superset, so the exact month check re-runs here (same helper
+			// as the block — the two paths cannot drift).
+			if ( ! Render_Blocks::summary_in_month( $summary, (string) ( $params['month'] ?? '' ) ) ) {
+				continue;
+			}
+
 			$events[] = $this->serialize_public( $summary );
 		}
 

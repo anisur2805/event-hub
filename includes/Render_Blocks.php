@@ -1014,11 +1014,10 @@ final class Render_Blocks {
 	 * @return array<int,array<string,mixed>> summary() shapes, start ASC.
 	 */
 	public static function calendar_month_events( array $month ): array {
-		// Window bounds in SITE time: stored eh_start meta is site-local, so
-		// the comparison must be in the same frame (a UTC+X site would have
-		// shifted every calendar day boundary by X hours otherwise). The
-		// shared helper builds [first 00:00:00, last 23:59:59] — the closed
-		// form of the half-open month window.
+		// The SQL window is per-event-zone-safe (month_window_sql supplies
+		// a widened site-local superset); the EXACT month membership and
+		// day placement both run per event in PHP below, in the event's
+		// own zone. Stored eh_start is the event-zone wall clock.
 		list( $after_sql, $before_sql ) = self::month_window_sql( $month['year'], $month['month'] );
 
 		$query = new \WP_Query(
@@ -1045,7 +1044,28 @@ final class Render_Blocks {
 			)
 		);
 
-		return array_map( array( self::class, 'summary' ), is_array( $query->posts ) ? $query->posts : array() );
+		// Exact per-event month check (per-event timezone): the summary's
+		// start ISO carries the event-zone offset, so format('Y-m') is the
+		// event-zone month — the month a resident of that zone would name.
+		$events = array();
+
+		foreach ( is_array( $query->posts ) ? $query->posts : array() as $post ) {
+			$summary = self::summary( $post );
+
+			try {
+				$start_dt = new \DateTimeImmutable( (string) $summary['start'] );
+			} catch ( \Exception $e ) {
+				continue;
+			}
+
+			if ( $start_dt->format( 'Y-m' ) !== sprintf( '%04d-%02d', $month['year'], $month['month'] ) ) {
+				continue;
+			}
+
+			$events[] = $summary;
+		}
+
+		return $events;
 	}
 
 	/**
@@ -1669,6 +1689,10 @@ final class Render_Blocks {
 				continue;
 			}
 
+			if ( ! self::summary_in_month( $summary, isset( $filters['month'] ) ? (string) $filters['month'] : '' ) ) {
+				continue;
+			}
+
 			$upcoming[] = $summary;
 		}
 
@@ -1695,7 +1719,15 @@ final class Render_Blocks {
 	 * @return array<string,mixed> WP_Query args.
 	 */
 	public static function upcoming_query_args( int $limit, array $categories = array(), array $filters = array() ): array {
-		$now_sql = current_time( 'mysql' );
+		// SQL edge widened by one day on each side of "now" (per-event
+		// timezone): stored wall clock is interpreted in each event's OWN
+		// zone here, so a site-vs-event skew of up to ±14h could make the
+		// tight SQL comparison wrongly EXCLUDE a still-running event (or
+		// include a borderline one). The SQL pass is a superset; the exact
+		// per-event verdict happens in PHP below (iso_to_timestamp against
+		// the event-zone offset). One extra day bounds the skew with margin
+		// for any legal UTC offset (max ±14h) plus DST.
+		$superset_sql = gmdate( 'Y-m-d H:i:s', time() - DAY_IN_SECONDS );
 
 		$query_args = array(
 			'post_type'      => 'eh_event',
@@ -1709,13 +1741,14 @@ final class Render_Blocks {
 			// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- the upcoming filter IS the feature.
 			'meta_query'     => array(
 				'relation' => 'AND',
-				// Windows group: end >= now OR no end (nested so later
-				// top-level clauses AND against the whole group).
+				// Window group: end >= (now - 1 day) OR no end, in EVENT
+				// zone (nested so later top-level clauses AND against the
+				// whole group). The exact now-verdict re-filters in PHP.
 				array(
 					'relation' => 'OR',
 					array(
 						'key'     => 'eh_end',
-						'value'   => $now_sql,
+						'value'   => $superset_sql,
 						'compare' => '>=',
 						'type'    => 'DATETIME',
 					),
@@ -1780,9 +1813,40 @@ final class Render_Blocks {
 	}
 
 	/**
+	 * Exact per-event month membership for a summary (per-event timezone).
+	 * The SQL month clause is a widened superset (month_window_sql), so the
+	 * block and REST list re-check here: the summary's start ISO carries
+	 * the event-zone offset, meaning format('Y-m') names the month the
+	 * event's OWN zone would assign. An invalid/empty filter passes
+	 * everything (the builder's regex gate rejects junk before SQL gets
+	 * it, but this guard belongs to the exact pass). Public: the REST
+	 * controller runs the same exact pass as the block (one definition).
+	 *
+	 * @param array<string,mixed> $summary Render_Blocks::summary() output.
+	 * @param string              $month   'YYYY-MM' filter ('' = no filter).
+	 * @return bool True when in month (or unfiltered).
+	 */
+	public static function summary_in_month( array $summary, string $month ): bool {
+		if ( '' === $month || 1 !== preg_match( '/^\d{4}-(0[1-9]|1[0-2])$/', $month ) ) {
+			return true;
+		}
+
+		try {
+			$start_dt = new \DateTimeImmutable( (string) $summary['start'] );
+		} catch ( \Exception $e ) {
+			return false;
+		}
+
+		return $start_dt->format( 'Y-m' ) === $month;
+	}
+
+	/**
 	 * Site-local [first 00:00:00, last 23:59:59] BETWEEN bounds for a month,
+	 * WIDENED by a day on each side (per-event timezone superset pass),
 	 * shared by calendar_month_events() (grid) and the 5.5 month filter —
-	 * one definition of "which events start in month X".
+	 * one definition of "which events start in month X" (now: one
+	 * definition of the SQL SUPerset; exact membership lives in
+	 * summary_in_month()).
 	 *
 	 * @param int $year  Year (4 digits).
 	 * @param int $month Month 1-12.
@@ -1795,11 +1859,17 @@ final class Render_Blocks {
 		$format = 'Y-m-d H:i:s';
 		$offset = (int) ( get_option( 'gmt_offset' ) * HOUR_IN_SECONDS );
 
-		// Site-local wall-clock of the window edges; the -1s trims
-		// next-month midnight, which BETWEEN's inclusive edge would capture.
+		// Site-local wall clock of the month edges, WIDENED by one day on
+		// each side (per-event timezone): stored wall clocks are interpreted
+		// in each event's OWN zone, so a zone skew of up to ±14h could push
+		// a genuinely-in-month event's stored string outside a tight
+		// site-local BETWEEN. The SQL pass is a superset; exact month
+		// membership is decided per event in PHP (the calendar buckets by
+		// the event-zone day; the list month filter re-checks in PHP below).
+		// The -1s still trims the widened next-month edge for BETWEEN.
 		return array(
-			gmdate( $format, $window_start + $offset ),
-			gmdate( $format, $window_end - 1 + $offset ),
+			gmdate( $format, $window_start + $offset - DAY_IN_SECONDS ),
+			gmdate( $format, $window_end - 1 + $offset + DAY_IN_SECONDS ),
 		);
 	}
 
@@ -1817,19 +1887,13 @@ final class Render_Blocks {
 			return '';
 		}
 
-		// The editor stores ISO (Y-m-d\TH:i:s); WP-CLI/imports often write
-		// site format (Y-m-d H:i:s). Accept both, interpret in site timezone.
-		$datetime = date_create_immutable_from_format( 'Y-m-d\TH:i:s', $raw, wp_timezone() );
-
-		if ( false === $datetime ) {
-			$datetime = date_create_immutable_from_format( 'Y-m-d H:i:s', $raw, wp_timezone() );
-		}
-
-		if ( false === $datetime ) {
-			return '';
-		}
-
-		return $datetime->format( 'c' );
+		// Per-event timezone: interpret the wall clock in the EVENT's zone
+		// (junk/absent zone = site zone), and emit offset-bearing ISO so
+		// every downstream DateTimeImmutable consumer (cards, single view,
+		// ICS, JSON-LD, dashboard, admin columns) becomes zone-correct for
+		// free. Site-zone events carry the site offset — byte-identical to
+		// the old behavior.
+		return Event_Timezone::to_offset_iso( $raw, Event_Timezone::for_event( $post_id ) );
 	}
 
 	/**

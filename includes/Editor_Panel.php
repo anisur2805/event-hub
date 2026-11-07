@@ -79,6 +79,21 @@ final class Editor_Panel {
 			true
 		);
 
+		// Per-event timezone: hand the panel the IANA identifier list (PHP's
+		// canonical DateTimeZone list — no JS tzdata dependency) and the
+		// site's zone for the "Site default" label. Tiny (one array of
+		// strings); refreshed per page load.
+		wp_add_inline_script(
+			'event-hub-editor-panel',
+			'window.eventHubTimezones = ' . wp_json_encode(
+				array(
+					'zones'     => \DateTimeZone::listIdentifiers(),
+					'siteLabel' => (string) wp_timezone()->getName(),
+				)
+			) . ';',
+			'before'
+		);
+
 		wp_set_script_translations( 'event-hub-editor-panel', 'event-hub' );
 	}
 }

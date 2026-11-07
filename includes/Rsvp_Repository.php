@@ -1044,7 +1044,10 @@ final class Rsvp_Repository {
 			return null;
 		}
 
-		$datetime = date_create_immutable_from_format( 'Y-m-d H:i:s', $raw, wp_timezone() );
+		// Per-event timezone: the stored wall clock lives in the event's
+		// zone (site zone when unset/junk) so cutoffs stay anchored to the
+		// time the event's own audience sees.
+		$datetime = date_create_immutable_from_format( 'Y-m-d H:i:s', $raw, Event_Timezone::for_event( $post_id ) );
 
 		if ( false === $datetime ) {
 			return null;

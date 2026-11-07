@@ -221,12 +221,17 @@ final class Series_Engine {
 			return null;
 		}
 
-		// Seed wall-clock strings are site-local; parse in the site zone. The
-		// ISO-8601 variants summary() accepts are tolerated here too.
+		// Per-event timezone: the seed wall clock is event-zone (children
+		// inherit eh_timezone via meta_copy, so every parse in the engine
+		// agrees with the seed's frame).
+		$seed_zone = Event_Timezone::for_event( $seed_id );
+
+		// Seed wall-clock strings are event-local; parse in the event zone.
+		// The ISO-8601 variants summary() accepts are tolerated here too.
 		try {
-			$start = new \DateTimeImmutable( $start_raw, wp_timezone() );
+			$start = new \DateTimeImmutable( $start_raw, $seed_zone );
 		} catch ( \Exception $e ) {
-			$start = date_create_immutable_from_format( 'Y-m-d H:i:s', $start_raw, wp_timezone() );
+			$start = date_create_immutable_from_format( 'Y-m-d H:i:s', $start_raw, $seed_zone );
 		}
 
 		if ( false === $start ) {
@@ -291,9 +296,9 @@ final class Series_Engine {
 
 		if ( '' !== trim( $end_raw ) ) {
 			try {
-				$end = new \DateTimeImmutable( $end_raw, wp_timezone() );
+				$end = new \DateTimeImmutable( $end_raw, $seed_zone );
 			} catch ( \Exception $e ) {
-				$end = date_create_immutable_from_format( 'Y-m-d H:i:s', $end_raw, wp_timezone() );
+				$end = date_create_immutable_from_format( 'Y-m-d H:i:s', $end_raw, $seed_zone );
 			}
 
 			if ( false !== $end ) {
@@ -429,7 +434,7 @@ final class Series_Engine {
 			}
 
 			try {
-				$child_start = new \DateTimeImmutable( $start_raw, wp_timezone() );
+				$child_start = new \DateTimeImmutable( $start_raw, Event_Timezone::for_event( $child_id ) );
 			} catch ( \Exception $e ) {
 				continue;
 			}
@@ -476,7 +481,7 @@ final class Series_Engine {
 		}
 
 		try {
-			$parsed = new \DateTimeImmutable( $start_raw, wp_timezone() );
+			$parsed = new \DateTimeImmutable( $start_raw, Event_Timezone::for_event( (int) $child->ID ) );
 		} catch ( \Exception $e ) {
 			return $fallback;
 		}
@@ -634,6 +639,13 @@ final class Series_Engine {
 		$child_start = $date->setTime( $h, $i, $s );
 		$child_end   = $child_start->modify( '+' . $rule['duration'] . ' seconds' );
 
+		// Per-event timezone: the occurrence keeps the seed's WALL time in
+		// the seed's zone ("weekly at 18:00" must stay 18:00 in that zone,
+		// across DST and offsets), so children store event-zone wall clock
+		// and inherit the zone meta itself (reads then parse in the same
+		// frame — parse_rules/last_child_start/existing_dates all agree).
+		$child_zone = Event_Timezone::for_event( $seed_id );
+
 		$child_id = wp_insert_post(
 			array(
 				'post_type'    => 'eh_event',
@@ -657,8 +669,11 @@ final class Series_Engine {
 		// Series meta is deliberately NOT copied: a child with a non-empty
 		// eh_series_freq would become its own seed (documented semantics).
 		$meta_copy = array(
-			'eh_start'            => $child_start->setTimezone( wp_timezone() )->format( 'Y-m-d H:i:s' ),
-			'eh_end'              => $child_end->setTimezone( wp_timezone() )->format( 'Y-m-d H:i:s' ),
+			'eh_start'            => $child_start->setTimezone( $child_zone )->format( 'Y-m-d H:i:s' ),
+			'eh_end'              => $child_end->setTimezone( $child_zone )->format( 'Y-m-d H:i:s' ),
+			// The zone rides to every occurrence (the wall clock above is
+			// meaningless without it).
+			Event_Timezone::META  => (string) get_post_meta( $seed_id, Event_Timezone::META, true ),
 			'eh_venue'            => (string) get_post_meta( $seed_id, 'eh_venue', true ),
 			'eh_venue_id'         => (string) get_post_meta( $seed_id, 'eh_venue_id', true ),
 			'eh_organizer_id'     => (string) get_post_meta( $seed_id, 'eh_organizer_id', true ),

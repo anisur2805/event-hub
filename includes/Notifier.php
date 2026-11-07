@@ -111,7 +111,9 @@ final class Notifier {
 		$start = get_post_meta( $event_id, 'eh_start', true );
 
 		if ( is_string( $start ) && '' !== trim( $start ) ) {
-			$datetime = date_create_immutable_from_format( 'Y-m-d H:i:s', $start, wp_timezone() );
+			// Per-event timezone: parse in the event's zone so the email
+			// shows the wall clock that event's audience keeps.
+			$datetime = date_create_immutable_from_format( 'Y-m-d H:i:s', $start, Event_Timezone::for_event( $event_id ) );
 
 			$rows[] = sprintf(
 				/* translators: %s: event start date and time. */
@@ -376,7 +378,8 @@ final class Notifier {
 			return '';
 		}
 
-		$datetime = date_create_immutable_from_format( 'Y-m-d H:i:s', $start, wp_timezone() );
+		// Per-event timezone: parse in the event's zone (see send_confirmation).
+		$datetime = date_create_immutable_from_format( 'Y-m-d H:i:s', $start, Event_Timezone::for_event( $event_id ) );
 
 		return sprintf(
 			/* translators: %s: event start date and time. */

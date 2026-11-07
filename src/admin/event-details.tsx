@@ -28,7 +28,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { useEntityProp } from '@wordpress/core-data';
 import { useSelect } from '@wordpress/data';
-import { __ } from '@wordpress/i18n';
+import { sprintf, __ } from '@wordpress/i18n';
 
 /**
  * Shape of the eh_event meta record this panel owns. The fields are optional:
@@ -46,6 +46,7 @@ interface EventHubEventMeta {
 	eh_rsvp_close_hours?: string;
 	eh_status?: string;
 	eh_external_url?: string;
+	eh_timezone?: string;
 	eh_series_freq?: string;
 	eh_series_interval?: string;
 	eh_series_byweekday?: string;
@@ -308,6 +309,17 @@ function EventDetailsFields(): ReactElement {
 			: '';
 	const externalUrlRaw =
 		typeof meta.eh_external_url === 'string' ? meta.eh_external_url : '';
+	const timezoneRaw =
+		typeof meta.eh_timezone === 'string' ? meta.eh_timezone : '';
+
+	// Per-event timezone: the site zone label for the "Site default"
+	// option, from the runtime handoff (Editor_Panel's inline script).
+	const runtimeTz = (
+		window as unknown as {
+			eventHubTimezones?: { zones?: string[]; siteLabel?: string };
+		}
+	 ).eventHubTimezones;
+	const siteZoneLabel = runtimeTz?.siteLabel ?? '';
 
 	const limited = CAPACITY_PATTERN.test( capacityRaw );
 
@@ -388,6 +400,14 @@ function EventDetailsFields(): ReactElement {
 					update( 'eh_end', toStorageValue( next ) )
 				}
 				is12Hour={ twelveHour }
+			/>
+			<PanelRow>
+				<span>{ __( 'Timezone', 'event-hub' ) }</span>
+			</PanelRow>
+			<TimezoneField
+				value={ timezoneRaw }
+				siteLabel={ siteZoneLabel }
+				onChange={ ( next ) => update( 'eh_timezone', next ) }
 			/>
 			{ reversed && (
 				<Notice status="warning" isDismissible={ false }>
@@ -760,6 +780,60 @@ function EventDetailsFields(): ReactElement {
 				</>
 			) }
 		</>
+	);
+}
+
+/**
+ * Per-event timezone select. The stored value is an IANA identifier ('' =
+ * site zone). The list comes from PHP's DateTimeZone::listIdentifiers()
+ * via Editor_Panel's inline script (one canonical source, no JS tzdata);
+ * falls back to an empty-options disabled state when the handoff is
+ * missing (build/editor mismatch) — the stored value still displays.
+ *
+ * @param root0           Props.
+ * @param root0.value     Stored zone ('' = site default).
+ * @param root0.siteLabel Site zone identifier for the default option.
+ * @param root0.onChange  Commit callback (raw value, '' = site default).
+ * @return The select element.
+ */
+function TimezoneField( {
+	value,
+	siteLabel,
+	onChange,
+}: {
+	value: string;
+	siteLabel: string;
+	onChange: ( next: string ) => void;
+} ): ReactElement {
+	const zones =
+		(
+			window as unknown as {
+				eventHubTimezones?: { zones?: string[] };
+			}
+		 ).eventHubTimezones?.zones ?? [];
+
+	const options = [
+		{
+			value: '',
+			label: siteLabel
+				? sprintf(
+						/* translators: %s: site timezone identifier. */
+						__( 'Site default (%s)', 'event-hub' ),
+						siteLabel
+					)
+				: __( 'Site default', 'event-hub' ),
+		},
+		...zones.map( ( zone ) => ( { value: zone, label: zone } ) ),
+	];
+
+	return (
+		<SelectControl
+			__next40pxDefaultSize
+			__nextHasNoMarginBottom
+			value={ value }
+			options={ options }
+			onChange={ onChange }
+		/>
 	);
 }
 

@@ -418,9 +418,31 @@ final class Plugin {
 			'auth_callback' => static fn ( bool $allowed, string $meta_key, int $post_id ): bool => current_user_can( 'edit_post', $post_id ),
 		);
 
-		register_post_meta( 'eh_event', 'eh_start', array( 'description' => __( 'Start datetime (site timezone, Y-m-d H:i:s).', 'event-hub' ) ) + $args );
-		register_post_meta( 'eh_event', 'eh_end', array( 'description' => __( 'End datetime (site timezone, Y-m-d H:i:s).', 'event-hub' ) ) + $args );
+		register_post_meta( 'eh_event', 'eh_start', array( 'description' => __( 'Start datetime (event timezone, Y-m-d H:i:s).', 'event-hub' ) ) + $args );
+		register_post_meta( 'eh_event', 'eh_end', array( 'description' => __( 'End datetime (event timezone, Y-m-d H:i:s).', 'event-hub' ) ) + $args );
 		register_post_meta( 'eh_event', 'eh_venue', array( 'description' => __( 'Venue name.', 'event-hub' ) ) + $args );
+
+		/*
+		 * Per-event timezone: IANA identifier; '' = site timezone (so
+		 * existing rows keep their meaning with no migration). The save
+		 * handler normalizes (5A.4 twin discipline: an unknown identifier
+		 * must not 400 a legitimate varied payload — it degrades to ''
+		 * = site zone, never stored as junk). Read side is lenient too
+		 * (Event_Timezone::for_event falls back to the site zone), so
+		 * pre-schema rows behave identically.
+		 */
+		register_post_meta(
+			'eh_event',
+			Event_Timezone::META,
+			array(
+				'type'              => 'string',
+				'single'            => true,
+				'description'       => __( 'Event IANA timezone identifier. Empty = site timezone.', 'event-hub' ),
+				'auth_callback'     => static fn ( bool $allowed, string $meta_key, int $post_id ): bool => current_user_can( 'edit_post', $post_id ),
+				'show_in_rest'      => true,
+				'sanitize_callback' => static fn ( $meta_value ): string => Event_Timezone::sanitize_zone( is_scalar( $meta_value ) ? (string) $meta_value : '' ),
+			)
+		);
 
 		/*
 		 * Linked entities (ROADMAP 5.1): post ID of an eh_venue / eh_organizer
