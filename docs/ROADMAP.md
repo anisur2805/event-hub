@@ -234,7 +234,10 @@ code).
   > **done (2026-11-07)**.
 
 ### Tier 2 — parity
-- **5.5** Search & filter in Event List (keyword/date/venue/category).
+- **5.5** ~~Search & filter in Event List (keyword/date/venue/category).~~
+  > **done (2026-11-07, DECISIONS #57)** — shared `upcoming_query_args()`
+  > builder (block + REST), `eh_q`/`eh_list_month`/`eh_venue` GET vars;
+  > calendar's `eh_month` deliberately NOT reused. Tests: `List_Search_Filter_Test` (13).
 - **5.6** Virtual events — online URL shown only to confirmed attendees + emails.
 - **5.7** Waitlist management + who's-in notices.
 
