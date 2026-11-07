@@ -64,6 +64,15 @@ function AdminApp(): ReactElement {
 		ok: boolean;
 		text: string;
 	} | null >( null );
+	// §5B phone check-in desk: matches going rows digit-for-digit; misses
+	// and ambiguity surface here as copy, the fix happens in the table.
+	const [ checkInOpen, setCheckInOpen ] = useState( false );
+	const [ checkInPhone, setCheckInPhone ] = useState( '' );
+	const [ checkInBusy, setCheckInBusy ] = useState( false );
+	const [ checkInResult, setCheckInResult ] = useState< {
+		ok: boolean;
+		text: string;
+	} | null >( null );
 
 	// No boot data: render a terminal error (PHP failed to inline it).
 	if ( ! boot ) {
@@ -389,6 +398,76 @@ function AdminApp(): ReactElement {
 		}
 	};
 
+	// §5B phone check-in desk: POST /events/{id}/check-in resolves the digits
+	// against GOING rows; 404 = nobody, 409 = shared number (pick in the
+	// table), 200 flips the row already in the list (no refetch).
+	const sendCheckIn = async (): Promise< void > => {
+		setError( null );
+		setCheckInResult( null );
+		setCheckInBusy( true );
+		try {
+			const response = await fetch(
+				`${ boot.restUrl }event-hub/v1/events/${ eventId }/check-in`,
+				{
+					method: 'POST',
+					headers: {
+						'X-WP-Nonce': boot.nonce,
+						'Content-Type': 'application/json',
+					},
+					body: JSON.stringify( {
+						phone: checkInPhone.trim(),
+					} ),
+				}
+			);
+			if ( ! response.ok ) {
+				const body = ( await response.json().catch( () => null ) ) as {
+					message?: string;
+				} | null;
+				setCheckInResult( {
+					ok: false,
+					text:
+						body?.message && '' !== body.message
+							? body.message
+							: __(
+									'Could not check in — please try again.',
+									'event-hub'
+								),
+				} );
+				return;
+			}
+			const data = ( await response.json() ) as {
+				rsvp?: RsvpRow;
+			};
+			const updated = data.rsvp;
+			if ( updated?.id ) {
+				setRows( ( current ) =>
+					current.map( ( row ) =>
+						row.id === updated.id ? updated : row
+					)
+				);
+			}
+			setCheckInResult( {
+				ok: true,
+				text: sprintf(
+					/* translators: %s: attendee name. */
+					__( 'Checked in: %s', 'event-hub' ),
+					updated?.name ?? ''
+				),
+			} );
+			setCheckInPhone( '' );
+		} catch {
+			setCheckInResult( {
+				ok: false,
+				text: __(
+					'Could not check in — please try again.',
+					'event-hub'
+				),
+			} );
+		} finally {
+			setCheckInBusy( false );
+		}
+	};
+
 	return (
 		<div className="wrap event-hub-admin">
 			<h1>{ __( 'Event Hub — RSVPs', 'event-hub' ) }</h1>
@@ -539,6 +618,62 @@ function AdminApp(): ReactElement {
 									} }
 								>
 									{ __( 'Clear', 'event-hub' ) }
+								</Button>
+							</div>
+						</div>
+					) }
+				</div>
+			) }
+
+			{ eventId && (
+				<div className="event-hub-admin__checkin">
+					<Button
+						variant="tertiary"
+						aria-expanded={ checkInOpen }
+						onClick={ () => {
+							setCheckInOpen( ! checkInOpen );
+							setCheckInResult( null );
+						} }
+					>
+						{ checkInOpen
+							? __( 'Hide check-in form', 'event-hub' )
+							: __( 'Check in by phone', 'event-hub' ) }
+					</Button>
+					{ checkInOpen && (
+						<div className="event-hub-admin__checkin-form">
+							<TextControl
+								label={ __( 'Phone number', 'event-hub' ) }
+								value={ checkInPhone }
+								onChange={ setCheckInPhone }
+								help={ __(
+									'Matches against going attendees digit-for-digit — formatting does not matter.',
+									'event-hub'
+								) }
+								type="tel"
+							/>
+							{ checkInResult && (
+								<Notice
+									status={
+										checkInResult.ok ? 'success' : 'error'
+									}
+									isDismissible
+									onRemove={ () => setCheckInResult( null ) }
+								>
+									{ checkInResult.text }
+								</Notice>
+							) }
+							<div className="event-hub-admin__compose-actions">
+								<Button
+									variant="primary"
+									disabled={
+										checkInBusy ||
+										'' === checkInPhone.trim()
+									}
+									onClick={ () => sendCheckIn() }
+								>
+									{ checkInBusy
+										? __( 'Checking…', 'event-hub' )
+										: __( 'Check in', 'event-hub' ) }
 								</Button>
 							</div>
 						</div>

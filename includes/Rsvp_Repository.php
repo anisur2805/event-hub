@@ -51,6 +51,15 @@ final class Rsvp_Repository {
 	public const MAX_NOTE = 500;
 
 	/**
+	 * Shortest digit string a phone check-in search accepts (§5B): a 3-digit
+	 * fragment would match half the attendee list; below this the lookup
+	 * refuses and reports not-found.
+	 *
+	 * @var int
+	 */
+	public const MIN_PHONE_DIGITS = 7;
+
+	/**
 	 * Full table name, resolved lazily from $wpdb.
 	 *
 	 * @return string
@@ -1069,6 +1078,108 @@ final class Rsvp_Repository {
 
 		return is_array( $row ) ? $this->normalize_row( $row ) : null;
 	}
+
+	/**
+	 * Phone check-in (§5B): every GOING row of the event whose stored phone
+	 * matches the queried one DIGIT-FOR-DIGIT after normalization (a desk
+	 * types "+1 (555) 010-0044"; the attendee typed "5550100044" — compare
+	 * digits, and a shorter run that is the tail of the longer one counts as
+	 * the same number (country code on either side). Ambiguity is REPORTED,
+	 * not guessed: the caller receives the full match list and decides (409
+	 * with count). Rows with no phone can never match. Batches through
+	 * list() like the CSV/compose walkers.
+	 *
+	 * @param int    $event_id Event post ID.
+	 * @param string $phone    Raw desk-typed phone (any formatting).
+	 * @return array<int,array<string,mixed>> All matching rows (PHP-side
+	 *                                        digits compare — an SQL LIKE
+	 *                                        chain cannot normalize).
+	 */
+	public function find_by_phone( int $event_id, string $phone ): array {
+		$needle = self::phone_digits( $phone );
+
+		// Too short to identify anyone (a 3-digit fragment would match half
+		// the list): the caller treats this as not-found.
+		if ( strlen( $needle ) < self::MIN_PHONE_DIGITS ) {
+			return array();
+		}
+
+		$matches  = array();
+		$per_page = 500;
+		$offset   = 0;
+
+		while ( true ) {
+			$result = $this->list( $event_id, $per_page, $offset, 'going' );
+
+			if ( array() === $result['rsvps'] ) {
+				break;
+			}
+
+			foreach ( $result['rsvps'] as $row ) {
+				if ( self::phones_match( $needle, self::phone_digits( (string) ( $row['phone'] ?? '' ) ) ) ) {
+					$matches[] = $row;
+				}
+			}
+
+			$offset += count( $result['rsvps'] );
+
+			if ( count( $result['rsvps'] ) < $per_page ) {
+				break;
+			}
+		}
+
+		return $matches;
+	}
+
+	/**
+	 * The shared phone compare: true when both digit runs describe the same
+	 * subscriber number. Equal runs always match; with different lengths the
+	 * SHORTER run must be the tail (suffix) of the longer — that absorbs a
+	 * country code typed on either side ("+1 555 0100" vs "555 0100") while
+	 * still distinguishing distinct numbers. The MIN_PHONE_DIGITS floor
+	 * applies to BOTH sides: a stored 3-digit fragment ("4") must never ride
+	 * the tail of a full-length needle (every needle ending in 4 would
+	 * match), and a desk-typed fragment must never sweep the book.
+	 *
+	 * @param string $needle    Desk-typed digit run (length-gated by caller).
+	 * @param string $candidate Stored row's digit run.
+	 * @return bool
+	 */
+	private static function phones_match( string $needle, string $candidate ): bool {
+		if ( strlen( $candidate ) < self::MIN_PHONE_DIGITS ) {
+			return false;
+		}
+
+		if ( $needle === $candidate ) {
+			return true;
+		}
+
+		if ( strlen( $needle ) > strlen( $candidate ) ) {
+			return 0 === substr_compare( $needle, $candidate, -strlen( $candidate ) );
+		}
+
+		if ( strlen( $candidate ) > strlen( $needle ) ) {
+			return 0 === substr_compare( $candidate, $needle, -strlen( $needle ) );
+		}
+
+		// Equal length, not identical: different numbers.
+		return false;
+	}
+
+	/**
+	 * Digits-only phone normalization (the shared compare shape): strips
+	 * EVERYTHING that is not 0-9, including the leading +. An empty/phoneless
+	 * row yields '' and can never match (both sides are length-gated).
+	 *
+	 * @param string $phone Raw stored/typed value.
+	 * @return string
+	 */
+	public static function phone_digits( string $phone ): string {
+		return (string) preg_replace( '/[^0-9]/', '', $phone );
+	}
+
+	/**
+	 * Resolves a raw manage token to its row (DECISIONS #39). The DB stores
 
 	/**
 	 * Resolves a raw manage token to its row (DECISIONS #39). The DB stores

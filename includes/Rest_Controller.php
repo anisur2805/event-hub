@@ -318,6 +318,28 @@ final class Rest_Controller {
 
 		register_rest_route(
 			self::NAMESPACE_V1,
+			'/events/(?P<id>[0-9]+)/check-in',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( $this, 'check_in_by_phone' ),
+				'permission_callback' => array( $this, 'admin_permission' ),
+				'args'                => array(
+					'id'    => array(
+						'required'          => true,
+						'type'              => 'integer',
+						'sanitize_callback' => static fn ( $value ): int => absint( $value ),
+					),
+					'phone' => array(
+						'required'          => true,
+						'type'              => 'string',
+						'sanitize_callback' => static fn ( $value ): string => (string) sanitize_text_field( (string) $value ),
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE_V1,
 			'/rsvps',
 			array(
 				'methods'             => WP_REST_Server::READABLE,
@@ -1078,6 +1100,73 @@ final class Rest_Controller {
 				'sent'    => $sent,
 				'skipped' => $skipped,
 				'total'   => $total,
+			),
+			200
+		);
+	}
+
+	/**
+	 * POST /events/{id}/check-in — the §5B phone check-in desk. Resolves the
+	 * phone to GOING rows digit-for-digit (find_by_phone); stamps the single
+	 * match through the SAME set_checked_in() path the table button uses
+	 * (same 2.2 contract: no lock, no capacity re-check — checked_in_at is
+	 * dead weight in capacity math). Already-checked rows stamp idempotently
+	 * (the UPDATE legal-no-op) and return the row, so re-typing a phone at
+	 * the desk never errors.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function check_in_by_phone( WP_REST_Request $request ) {
+		$params   = $this->request_params( $request );
+		$event_id = absint( $params['id'] ?? 0 );
+
+		$event = 0 !== $event_id ? get_post( $event_id ) : null;
+
+		if ( ! $event instanceof \WP_Post || 'eh_event' !== $event->post_type ) {
+			return new WP_Error( 'eh_event_not_found', __( 'No such published event.', 'event-hub' ), array( 'status' => 404 ) );
+		}
+
+		$phone = is_string( $params['phone'] ?? null ) ? (string) $params['phone'] : '';
+
+		if ( '' === trim( $phone ) ) {
+			return new WP_Error( 'eh_missing_phone', __( 'A phone number is required.', 'event-hub' ), array( 'status' => 400 ) );
+		}
+
+		$matches = $this->repository->find_by_phone( $event_id, $phone );
+		$count   = count( $matches );
+
+		if ( 0 === $count ) {
+			return new WP_Error( 'eh_phone_not_found', __( 'No going attendee with that phone number.', 'event-hub' ), array( 'status' => 404 ) );
+		}
+
+		if ( $count > 1 ) {
+			// Report, never guess: the desk picks in the table (the matches
+			// are there, name + phone) and checks the right one manually.
+			return new WP_Error(
+				'eh_phone_ambiguous',
+				__( 'More than one attendee shares this number — use the RSVP table to check them in.', 'event-hub' ),
+				array(
+					'status' => 409,
+					'count'  => $count,
+				)
+			);
+		}
+
+		$updated = $this->repository->set_checked_in( (int) $matches[0]['id'], true );
+
+		if ( $updated instanceof WP_Error ) {
+			return $updated;
+		}
+
+		if ( ! is_array( $updated ) ) {
+			return new WP_Error( 'eh_rsvp_not_found', __( 'No RSVP found with that ID.', 'event-hub' ), array( 'status' => 404 ) );
+		}
+
+		return new WP_REST_Response(
+			array(
+				'checkedIn' => true,
+				'rsvp'      => $this->serialize_private( $updated ),
 			),
 			200
 		);
