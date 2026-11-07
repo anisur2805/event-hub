@@ -239,6 +239,11 @@ code).
   > builder (block + REST), `eh_q`/`eh_list_month`/`eh_venue` GET vars;
   > calendar's `eh_month` deliberately NOT reused. Tests: `List_Search_Filter_Test` (13).
 - **5.6** Virtual events — online URL shown only to confirmed attendees + emails.
+  > **done (2026-11-07, DECISIONS #58)** — `_eh_online_url` protected meta +
+  > token-gated REST read, status-gated email branches (the waitlist-reminder
+  > leak caught in stage-0), public fact-only surfaces, editor panel field.
+  > Tests: `Virtual_Event_Test` (11). Per-event timezone SPLIT OUT to its own
+  > next slice (see deferral note below).
 - **5.7** Waitlist management + who's-in notices.
 
 ### 5A. Review wave P1 (2026-11-07, second external review — verified against code)
@@ -278,7 +283,9 @@ code).
 - Approval mode REJECTED (would corrupt the atomic seat math). Ticketing/Zoom/Maps
   embeds/front-end submission rejected (projects of their own).
 - Per-event timezone: deferred to 5.6 (virtual events) where the wall-clock contract
-  must be revisited anyway.
+  must be revisited anyway. → **Re-split 2026-11-07:** 5.6 shipped without it —
+  the timezone change touches the wall-clock contract everywhere, so it lands as
+  its OWN slice (next up, before 5.7).
 
 ### Tier 3 — later
 - **5.10** Front-end event submission (spam/moderation burden).
@@ -330,4 +337,4 @@ code).
 2. §1.2 hardening — **done, Phase 1**.
 3. §1.3 waitlist promotion — **done, Phase 2**.
 4. §1.1 JSON-LD — **done (2026-11-04)**; was independent, slotted after Phase 2.
-5. Then pick by need: ~~2.1 (email flow; its cancellation now feeds §1.3's promotion)~~ **done (2026-11-04, DB 1.3.0)**; ~~2.2 (check-in)~~ **done (2026-11-04)**; ~~2.4 cutoffs~~ **done (2026-11-05)**; ~~2.3 seats~~ **done (2026-11-05, DB 1.4.0)**; ~~3.1 dashboard~~ **done (2026-11-05)**; ~~3.3 calendar block~~ **done (2026-11-05)**; ~~3.2 recurring events~~ **done (2026-11-05)**. ~~§4 WP-CLI extras~~ **done (2026-11-06)** + findings resolution **done (2026-11-06)**. ~~5.1 venue/organizer~~ **done (2026-11-06)**; ~~5.2 reminders~~ **done (2026-11-06, DB 1.5.0)**; ~~5.3 event status~~ **done (2026-11-07, DB 1.6.0)**; ~~5.4 GDPR~~ **done (2026-11-07)**. ~~§4 .pot/RTL + PCP re-baseline~~ **done (2026-11-07, DECISIONS #51)**; ~~§4 uninstall audit~~ **done (2026-11-07, DECISIONS #52 — caught a latent uninstall fatal)**. Tier 1 + §4 COMPLETE; §3.4 Woo stays parked. 6. **Review wave P1 (5A): ~~5A.1 success panel/token~~ **done (2026-11-07)** → ~~5A.2 promotion email + waitlist position~~ **done (2026-11-07)** → ~~5A.3 add-to-calendar~~ **done (2026-11-07)** → ~~5A.4 external URL~~ **done (2026-11-07)** — review wave P1 COMPLETE (approved 2026-11-07; both spirit-gaps verified against code before adoption). Then Tier 2 (5.5/5.6/5.7) by need.
+5. Then pick by need: ~~2.1 (email flow; its cancellation now feeds §1.3's promotion)~~ **done (2026-11-04, DB 1.3.0)**; ~~2.2 (check-in)~~ **done (2026-11-04)**; ~~2.4 cutoffs~~ **done (2026-11-05)**; ~~2.3 seats~~ **done (2026-11-05, DB 1.4.0)**; ~~3.1 dashboard~~ **done (2026-11-05)**; ~~3.3 calendar block~~ **done (2026-11-05)**; ~~3.2 recurring events~~ **done (2026-11-05)**. ~~§4 WP-CLI extras~~ **done (2026-11-06)** + findings resolution **done (2026-11-06)**. ~~5.1 venue/organizer~~ **done (2026-11-06)**; ~~5.2 reminders~~ **done (2026-11-06, DB 1.5.0)**; ~~5.3 event status~~ **done (2026-11-07, DB 1.6.0)**; ~~5.4 GDPR~~ **done (2026-11-07)**. ~~§4 .pot/RTL + PCP re-baseline~~ **done (2026-11-07, DECISIONS #51)**; ~~§4 uninstall audit~~ **done (2026-11-07, DECISIONS #52 — caught a latent uninstall fatal)**. Tier 1 + §4 COMPLETE; §3.4 Woo stays parked. 6. **Review wave P1 (5A): ~~5A.1 success panel/token~~ **done (2026-11-07)** → ~~5A.2 promotion email + waitlist position~~ **done (2026-11-07)** → ~~5A.3 add-to-calendar~~ **done (2026-11-07)** → ~~5A.4 external URL~~ **done (2026-11-07)** — review wave P1 COMPLETE (approved 2026-11-07; both spirit-gaps verified against code before adoption). Then Tier 2 (5.5/5.6/5.7) by need: ~~5.5~~ **done (2026-11-07, #57)**; ~~5.6~~ **done (2026-11-07, #58)**. Next: per-event timezone (own slice) → 5.7.
