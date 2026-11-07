@@ -416,27 +416,27 @@ final class Render_Blocks {
 		$going_text = self::count_text( (int) $counts['going'], (int) $counts['waitlist'], $past );
 
 		$context = array(
-			'eventId'    => $event_id,
-			'capacity'   => $capacity,
-			'counts'     => array(
+			'eventId'      => $event_id,
+			'capacity'     => $capacity,
+			'counts'       => array(
 				'going'    => (int) $counts['going'],
 				'waitlist' => (int) $counts['waitlist'],
 			),
-			'mine'       => null,
-			'busy'       => false,
-			'feedback'   => '',
-			'full'       => $full,
-			'rsvpOpen'   => (bool) $summary['rsvpOpen'],
-			'past'       => $past,
-			'countText'  => $going_text,
-			'name'       => 0 !== $user->ID ? $user->display_name : '',
-			'email'      => 0 !== $user->ID ? $user->user_email : '',
-			'guests'     => 1,
+			'mine'         => null,
+			'busy'         => false,
+			'feedback'     => '',
+			'full'         => $full,
+			'rsvpOpen'     => (bool) $summary['rsvpOpen'],
+			'past'         => $past,
+			'countText'    => $going_text,
+			'name'         => 0 !== $user->ID ? $user->display_name : '',
+			'email'        => 0 !== $user->ID ? $user->user_email : '',
+			'guests'       => 1,
 			// 5A.1: PHP NEVER pre-renders a token; the store fills this from
 			// the 201 body client-side. Server default '' keeps the SSR
 			// region directive-safe (every bind target resolves in PHP, #30).
-			'manageUrl'  => '',
-			'linkCopied' => false,
+			'manageUrl'    => '',
+			'linkCopied'   => false,
 			// Filled by the store alongside manageUrl; SSR default stays ''
 			// because the panel itself is hidden until the 201 arrives.
 			'successTitle' => '',
@@ -1061,11 +1061,119 @@ final class Render_Blocks {
 	}
 
 	/**
+	 * "Add to calendar" links for the single-event page (ROADMAP 5A.3):
+	 * Google Calendar's template URL and the Outlook web compose deep link,
+	 * both plain GET URLs — no JS, no third-party script, the visitor just
+	 * follows a link. Data comes from the same summary() fields the ICS
+	 * feed uses, so the two surfaces never disagree. Datetimes are sent in
+	 * each provider's documented UTC form (Google: compact ICS as in the
+	 * ICS feed; Outlook: dashed ISO 8601) — an offset form would carry a
+	 * raw '+' that decodes as a space provider-side. Every value is
+	 * rawurlencode()d (add_query_arg does NOT encode values, so a title
+	 * '&' would break the provider URL). Past events and events without a
+	 * start render nothing (same honesty rule as the ICS feed).
+	 *
+	 * @param array<string,mixed> $s Event summary (Render_Blocks::summary()).
+	 * @return string Markup or '' when nothing to offer.
+	 */
+	public static function calendar_links( array $s ): string {
+		$start = (string) ( $s['start'] ?? '' );
+		$end   = (string) ( $s['end'] ?? '' );
+
+		if ( '' === $start ) {
+			return '';
+		}
+
+		// Past events: the date block already says it is over (pill + past
+		// modifier); an add-to-calendar link would be noise.
+		if ( self::is_past( $s ) ) {
+			return '';
+		}
+
+		try {
+			$start_dt = new \DateTimeImmutable( $start );
+			$end_dt   = '' !== $end ? new \DateTimeImmutable( $end ) : null;
+		} catch ( \Exception $e ) {
+			return ''; // Unparseable clock: never render a wrong-date link.
+		}
+
+		// summary() may hold wp-injected entities (&amp;); the ICS exporter
+		// decodes before embedding — same rule here, or Google would file
+		// the event under "Launch Night &amp; Signals".
+		$title     = html_entity_decode( (string) ( $s['title'] ?? '' ), ENT_QUOTES, 'UTF-8' );
+		$venue     = html_entity_decode( (string) ( $s['venue'] ?? '' ), ENT_QUOTES, 'UTF-8' );
+		$permalink = (string) ( $s['permalink'] ?? '' );
+		$excerpt   = wp_strip_all_tags( html_entity_decode( (string) ( $s['excerpt'] ?? '' ), ENT_QUOTES, 'UTF-8' ) );
+
+		// The description carries the event page URL so the calendar entry
+		// links back (mirrors the ICS DESCRIPTION approach).
+		$description = '' !== $permalink
+			? trim( $excerpt . "\n\n" . $permalink )
+			: trim( $excerpt );
+
+		$utc = new \DateTimeZone( 'UTC' );
+
+		$calendar_args = array(
+			'action'   => 'TEMPLATE',
+			'text'     => $title,
+			'dates'    => $start_dt->setTimezone( $utc )->format( 'Ymd\THis\Z' )
+				. ( null !== $end_dt ? '/' . $end_dt->setTimezone( $utc )->format( 'Ymd\THis\Z' ) : '' ),
+			'details'  => $description,
+			'location' => $venue,
+		);
+
+		$outlook_args = array(
+			'path'     => '/calendar/action/compose',
+			'rru'      => 'addevent',
+			'subject'  => $title,
+			'startdt'  => $start_dt->setTimezone( $utc )->format( 'Y-m-d\TH:i:s\Z' ),
+			'body'     => $description,
+			'location' => $venue,
+		);
+
+		if ( null !== $end_dt ) {
+			$outlook_args['enddt'] = $end_dt->setTimezone( $utc )->format( 'Y-m-d\TH:i:s\Z' );
+		}
+
+		$google  = 'https://calendar.google.com/calendar/render?' . self::cal_query( $calendar_args );
+		$outlook = 'https://outlook.live.com/calendar/0/deeplink/compose?' . self::cal_query( $outlook_args );
+
+		ob_start();
+		?>
+		<div class="event-hub-single__cal">
+			<a class="event-hub-single__cal-link" href="<?php echo esc_url( $google ); ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Add to Google Calendar', 'event-hub' ); ?></a>
+			<a class="event-hub-single__cal-link" href="<?php echo esc_url( $outlook ); ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Add to Outlook', 'event-hub' ); ?></a>
+		</div>
+		<?php
+		return (string) ob_get_clean();
+	}
+
+	/**
+	 * Builds one encoded query string for the calendar provider URLs:
+	 * rawurlencode per value (a title '&' becomes %26 instead of a param
+	 * break), empty values skipped entirely.
+	 *
+	 * @param array<string,string> $params Parameter map (key => raw value).
+	 * @return string 'key=value&key=value' (values already encoded).
+	 */
+	private static function cal_query( array $params ): string {
+		$pairs = array();
+
+		foreach ( $params as $key => $value ) {
+			if ( '' !== (string) $value ) {
+				$pairs[] = rawurlencode( (string) $key ) . '=' . rawurlencode( (string) $value );
+			}
+		}
+
+		return implode( '&', $pairs );
+	}
+
+	/**
 	 * Renders the event-details view for the plugin's single-event fallback
 	 * template (single eh_event posts on themes without their own template).
 	 * Reuses the card vocabulary — status pill, capacity bar, category chips
 	 * (links to the ?eh_category list filter), RSVP form — at single-page
-	 * scale. Add-to-calendar ships with PROBLEM-4.
+	 * scale, plus the 5A.3 add-to-calendar links.
 	 *
 	 * @param WP_Post $post The single event post.
 	 * @return string
@@ -1136,6 +1244,11 @@ final class Render_Blocks {
 			<div class="event-hub-single__content">
 				<?php the_content(); ?>
 			</div>
+			<?php
+			// 5A.3 add-to-calendar links (past events render '').
+			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- calendar_links() escapes internally.
+			echo self::calendar_links( $s );
+			?>
 			<?php
 			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- render_rsvp_button() escapes internally.
 			echo self::render_rsvp_button( (int) $s['id'] );

@@ -261,4 +261,96 @@ class Render_Blocks_Card_Test extends WP_UnitTestCase {
 		// The seeded client strings are present in the state.
 		$this->assertStringContainsString( 'Keep this link', $out );
 	}
+
+	/* ---------------------------------------------------------------------
+	 * 5A.3: add-to-calendar links on the single-event view.
+	 * ------------------------------------------------------------------- */
+
+	/**
+	 * An upcoming event with start + venue renders both provider links with
+	 * the event's data encoded (rawurlencode per value; datetimes in each
+	 * provider's documented UTC form).
+	 *
+	 * @return void
+	 */
+	public function test_calendar_links_render_for_upcoming_event(): void {
+		$id  = $this->make_event( '2099-05-01 18:00:00', '2099-05-01 20:00:00' );
+		self::factory()->post->update_object(
+			$id,
+			array( 'post_title' => 'Launch Night & Signals' )
+		);
+		update_post_meta( $id, 'eh_venue', 'Main Hall' );
+
+		$out = Render_Blocks::calendar_links( Render_Blocks::summary( $id ) );
+
+		$this->assertStringContainsString( 'https://calendar.google.com/calendar/render?', $out );
+		$this->assertStringContainsString( 'action=TEMPLATE', $out );
+		$this->assertStringContainsString( 'https://outlook.live.com/calendar/0/deeplink/compose?', $out );
+		$this->assertStringContainsString( 'rru=addevent', $out );
+		$this->assertStringContainsString( 'Add to Google Calendar', $out );
+		$this->assertStringContainsString( 'Add to Outlook', $out );
+
+		// Title encoded per value ('&' -> %26); venue too.
+		$this->assertStringContainsString( 'Launch%20Night%20%26%20Signals', $out );
+		$this->assertStringContainsString( 'Main%20Hall', $out );
+
+		// Google gets compact ICS UTC datetimes (as the ICS feed), Outlook
+		// gets dashed ISO 8601; both in UTC (site tz +00:00 in tests).
+		$this->assertStringContainsString( 'dates=20990501T180000Z%2F20990501T200000Z', $out );
+		$this->assertStringContainsString( 'startdt=2099-05-01T18%3A00%3A00Z', $out );
+		$this->assertStringContainsString( 'enddt=2099-05-01T20%3A00%3A00Z', $out );
+
+		// Title '&' became %26, not a second param.
+		$this->assertStringNotContainsString( 'text=Launch%20Night%20&', $out );
+
+		// Both links open safely in a new tab.
+		$this->assertSame( 2, substr_count( $out, 'rel="noopener noreferrer"' ) );
+	}
+
+	/**
+	 * No start meta => no links at all.
+	 *
+	 * @return void
+	 */
+	public function test_calendar_links_empty_without_start(): void {
+		$id  = $this->make_event( '' );
+		$out = Render_Blocks::calendar_links( Render_Blocks::summary( $id ) );
+
+		$this->assertSame( '', $out );
+	}
+
+	/**
+	 * Past events render no links (same honesty rule as the ICS feed).
+	 *
+	 * @return void
+	 */
+	public function test_calendar_links_absent_on_past_event(): void {
+		$id  = $this->make_event( '2020-01-01 18:00:00', '2020-01-01 20:00:00' );
+		$out = Render_Blocks::calendar_links( Render_Blocks::summary( $id ) );
+
+		$this->assertSame( '', $out );
+	}
+
+	/**
+	 * The single-event view embeds the links for an upcoming event, and the
+	 * description carries the event permalink so the calendar entry links
+	 * back to the page.
+	 *
+	 * @return void
+	 */
+	public function test_single_event_embeds_calendar_links_with_permalink(): void {
+		$id   = $this->make_event( '2099-06-01 18:00:00', '2099-06-01 20:00:00' );
+		$post = get_post( $id );
+		$this->assertInstanceOf( \WP_Post::class, $post );
+
+		$out = Render_Blocks::render_single_event( $post );
+
+		$this->assertStringContainsString( 'event-hub-single__cal', $out );
+		$this->assertStringContainsString( 'calendar.google.com', $out );
+
+		// The permalink rides the details param, rawurlencode'd: scheme colon
+		// and path slashes come out percent-encoded.
+		$permalink = (string) get_permalink( $id );
+		$this->assertStringContainsString( rawurlencode( $permalink ), $out );
+	}
 }

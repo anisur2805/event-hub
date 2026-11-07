@@ -856,6 +856,20 @@
 	max-width: 65ch;
 }
 
+/* 5A.3: add-to-calendar links — a quiet inline row above the RSVP form. */
+.event-hub-single__cal {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem 1.25rem;
+	margin-block-end: var( --eh-gap );
+	font-size: var( --eh-font-s );
+}
+
+.event-hub-single__cal-link {
+	color: var( --eh-accent );
+	text-decoration: underline;
+}
+
 /* Past events recede: ink stays for 4.5:1; only the hero rule and date
  * block dim to fixed ink-on-tint pairs. */
 .event-hub-single--past .event-hub-single__date {
