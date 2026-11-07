@@ -667,6 +667,9 @@ final class Series_Engine {
 			'eh_rsvp_close_hours' => (string) get_post_meta( $seed_id, 'eh_rsvp_close_hours', true ),
 			// 5A.4: every occurrence registers through the same external page.
 			'eh_external_url'     => (string) get_post_meta( $seed_id, 'eh_external_url', true ),
+			// 5.6: occurrences share the seed's joining URL (same meeting for
+			// the whole series). Secret stays underscore-protected in transit.
+			'_eh_online_url'      => (string) get_post_meta( $seed_id, '_eh_online_url', true ),
 			// Status (5.3): a cancelled/postponed seed's remaining spawns carry
 			// the state (their attendees must see it too). Spawning is paused
 			// while cancelled — this copy covers spawns already in flight.

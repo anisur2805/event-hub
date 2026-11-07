@@ -24,6 +24,7 @@ import {
 	ToggleControl,
 } from '@wordpress/components';
 import type { ReactElement, ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useEntityProp } from '@wordpress/core-data';
 import { useSelect } from '@wordpress/data';
@@ -77,6 +78,15 @@ interface WpEditorRuntime {
 			formats: { time: string; [ key: string ]: string };
 		};
 	};
+	/**
+	 * wp-api-fetch runtime (5.6): carries the preconfigured REST nonce
+	 * middleware; Editor_Panel declares the handle next to wp-plugins.
+	 */
+	apiFetch?: ( options: {
+		path: string;
+		method?: string;
+		data?: unknown;
+	} ) => Promise< unknown >;
 }
 
 const wp = ( window as unknown as { wp?: WpEditorRuntime } ).wp;
@@ -502,6 +512,7 @@ function EventDetailsFields(): ReactElement {
 					} }
 				/>
 			</PanelRow>
+			<OnlineUrlField />
 			<PanelRow>
 				<ToggleControl
 					label={ __( 'Limit the number of spots', 'event-hub' ) }
@@ -749,6 +760,132 @@ function EventDetailsFields(): ReactElement {
 				</>
 			) }
 		</>
+	);
+}
+
+/**
+ * Online joining URL (5.6, VIRTUAL-EVENTS). The value is SECRET (only
+ * confirmed attendees ever see it), so it cannot ride the standard meta
+ * box: `_eh_online_url` is protected meta, absent from /wp/v2 reads and
+ * writes. This field moves it over the plugin's dedicated editor-gated
+ * REST route instead (GET seeds once, debounced POST commits). Typing
+ * commits locally; the network write trails the last keystroke — a
+ * round-trip per keystroke would spam the REST layer and flicker the
+ * notice state through intermediate failures.
+ */
+function OnlineUrlField(): ReactElement {
+	const postId = useSelect( ( select ) => {
+		const editor = select( 'core/editor' ) as {
+			getCurrentPostId: () => number;
+		};
+
+		return editor.getCurrentPostId();
+	}, [] );
+
+	const [ draft, setDraft ] = useState( '' );
+	const [ saved, setSaved ] = useState< string | null >( null );
+	const [ error, setError ] = useState( false );
+	const timer = useRef< number | undefined >( undefined );
+
+	// One-time seed from the GET route once the editor knows the post ID
+	// (0 while booting). Later refreshes never clobber an in-progress edit.
+	const seedRef = useRef( false );
+
+	useEffect( () => {
+		if ( seedRef.current || 0 === postId ) {
+			return;
+		}
+
+		seedRef.current = true;
+
+		if ( ! wp?.apiFetch ) {
+			// No runtime (handle missing): field stays blank and inert; the
+			// rest of the panel is unaffected.
+			setSaved( '' );
+			return;
+		}
+
+		wp.apiFetch( {
+			path: `/event-hub/v1/events/${ postId }/online-url-editor`,
+		} )
+			.then( ( response ) => {
+				const body = response as { onlineUrl?: string };
+				const initial = String( body.onlineUrl ?? '' );
+
+				setDraft( initial );
+				setSaved( initial );
+			} )
+			.catch( () => {
+				// Seed failure leaves the field editable-but-unsaved; the
+				// debounced POST on first change will surface any inability.
+				setSaved( '' );
+			} );
+	}, [ postId ] );
+
+	// Debounced commit: 600ms after the last keystroke, POST the draft; the
+	// response's gated onlineUrl is what attendees would get ('' when the
+	// saved string never validates), so the help line can be honest.
+	useEffect( () => {
+		if ( null === saved || draft === saved || 0 === postId ) {
+			return;
+		}
+
+		if ( ! wp?.apiFetch ) {
+			return;
+		}
+
+		// Captured: the optional chain cannot narrow inside the timeout.
+		const fetcher = wp.apiFetch;
+
+		window.clearTimeout( timer.current );
+
+		timer.current = window.setTimeout( () => {
+			fetcher( {
+				path: `/event-hub/v1/events/${ postId }/online-url`,
+				method: 'POST',
+				data: { url: draft },
+			} )
+				.then( ( response ) => {
+					const body = response as { onlineUrl?: string };
+					setSaved( draft );
+					setError(
+						'' !== draft.trim() && '' === ( body.onlineUrl ?? '' )
+					);
+				} )
+				.catch( () => {
+					// Keep the draft; the help line flags the failure so the
+					// editor can retry without losing their typing.
+					setError( true );
+				} );
+		}, 600 );
+
+		return () => window.clearTimeout( timer.current );
+	}, [ draft, saved, postId ] );
+
+	const helpText = error
+		? __( 'Could not save — check the URL and try again.', 'event-hub' )
+		: __(
+				'Only confirmed attendees see this link — in their confirmation email, reminders, and on their booking page. Leave empty for in-person events.',
+				'event-hub'
+			);
+
+	return (
+		<PanelRow>
+			<TextControl
+				label={ __(
+					'Online joining URL (virtual event)',
+					'event-hub'
+				) }
+				type="url"
+				value={ draft }
+				placeholder={ __(
+					'https://meet.example.org/room',
+					'event-hub'
+				) }
+				help={ helpText }
+				onChange={ ( next ) => setDraft( next ) }
+			/>
+		</PanelRow>
 	);
 }
 

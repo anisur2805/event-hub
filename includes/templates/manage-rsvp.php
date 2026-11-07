@@ -85,6 +85,22 @@ get_header();
 				<strong><?php esc_html_e( 'Seats:', 'event-hub' ); ?></strong>
 				<?php echo esc_html( (string) number_format_i18n( isset( $event_hub_row['guests'] ) ? max( 1, (int) $event_hub_row['guests'] ) : 1 ) ); ?>
 			</p>
+			<?php if ( 'going' === $event_hub_row['status'] ) : ?>
+				<?php
+				// 5.6: the joining URL is secret — the token IS the entitlement
+				// proof, and only a going row qualifies. Waitlist rows never
+				// see it (their confirmation email omits it for the same
+				// reason); promotion moves them into the entitled set.
+				$event_hub_online = \EventHub\Render_Blocks::online_url( (int) $event_hub_event->ID );
+				?>
+				<?php if ( '' !== $event_hub_online ) : ?>
+					<p class="eh-manage__online">
+						<strong><?php esc_html_e( 'Join online:', 'event-hub' ); ?></strong>
+						<a href="<?php echo esc_url( $event_hub_online ); ?>" target="_blank" rel="noopener noreferrer"><?php echo esc_html( $event_hub_online ); ?></a>
+					</p>
+					<p class="eh-manage__online-hint"><?php esc_html_e( 'This link is for you — please do not share it.', 'event-hub' ); ?></p>
+				<?php endif; ?>
+			<?php endif; ?>
 		</section>
 
 		<?php if ( $event_hub_can_act ) : ?>

@@ -36,6 +36,7 @@ type SlotName =
 	| 'month'
 	| 'datetime'
 	| 'venue'
+	| 'online'
 	| 'excerpt'
 	| 'categories'
 	| 'pill'
@@ -292,6 +293,17 @@ function renderCard(
 		// PHP omits the element entirely when empty; drop it here too.
 		if ( ! event.venue ) {
 			venue.remove();
+		}
+	}
+
+	// 5.6: the online badge shows only for virtual events — the template
+	// slot ships hidden, so leaving it untouched hides it (no URL ever
+	// reaches the client, only the boolean).
+	if ( event.virtual ) {
+		const online = slot( card, 'online' );
+		if ( online ) {
+			online.textContent = __( 'Online' );
+			online.hidden = false;
 		}
 	}
 

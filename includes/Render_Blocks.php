@@ -169,6 +169,59 @@ final class Render_Blocks {
 	}
 
 	/**
+	 * The gated online joining URL for a virtual event (ROADMAP 5.6), or ''
+	 * when the event has none/it is junk. SECRET-bearing: the meta key is
+	 * underscore-prefixed (`_eh_online_url`), which puts it behind core's
+	 * protected-meta rule — it can never ride an anonymous /wp/v2 read the
+	 * way eh_external_url does. Validity gate is read-side, exactly the
+	 * 5A.4 twin (esc_url_raw + http/https + host); implausible saved values
+	 * degrade to '' rather than 400ing a legitimate varied link.
+	 *
+	 * Callers are responsible for the ENTITLEMENT half (who may learn the
+	 * URL): the REST read route checks the manage token resolves to a going
+	 * row; the manage page renders it only for going rows; emails attach it
+	 * only in going-recipient branches. This function itself does NO
+	 * entitlement check — do not call it from a public serializer.
+	 *
+	 * @param int $event_id Event post ID.
+	 * @return string Absolute http(s) URL, or '' when unset/invalid.
+	 */
+	public static function online_url( int $event_id ): string {
+		$raw = trim( (string) get_post_meta( $event_id, '_eh_online_url', true ) );
+
+		if ( '' === $raw ) {
+			return '';
+		}
+
+		$url = esc_url_raw( $raw );
+
+		if ( '' === $url ) {
+			return '';
+		}
+
+		$scheme = (string) wp_parse_url( $url, PHP_URL_SCHEME );
+		$host   = (string) wp_parse_url( $url, PHP_URL_HOST );
+
+		if ( ! in_array( $scheme, array( 'http', 'https' ), true ) || '' === $host ) {
+			return '';
+		}
+
+		return $url;
+	}
+
+	/**
+	 * Whether the event takes place online (5.6): an online URL is set and
+	 * valid. The FACT is public (cards badge it, REST/JSON-LD expose it);
+	 * only the URL value is gated.
+	 *
+	 * @param int $event_id Event post ID.
+	 * @return bool
+	 */
+	public static function is_virtual( int $event_id ): bool {
+		return '' !== self::online_url( $event_id );
+	}
+
+	/**
 	 * Resolves a linked-entity meta ID to its published post, ignoring stale
 	 * or non-existent IDs (fallback lives with the caller). The ID whitelist
 	 * is the digits-only read-side twin of the meta schema pattern.
@@ -253,6 +306,9 @@ final class Render_Blocks {
 					</p>
 					<?php if ( '' !== (string) $s['venue'] ) : ?>
 						<p class="event-hub-card__venue"><?php echo esc_html( (string) $s['venue'] ); ?></p>
+					<?php endif; ?>
+					<?php if ( self::is_virtual( (int) $s['id'] ) ) : ?>
+						<p class="event-hub-card__online"><?php esc_html_e( 'Online', 'event-hub' ); ?></p>
 					<?php endif; ?>
 					<?php if ( '' !== (string) $s['excerpt'] ) : ?>
 						<p class="event-hub-card__excerpt"><?php echo esc_html( (string) $s['excerpt'] ); ?></p>
@@ -894,6 +950,7 @@ final class Render_Blocks {
 								<h3 class="event-hub-card__title"><a data-eh-slot="titlelink" href="#"><span data-eh-slot="title"></span></a></h3>
 								<p class="event-hub-card__datetime"><time data-eh-slot="datetime"></time></p>
 								<p class="event-hub-card__venue" data-eh-slot="venue"></p>
+								<p class="event-hub-card__online" data-eh-slot="online" hidden></p>
 								<p class="event-hub-card__excerpt" data-eh-slot="excerpt"></p>
 								<p class="event-hub-card__categories" data-eh-slot="categories"></p>
 								<div class="event-hub-card__progress" role="progressbar"><span class="event-hub-card__progress-fill" data-eh-slot="barfill"></span></div>
@@ -1361,6 +1418,10 @@ final class Render_Blocks {
 					</p>
 					<?php if ( '' !== (string) $s['venue'] ) : ?>
 						<p class="event-hub-single__venue"><?php echo esc_html( (string) $s['venue'] ); ?></p>
+					<?php endif; ?>
+					<?php if ( self::is_virtual( (int) $s['id'] ) ) : ?>
+						<?php // 5.6: public FACT only — joining details reach confirmed attendees via the manage page and emails (docblock DECISIONS #58). ?>
+						<p class="event-hub-single__online"><?php esc_html_e( 'Takes place online — joining details are sent to confirmed attendees.', 'event-hub' ); ?></p>
 					<?php endif; ?>
 				</div>
 			</header>

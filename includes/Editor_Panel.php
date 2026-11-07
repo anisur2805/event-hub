@@ -58,9 +58,15 @@ final class Editor_Panel {
 		 * registerPlugin + PluginDocumentSettingPanel are consumed from the
 		 * wp.plugins / wp.editPost runtime globals (the TSX imports them from
 		 * window.wp, not from bundled packages), so their handles are
-		 * declared here instead of relying on dependency extraction.
+		 * declared here instead of relying on dependency extraction. wp-api-fetch
+		 * carries the REST nonce middleware for the 5.6 online-URL route.
 		 */
-		$deps = array_unique( array_merge( $deps, array( 'wp-plugins', 'wp-edit-post' ) ) );
+		$deps = array_unique(
+			array_merge(
+				$deps,
+				array( 'wp-plugins', 'wp-edit-post', 'wp-api-fetch' )
+			)
+		);
 
 		// read() guarantees a string; only a malformed manifest yields ''.
 		$version = '' !== $asset['version'] ? $asset['version'] : EVENT_HUB_VERSION;

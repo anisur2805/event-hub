@@ -318,6 +318,15 @@
 	font-size: var( --eh-font-s );
 }
 
+/* 5.6: virtual-event badge — accent tint so it reads as a mode, not a
+ * place (the venue line it sits under stays muted). */
+.event-hub-card__online {
+	margin: 0;
+	color: var( --eh-accent );
+	font-size: var( --eh-font-s );
+	font-weight: 600;
+}
+
 .event-hub-card__datetime time {
 	font-variant-numeric: tabular-nums;
 }
@@ -829,6 +838,14 @@ a.event-hub-rsvp__register {
 	margin: 0;
 	color: var( --eh-muted );
 	font-size: var( --eh-font );
+}
+
+/* 5.6: "takes place online" fact line — same family as the venue line. */
+.event-hub-single__online {
+	margin: 0;
+	color: var( --eh-muted );
+	font-size: var( --eh-font );
+	font-style: italic;
 }
 
 .event-hub-single__datetime time {

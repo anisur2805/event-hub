@@ -117,6 +117,16 @@ final class Structured_Data {
 
 		// Location (5.1): a linked venue enriches the Place with its address;
 		// the legacy free-text venue falls back to a name-only Place.
+		// 5.6: a virtual event declares OnlineEventAttendanceMode — the
+		// joining URL itself is NEVER emitted (it is a confirmed-attendee
+		// secret; JSON-LD is world-readable). The location Place still
+		// renders when a venue is ALSO linked (hybrid shape).
+		$is_virtual = Render_Blocks::is_virtual( (int) $s['id'] );
+
+		if ( $is_virtual ) {
+			$event['eventAttendanceMode'] = 'https://schema.org/OnlineEventAttendanceMode';
+		}
+
 		$venue_id = Render_Blocks::linked_entity( (int) $s['id'], 'eh_venue_id', 'eh_venue' );
 
 		if ( 0 !== $venue_id['id'] ) {

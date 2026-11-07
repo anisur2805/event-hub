@@ -122,6 +122,22 @@ final class Notifier {
 			);
 		}
 
+		// Virtual events (5.6): the joining URL is a confirmed-attendee
+		// secret — ONLY the going branch may carry it. A waitlist row has no
+		// spot yet, so its confirmation never includes it.
+		if ( 'waitlist' !== ( $rsvp['status'] ?? '' ) ) {
+			$online_url = Render_Blocks::online_url( $event_id );
+
+			if ( '' !== $online_url ) {
+				$rows[] = sprintf(
+					/* translators: %s: online joining URL. */
+					__( 'Join online: %s', 'event-hub' ),
+					$online_url
+				);
+				$rows[] = __( 'This link is for you — please do not share it.', 'event-hub' );
+			}
+		}
+
 		$message = implode(
 			"\r\n",
 			array_merge(
@@ -196,6 +212,24 @@ final class Notifier {
 		);
 
 		$rows[] = self::start_line( $event_id );
+
+		// Virtual events (5.6): the reminder audience INCLUDES waitlist rows
+		// (list_for_reminder() selects both statuses and prints their Status
+		// line) — the joining URL must gate on the row's own status exactly
+		// like send_confirmation. A waitlisted attendee has no spot yet, so
+		// their reminder never carries the link.
+		if ( 'waitlist' !== ( $rsvp['status'] ?? '' ) ) {
+			$online_url = Render_Blocks::online_url( $event_id );
+
+			if ( '' !== $online_url ) {
+				$rows[] = sprintf(
+					/* translators: %s: online joining URL. */
+					__( 'Join online: %s', 'event-hub' ),
+					$online_url
+				);
+				$rows[] = __( 'This link is for you — please do not share it.', 'event-hub' );
+			}
+		}
 
 		$message = implode(
 			"\r\n",
@@ -493,6 +527,20 @@ final class Notifier {
 				),
 			)
 		);
+
+		// Virtual events (5.6): the freshly-promoted attendee is going, so
+		// the joining URL rides the promotion notice too — they never saw it
+		// while waitlisted (the confirmation with the link went out at the
+		// waitlist status, i.e. without it).
+		$online_url = Render_Blocks::online_url( $event_id );
+
+		if ( '' !== $online_url ) {
+			$message .= "\r\n\r\n" . sprintf(
+				/* translators: %s: online joining URL. */
+				__( 'Join online: %s', 'event-hub' ),
+				$online_url
+			) . "\r\n" . __( 'This link is for you — please do not share it.', 'event-hub' );
+		}
 
 		return self::dispatch( $email, $subject, $message );
 	}

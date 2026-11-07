@@ -26,6 +26,8 @@ export interface EventSummary {
 	rsvpOpen: boolean;
 	/** Event status ('' = scheduled; 'cancelled' | 'postponed'), ROADMAP 5.3. */
 	status: string;
+	/** True when the event takes place online (5.6); never carries the URL. */
+	virtual?: boolean;
 }
 
 /** Server state seeded by wp_interactivity_state( 'event-hub', ... ). */

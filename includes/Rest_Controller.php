@@ -186,6 +186,80 @@ final class Rest_Controller {
 			)
 		);
 
+		/*
+		 * Online URL routes (5.6, VIRTUAL-EVENTS): the URL is a bearer-style
+		 * secret (joining link for a virtual event). It lives in
+		 * `_eh_online_url` — the underscore keeps it out of /wp/v2 reads via
+		 * core's protected-meta rule — and moves ONLY over these routes:
+		 * editors write it, the manage page (token bears the identity proof)
+		 * may read it. Anonymous /wp/v2 readers see, at most, that the event
+		 * IS virtual (`virtual: true` on serialize_public), never where.
+		 */
+		register_rest_route(
+			self::NAMESPACE_V1,
+			'/events/(?P<id>[0-9]+)/online-url',
+			array(
+				array(
+					'methods'             => WP_REST_Server::READABLE,
+					'callback'            => array( $this, 'get_online_url' ),
+					// The entitlement judge is the callback's token→row check
+					// (going row bound to this event); no capability applies —
+					// attendees are not WP users (T16 model).
+					'permission_callback' => '__return_true',
+					'args'                => array(
+						'id'    => array(
+							'required'          => true,
+							'type'              => 'integer',
+							'sanitize_callback' => static fn ( $value ): int => absint( $value ),
+						),
+						// The manage token proves the reader owns an RSVP row.
+						'token' => array(
+							'required'          => true,
+							'type'              => 'string',
+							'sanitize_callback' => static fn ( $value ): string => (string) sanitize_text_field( (string) $value ),
+						),
+					),
+				),
+				array(
+					'methods'             => WP_REST_Server::EDITABLE,
+					'callback'            => array( $this, 'update_online_url' ),
+					'permission_callback' => array( $this, 'editor_permission' ),
+					'args'                => array(
+						'id'  => array(
+							'required'          => true,
+							'type'              => 'integer',
+							'sanitize_callback' => static fn ( $value ): int => absint( $value ),
+						),
+						'url' => array(
+							'required'          => true,
+							'type'              => 'string',
+							'sanitize_callback' => static fn ( $value ): string => (string) sanitize_text_field( (string) $value ),
+						),
+					),
+				),
+			)
+		);
+
+		// Editor read (the panel seed): capability-gated, NO token — editors
+		// may always see their own event's secret. Separate path from the
+		// attendee GET so the token route's callback contract stays uniform.
+		register_rest_route(
+			self::NAMESPACE_V1,
+			'/events/(?P<id>[0-9]+)/online-url-editor',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'get_online_url_editor' ),
+				'permission_callback' => array( $this, 'editor_permission' ),
+				'args'                => array(
+					'id' => array(
+						'required'          => true,
+						'type'              => 'integer',
+						'sanitize_callback' => static fn ( $value ): int => absint( $value ),
+					),
+				),
+			)
+		);
+
 		register_rest_route(
 			self::NAMESPACE_V1,
 			'/rsvps',
@@ -430,6 +504,25 @@ final class Rest_Controller {
 			return new WP_Error(
 				'rest_forbidden',
 				__( 'You are not allowed to manage RSVPs.', 'event-hub' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		return true;
+	}
+
+	/**
+	 * Editor gate for the online-URL write (5.6): the same capability that
+	 * guards the event post's other meta (map_meta_cap resolves per post in
+	 * the callback's own event check).
+	 *
+	 * @return true|WP_Error
+	 */
+	public function editor_permission() {
+		if ( ! current_user_can( 'edit_posts' ) ) {
+			return new WP_Error(
+				'rest_forbidden',
+				__( 'You are not allowed to edit events.', 'event-hub' ),
 				array( 'status' => 403 )
 			);
 		}
@@ -695,6 +788,113 @@ final class Rest_Controller {
 			array(
 				'eventId' => $event_id,
 				'counts'  => $this->repository->counts( $event_id ),
+			),
+			200
+		);
+	}
+
+	/**
+	 * GET /events/{id}/online-url (5.6). The token must resolve to a GOING
+	 * row on this event — waitlist holders and strangers get 403/404, never
+	 * the URL. The exact error is deliberately uniform so probing cannot
+	 * distinguish "no such event" from "not entitled".
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function get_online_url( WP_REST_Request $request ) {
+		$params   = $this->request_params( $request );
+		$event_id = absint( $params['id'] ?? 0 );
+		$token    = (string) ( $params['token'] ?? '' );
+
+		$attendee = new Rsvp_Repository();
+		$row      = '' !== $token ? $attendee->find_by_token( $token ) : null;
+
+		if (
+			null === $row
+			|| (int) ( $row['event_id'] ?? 0 ) !== $event_id
+			|| 'going' !== ( $row['status'] ?? '' )
+		) {
+			return new WP_Error(
+				'eh_online_forbidden',
+				__( 'The online joining details are only available to confirmed attendees.', 'event-hub' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		$event = get_post( $event_id );
+
+		if ( ! $event instanceof \WP_Post || 'eh_event' !== $event->post_type ) {
+			return new WP_Error( 'eh_event_not_found', __( 'No such published event.', 'event-hub' ), array( 'status' => 404 ) );
+		}
+
+		$url = Render_Blocks::online_url( $event_id );
+
+		return new WP_REST_Response(
+			array(
+				'eventId'   => $event_id,
+				'onlineUrl' => $url,
+			),
+			200
+		);
+	}
+
+	/**
+	 * POST /events/{id}/online-url { url } (5.6). Editor-gated write; the
+	 * read-side gate (Render_Blocks::online_url) stays the validity judge —
+	 * an implausible value may be SAVED but never renders (5A.4's twin
+	 * discipline: too-varied URLs must not 400).
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function update_online_url( WP_REST_Request $request ) {
+		$params   = $this->request_params( $request );
+		$event_id = absint( $params['id'] ?? 0 );
+
+		$event = get_post( $event_id );
+
+		if ( ! $event instanceof \WP_Post || 'eh_event' !== $event->post_type ) {
+			return new WP_Error( 'eh_event_not_found', __( 'No such published event.', 'event-hub' ), array( 'status' => 404 ) );
+		}
+
+		$url = trim( (string) ( $params['url'] ?? '' ) );
+
+		update_post_meta( $event_id, '_eh_online_url', $url );
+
+		return new WP_REST_Response(
+			array(
+				'eventId'   => $event_id,
+				// The GATED value is echoed back so the editor sees what
+				// attendees would get ('' when the saved string is junk).
+				'onlineUrl' => Render_Blocks::online_url( $event_id ),
+			),
+			200
+		);
+	}
+
+	/**
+	 * GET /events/{id}/online-url-editor (5.6): the sidebar panel's seed
+	 * read. Same gated value; capability handles the entitlement here (no
+	 * token exists in an editor session).
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function get_online_url_editor( WP_REST_Request $request ) {
+		$params   = $this->request_params( $request );
+		$event_id = absint( $params['id'] ?? 0 );
+
+		$event = get_post( $event_id );
+
+		if ( ! $event instanceof \WP_Post || 'eh_event' !== $event->post_type ) {
+			return new WP_Error( 'eh_event_not_found', __( 'No such published event.', 'event-hub' ), array( 'status' => 404 ) );
+		}
+
+		return new WP_REST_Response(
+			array(
+				'eventId'   => $event_id,
+				'onlineUrl' => Render_Blocks::online_url( $event_id ),
 			),
 			200
 		);
@@ -979,6 +1179,9 @@ final class Rest_Controller {
 			'categoryNames' => (array) $summary['category_names'],
 			'rsvpOpen'      => (bool) $summary['rsvpOpen'],
 			'status'        => (string) $summary['status'],
+			// 5.6: the FACT that joining happens online is public (cards can
+			// badge it); the URL itself never rides a public serializer.
+			'virtual'       => (bool) Render_Blocks::is_virtual( (int) $summary['id'] ),
 		);
 	}
 
