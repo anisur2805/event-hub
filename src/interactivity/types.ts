@@ -109,8 +109,10 @@ export interface CategoryOption {
 }
 
 /**
- * Context rendered on the event-list interactive region. The filter select,
- * card template and the "N events found" announcer read it.
+ * Context rendered on the event-list interactive region. The filter form
+ * controls, card template and the "N events found" announcer read it.
+ * 5.5 mirrors the new GET vars (search/month/venue) client-side so the
+ * seeded values match what PHP filtered on.
  */
 export interface ListContext {
 	/** Filter options rendered by PHP (id, name, slug). */
@@ -121,6 +123,12 @@ export interface ListContext {
 	postsPerPage: number;
 	/** Live-region text announcing the filtered result count. */
 	foundText: string;
+	/** Keyword filter currently applied (mirrors eh_q). */
+	search: string;
+	/** Venue filter currently applied — venue post ID or free text. */
+	venue: string;
+	/** Month filter currently applied, YYYY-MM (mirrors eh_list_month). */
+	month: string;
 	/** True while a filtered fetch is in flight. */
 	busy: boolean;
 	/** True after a failed filter fetch; recolors the announcer text. */

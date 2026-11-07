@@ -2,14 +2,19 @@
  * Event list filter actions — registered as extra actions on the shared
  * `event-hub` store.
  *
- * Decided approach (DECISIONS.md #21): category-filtered cards are rebuilt
- * client-side by cloning the server-rendered <template data-eh-card-tpl>
- * element inside the list region. Only slot placeholders get content
- * (textContent / checked attributes) — remote strings are never parsed as
- * HTML. Filtered cards expose a plain permalink link instead of the inline
- * RSVP form, so no store wiring has to be recreated in JS; the unfiltered
- * initial render keeps the full server-rendered RSVP forms. Without JS the
- * select sits in a GET <form> and triggers a native reload (PHP side).
+ * 5.5: the filter form carries category, venue, keyword (eh_q) and month
+ * (eh_list_month) GET controls; with JS both the change action (selects)
+ * and the submit action (Apply) run one shared client fetch of all current
+ * values against `event-hub/v1/events`, whose server builder is the same
+ * `upcoming_query_args()` the block renders from (DECISIONS.md #57). Cards
+ * are rebuilt client-side by cloning the server-rendered
+ * <template data-eh-card-tpl> element inside the list region. Only slot
+ * placeholders get content (textContent / checked attributes) — remote
+ * strings are never parsed as HTML. Filtered cards expose a plain permalink
+ * link instead of the inline RSVP form, so no store wiring has to be
+ * recreated in JS; the unfiltered initial render keeps the full
+ * server-rendered RSVP forms. Without JS the form GET-reloads and PHP
+ * filters server-side on the same GET vars.
  */
 import { store, getContext, withSyncEvent } from '@wordpress/interactivity';
 import {
@@ -77,88 +82,144 @@ function formatDateTime( iso: string ): string {
 const { state } = store< EventHubStore >( 'event-hub', {
 	actions: {
 		/**
-		 * Overrides the earlier placeholder: re-fetch and swap the cards.
-		 * The second store() call deep-merges these two actions into the
-		 * already-registered `event-hub` namespace (documented iAPI merge
-		 * behavior), keeping one store per page.
+		 * 5.5: any control change (category or venue select) re-fetches with
+		 * ALL current form values, not just the changed one — filters
+		 * combine. Action name kept from the category-only era (the SSR
+		 * data-wp-on--change attributes name it; renaming would break the
+		 * hydration contract).
 		 */
 		filterCategory: withSyncEvent( function* (
 			event: Event
 		): Generator< unknown, void, unknown > {
 			const select = event.target as HTMLSelectElement | null;
-			const selected = select?.value ?? '';
-			const ctx = getContext< ListContext >();
-			ctx.selected = selected;
-
 			const region = select?.closest(
 				'[data-wp-interactive="event-hub"]'
 			);
-			// The card skeleton template must live inside the region but
-			// outside the grid (see HANDOFF in the build report).
-			const tpl = region?.querySelector< HTMLTemplateElement >(
-				'template[data-eh-card-tpl]'
-			);
-			const grid =
-				region?.querySelector< HTMLElement >( '.eh-list-grid' );
-			if ( ! grid || ! tpl ) {
-				return;
-			}
-
-			ctx.busy = true;
-			ctx.hasError = false;
-			try {
-				const restUrl = state.restUrl ?? '';
-				const base = restUrl.endsWith( '/' )
-					? restUrl
-					: `${ restUrl }/`;
-				const params = new URLSearchParams();
-				if ( selected ) {
-					params.set( 'categories', selected );
-				}
-				const perPage = Math.min(
-					Math.max( ctx.postsPerPage || 6, 1 ),
-					50
-				);
-				params.set( 'perPage', String( perPage ) );
-
-				const response = ( yield fetch(
-					`${ base }event-hub/v1/events?${ params.toString() }`
-				) ) as Response;
-				if ( ! response.ok ) {
-					ctx.hasError = true;
-					ctx.foundText = __(
-						'Could not load events — please try again.'
-					);
-					return;
-				}
-				const events = ( yield response.json() ) as EventSummary[];
-
-				grid.replaceChildren(
-					...events.map( ( item ) => renderCard( item, tpl.content ) )
-				);
-				ctx.foundText = sprintf(
-					/* translators: %s: number of events found. */
-					_n( '%s event found', '%s events found', events.length ),
-					String( events.length )
-				);
-			} catch {
-				ctx.hasError = true;
-				ctx.foundText = __(
-					'Could not load events — please try again.'
-				);
-			} finally {
-				ctx.busy = false;
-			}
+			yield* applyFilters( region, getContext< ListContext >() );
 		} ),
 		/**
-		 * Progressive enhancement: the select is inside a GET <form> so
-		 * no-JS visitors reload the page; with JS the submit is swallowed.
+		 * Apply/search submit: with JS the native GET reload is swallowed
+		 * and the same client fetch runs; without JS the GET form reloads
+		 * the page and PHP filters server-side (same params, one meaning).
 		 */
-		filterSubmit: withSyncEvent( function preventSubmit( event: Event ) {
+		filterSubmit: withSyncEvent( function* (
+			event: Event
+		): Generator< unknown, void, unknown > {
 			event.preventDefault();
+			const form = event.target as HTMLFormElement | null;
+			const region = form?.closest( '[data-wp-interactive="event-hub"]' );
+			yield* applyFilters( region, getContext< ListContext >() );
 		} ),
 	},
 } );
+
+/**
+ * Read every filter control inside the region's GET form, fetch the filtered
+ * REST list and swap the cards. Shared by both actions so the two entry
+ * points can never disagree on which params ride the request (5.5).
+ * @param region
+ * @param ctx
+ */
+function* applyFilters(
+	region: Element | null | undefined,
+	ctx: ListContext
+): Generator< unknown, void, unknown > {
+	const tpl = region?.querySelector< HTMLTemplateElement >(
+		'template[data-eh-card-tpl]'
+	);
+	const grid = region?.querySelector< HTMLElement >( '.eh-list-grid' );
+	if ( ! grid || ! tpl ) {
+		return;
+	}
+
+	const form = region?.querySelector< HTMLFormElement >(
+		'.event-hub-event-list__filterform'
+	);
+
+	const params = new URLSearchParams();
+	const perPage = Math.min( Math.max( ctx.postsPerPage || 6, 1 ), 50 );
+	params.set( 'perPage', String( perPage ) );
+
+	if ( form ) {
+		const category = readInput( form, 'eh_category' );
+		if ( category ) {
+			params.set( 'categories', category );
+			ctx.selected = category;
+		} else {
+			ctx.selected = '';
+		}
+
+		const search = readInput( form, 'eh_q' );
+		if ( search ) {
+			params.set( 'search', search );
+			ctx.search = search;
+		} else {
+			ctx.search = '';
+		}
+
+		const month = readInput( form, 'eh_list_month' );
+		if ( month ) {
+			params.set( 'month', month );
+			ctx.month = month;
+		} else {
+			ctx.month = '';
+		}
+
+		const venue = readInput( form, 'eh_venue' );
+		if ( venue ) {
+			params.set( 'venue', venue );
+			ctx.venue = venue;
+		} else {
+			ctx.venue = '';
+		}
+	}
+
+	ctx.busy = true;
+	ctx.hasError = false;
+	try {
+		const restUrl = state.restUrl ?? '';
+		const base = restUrl.endsWith( '/' ) ? restUrl : `${ restUrl }/`;
+
+		const response = ( yield fetch(
+			`${ base }event-hub/v1/events?${ params.toString() }`
+		) ) as Response;
+		if ( ! response.ok ) {
+			ctx.hasError = true;
+			ctx.foundText = __( 'Could not load events — please try again.' );
+			return;
+		}
+		const events = ( yield response.json() ) as EventSummary[];
+
+		grid.replaceChildren(
+			...events.map( ( item ) => renderCard( item, tpl.content ) )
+		);
+		ctx.foundText = sprintf(
+			/* translators: %s: number of events found. */
+			_n( '%s event found', '%s events found', events.length ),
+			String( events.length )
+		);
+	} catch {
+		ctx.hasError = true;
+		ctx.foundText = __( 'Could not load events — please try again.' );
+	} finally {
+		ctx.busy = false;
+	}
+}
+
+/**
+ * One named GET-form input inside the filter form (search/select/month);
+ * trimmed string value, '' when absent.
+ * @param form
+ * @param name
+ */
+function readInput( form: HTMLFormElement, name: string ): string {
+	const input = form.elements.namedItem( name );
+	// RadioNodeList guard (only single controls are rendered here).
+	return input instanceof HTMLInputElement ||
+		input instanceof HTMLSelectElement
+		? input.value.trim()
+		: '';
+}
 
 /**
  * Build one card DOM node from the template clone. Only slots receive

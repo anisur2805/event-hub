@@ -138,6 +138,26 @@ final class Rest_Controller {
 						'type'              => 'string',
 						'sanitize_callback' => static fn ( $value ): string => (string) sanitize_text_field( (string) $value ),
 					),
+					'search'     => array(
+						'required'          => false,
+						'type'              => 'string',
+						'sanitize_callback' => static fn ( $value ): string => (string) sanitize_text_field( (string) $value ),
+					),
+					'month'      => array(
+						'required'          => false,
+						'type'              => 'string',
+						// Loose here; the builder's YYYY-MM regex is the gate
+						// (invalid months degrade to "no month filter", same
+						// tolerance as the GET form path).
+						'sanitize_callback' => static fn ( $value ): string => (string) sanitize_text_field( (string) $value ),
+					),
+					'venue'      => array(
+						'required'          => false,
+						'type'              => 'string',
+						// Digits = linked venue ID; free text = legacy name
+						// filter. Trim happens in the builder.
+						'sanitize_callback' => static fn ( $value ): string => (string) sanitize_text_field( (string) $value ),
+					),
 					'perPage'    => array(
 						'required'          => false,
 						'default'           => 10,
@@ -624,47 +644,17 @@ final class Rest_Controller {
 			$categories = array_filter( array_map( 'sanitize_title', explode( ',', $params['categories'] ) ) );
 		}
 
-		// Past events are excluded in SQL (same reasoning as
-		// Render_Blocks::upcoming_events()): a PHP-only filter let the 41
-		// past events heading the start-ASC order consume perPage and return
-		// 9 items of 50 (stage-4 BUG 1). No-end events stay included.
-		$now_sql = current_time( 'mysql' );
-
-		$query_args = array(
-			'post_type'      => 'eh_event',
-			'post_status'    => 'publish',
-			'posts_per_page' => $per_page,
-			'orderby'        => 'meta_value',
-			// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- chronology sort on a bounded CPT.
-			'meta_key'       => 'eh_start',
-			'order'          => 'ASC',
-			'no_found_rows'  => true,
-			// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- the upcoming filter IS the feature.
-			'meta_query'     => array(
-				'relation' => 'OR',
-				array(
-					'key'     => 'eh_end',
-					'value'   => $now_sql,
-					'compare' => '>=',
-					'type'    => 'DATETIME',
-				),
-				array(
-					'key'     => 'eh_end',
-					'compare' => 'NOT EXISTS',
-				),
-			),
+		// Shared builder with Render_Blocks::upcoming_events() (5.5): the
+		// block and the API must agree on what "upcoming" and every filter
+		// mean — these paths drifted once before (stage-4 BUG 1). Sanitizing
+		// happens inside the builder; raw request values go in.
+		$filters = array(
+			'search' => isset( $params['search'] ) ? (string) $params['search'] : '',
+			'month'  => isset( $params['month'] ) ? (string) $params['month'] : '',
+			'venue'  => isset( $params['venue'] ) ? (string) $params['venue'] : '',
 		);
 
-		if ( array() !== $categories ) {
-			// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query -- category filter is the feature.
-			$query_args['tax_query'] = array(
-				array(
-					'taxonomy' => 'eh_event_category',
-					'field'    => 'slug',
-					'terms'    => $categories,
-				),
-			);
-		}
+		$query_args = Render_Blocks::upcoming_query_args( $per_page, $categories, $filters );
 
 		$query  = new \WP_Query( $query_args );
 		$now    = time();

@@ -699,15 +699,27 @@ final class Render_Blocks {
 		$per_page      = isset( $attributes['postsPerPage'] ) ? max( 1, absint( $attributes['postsPerPage'] ) ) : 6;
 		$show_filters  = ! isset( $attributes['showFilters'] ) || (bool) $attributes['showFilters'];
 
-		// No-JS filter (DECISIONS.md #13): the select sits in a GET <form>, so
-		// a JavaScript-less submit reloads with ?eh_category=slug. With JS the
-		// store fetches REST and swaps cards client-side (filter.ts).
-		$get_filter = isset( $_GET['eh_category'] ) ? sanitize_title( wp_unslash( (string) $_GET['eh_category'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only GET filter, no state change.
+		// No-JS filter (DECISIONS.md #13): the controls sit in a GET <form>, so
+		// a JavaScript-less submit reloads with ?eh_category=slug&eh_q=…&…. With
+		// JS the store fetches REST and swaps cards client-side (filter.ts).
+		// 5.5 adds keyword (eh_q), month (eh_list_month) and venue (eh_venue).
+		// The list does NOT reuse the calendar's ?eh_month var: a calendar
+		// block elsewhere on the page navigates months with it, and a shared
+		// var would make calendar nav silently filter the list too.
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only GET filters, no state change.
+		$get_filter = isset( $_GET['eh_category'] ) ? sanitize_title( wp_unslash( (string) $_GET['eh_category'] ) ) : '';
 		if ( '' !== $get_filter ) {
 			$category_slug = $get_filter;
 		}
 
-		$events = self::upcoming_events( $per_page, '' !== $category_slug ? array( $category_slug ) : array() );
+		$filters = array(
+			'search' => isset( $_GET['eh_q'] ) ? sanitize_text_field( wp_unslash( (string) $_GET['eh_q'] ) ) : '', // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only GET filter.
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only GET filter.
+			'month'  => isset( $_GET['eh_list_month'] ) ? sanitize_text_field( wp_unslash( (string) $_GET['eh_list_month'] ) ) : '',
+			'venue'  => isset( $_GET['eh_venue'] ) ? sanitize_text_field( wp_unslash( (string) $_GET['eh_venue'] ) ) : '', // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only GET filter.
+		);
+
+		$events = self::upcoming_events( $per_page, '' !== $category_slug ? array( $category_slug ) : array(), $filters );
 
 		$terms = get_terms(
 			array(
@@ -717,6 +729,45 @@ final class Render_Blocks {
 		);
 
 		$options = is_array( $terms ) ? $terms : array();
+
+		// Venue select options (5.5): venues actually linked to an UPCOMING
+		// event — a picker listing venues with no upcoming events reads as
+		// broken and filters to a guaranteed-empty list. The CPT is bounded;
+		// one bounded ids re-query + object-cached meta reads beat raw SQL.
+		// Only runs when filters are shown (no reason to pay otherwise).
+		$venue_options = array();
+
+		if ( $show_filters ) {
+			$id_args           = self::upcoming_query_args( 200, array(), array() );
+			$id_args['fields'] = 'ids';
+			$id_query          = new \WP_Query( $id_args );
+
+			$used_venue_ids = array();
+
+			foreach ( $id_query->posts as $event_id ) {
+				$venue_id = (string) get_post_meta( (int) $event_id, 'eh_venue_id', true );
+
+				if ( '' !== $venue_id && ctype_digit( $venue_id ) ) {
+					$used_venue_ids[ (int) $venue_id ] = true;
+				}
+			}
+
+			foreach ( array_keys( $used_venue_ids ) as $venue_id ) {
+				$venue_post = get_post( $venue_id );
+
+				if ( $venue_post instanceof \WP_Post && 'eh_venue' === $venue_post->post_type && 'publish' === $venue_post->post_status ) {
+					$venue_options[] = array(
+						'id'    => $venue_id,
+						'title' => (string) $venue_post->post_title,
+					);
+				}
+			}
+
+			usort(
+				$venue_options,
+				static fn ( array $a, array $b ): int => strcasecmp( $a['title'], $b['title'] )
+			);
+		}
 
 		$event_count = count( $events );
 		$found_text  = (string) sprintf(
@@ -737,6 +788,9 @@ final class Render_Blocks {
 			'selected'     => $category_slug,
 			'postsPerPage' => $per_page,
 			'foundText'    => $found_text,
+			'search'       => $filters['search'],
+			'venue'        => $filters['venue'],
+			'month'        => $filters['month'],
 			'busy'         => false,
 			'hasError'     => false,
 		);
@@ -759,20 +813,54 @@ final class Render_Blocks {
 			data-wp-class--has-error="context.hasError"
 			<?php echo wp_interactivity_data_wp_context( $context ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- helper-safe attribute output. ?>
 		>
-			<?php if ( $show_filters && array() !== $options ) : ?>
+			<?php if ( $show_filters ) : ?>
+				<?php // The form shows whenever filters are on — search needs no terms; selects appear only with options. ?>
 				<form class="event-hub-event-list__filterform" method="get" action="<?php echo esc_url( $form_action ); ?>" data-wp-on--submit="actions.filterSubmit">
-					<label class="event-hub-event-list__filterlabel" for="event-hub-filter"><?php esc_html_e( 'Filter by category', 'event-hub' ); ?></label>
-					<select
-						id="event-hub-filter"
-						class="event-hub-event-list__filter"
-						name="eh_category"
-						data-wp-on--change="actions.filterCategory"
-					>
-						<option value=""><?php esc_html_e( 'All categories', 'event-hub' ); ?></option>
-						<?php foreach ( $options as $term ) : ?>
-							<option value="<?php echo esc_attr( $term->slug ); ?>" <?php selected( $category_slug, $term->slug ); ?>><?php echo esc_html( $term->name ); ?></option>
-						<?php endforeach; ?>
-					</select>
+					<?php if ( array() !== $options ) : ?>
+						<label class="event-hub-event-list__filterlabel" for="event-hub-filter"><?php esc_html_e( 'Category', 'event-hub' ); ?></label>
+						<select
+							id="event-hub-filter"
+							class="event-hub-event-list__filter"
+							name="eh_category"
+							data-wp-on--change="actions.filterCategory"
+						>
+							<option value=""><?php esc_html_e( 'All categories', 'event-hub' ); ?></option>
+							<?php foreach ( $options as $term ) : ?>
+								<option value="<?php echo esc_attr( $term->slug ); ?>" <?php selected( $category_slug, $term->slug ); ?>><?php echo esc_html( $term->name ); ?></option>
+							<?php endforeach; ?>
+						</select>
+					<?php endif; ?>
+					<?php if ( array() !== $venue_options ) : ?>
+						<label class="event-hub-event-list__filterlabel" for="event-hub-venue-filter"><?php esc_html_e( 'Venue', 'event-hub' ); ?></label>
+						<select
+							id="event-hub-venue-filter"
+							class="event-hub-event-list__filter"
+							name="eh_venue"
+							data-wp-on--change="actions.filterCategory"
+						>
+							<option value=""><?php esc_html_e( 'All venues', 'event-hub' ); ?></option>
+							<?php foreach ( $venue_options as $venue_option ) : ?>
+								<option value="<?php echo esc_attr( (string) $venue_option['id'] ); ?>" <?php selected( (string) $filters['venue'], (string) $venue_option['id'] ); ?>><?php echo esc_html( $venue_option['title'] ); ?></option>
+							<?php endforeach; ?>
+						</select>
+					<?php endif; ?>
+					<label class="event-hub-event-list__filterlabel" for="event-hub-search"><?php esc_html_e( 'Search', 'event-hub' ); ?></label>
+					<input
+						type="search"
+						id="event-hub-search"
+						class="event-hub-event-list__filter event-hub-event-list__search"
+						name="eh_q"
+						value="<?php echo esc_attr( $filters['search'] ); ?>"
+						placeholder="<?php esc_attr_e( 'Keyword…', 'event-hub' ); ?>"
+					/>
+					<label class="event-hub-event-list__filterlabel" for="event-hub-month"><?php esc_html_e( 'Month', 'event-hub' ); ?></label>
+					<input
+						type="month"
+						id="event-hub-month"
+						class="event-hub-event-list__filter event-hub-event-list__month"
+						name="eh_list_month"
+						value="<?php echo esc_attr( $filters['month'] ); ?>"
+					/>
 					<button type="submit" class="event-hub-event-list__apply"><?php esc_html_e( 'Apply', 'event-hub' ); ?></button>
 				</form>
 			<?php endif; ?>
@@ -792,7 +880,7 @@ final class Render_Blocks {
 				}
 				?>
 			</div>
-			<?php if ( $show_filters && array() !== $options ) : ?>
+			<?php if ( $show_filters ) : ?>
 				<?php // Card skeleton for client-side filtering (filter.ts clones it); slot placeholders only, no live directives. ?>
 				<template data-eh-card-tpl>
 					<article class="event-hub-card event-hub-card--filtered">
@@ -872,23 +960,9 @@ final class Render_Blocks {
 		// Window bounds in SITE time: stored eh_start meta is site-local, so
 		// the comparison must be in the same frame (a UTC+X site would have
 		// shifted every calendar day boundary by X hours otherwise). The
-		// half-open month window [month-start, next-month-start) at second
-		// precision is a closed BETWEEN: [first 00:00:00, last-day 23:59:59].
-		$window_start = gmmktime( 0, 0, 0, $month['month'], 1, $month['year'] );
-		$window_end   = gmmktime( 0, 0, 0, 12 === $month['month'] ? 1 : $month['month'] + 1, 1, 12 === $month['month'] ? $month['year'] + 1 : $month['year'] );
-
-		$format = 'Y-m-d H:i:s';
-
-		/*
-		 * Offsetting the GMT window bounds by the site's UTC offset writes
-		 * the site-local wall-clock of the window edges; BETWEEN those two
-		 * strings matches every site-local start inside the month and
-		 * nothing on either side of it (the -1s trims next-month midnight,
-		 * which BETWEEN's inclusive upper edge would otherwise capture).
-		 */
-		$offset     = (int) ( get_option( 'gmt_offset' ) * HOUR_IN_SECONDS );
-		$after_sql  = gmdate( $format, $window_start + $offset );
-		$before_sql = gmdate( $format, $window_end - 1 + $offset );
+		// shared helper builds [first 00:00:00, last 23:59:59] — the closed
+		// form of the half-open month window.
+		list( $after_sql, $before_sql ) = self::month_window_sql( $month['year'], $month['month'] );
 
 		$query = new \WP_Query(
 			array(
@@ -1501,11 +1575,65 @@ final class Render_Blocks {
 	 * with 180 upcoming events live). Events with no end meta stay included
 	 * (conservative: never silently hide an event on missing data).
 	 *
-	 * @param int               $limit      Max events.
-	 * @param array<int,string> $categories Optional category slugs.
+	 * 5.5 filters (all AND-combined with the upcoming window, all optional):
+	 * - categories: slugs (existing param).
+	 * - search: keyword over title/content/excerpt (WP_Query 's'); the query
+	 *   matches ANY of them, which is what "search events" means.
+	 * - month: YYYY-MM; events whose START falls in that month (same
+	 *   window semantics as calendar_month_events()).
+	 * - venue: digits = linked venue post ID (eh_venue_id); free text =
+	 *   LIKE over the legacy eh_venue meta.
+	 *
+	 * The WP_Query argument construction itself lives in
+	 * upcoming_query_args(); the REST list_events() reuses it so the block
+	 * and the API can never disagree on what "upcoming" or a filter means
+	 * (the stage-4 lesson: these paths DID drift once before).
+	 *
+	 * @param int                 $limit      Max events.
+	 * @param array<int,string>   $categories Optional category slugs.
+	 * @param array<string,mixed> $filters  Optional search/month/venue filters.
 	 * @return array<int,array<string,mixed>>
 	 */
-	public static function upcoming_events( int $limit, array $categories = array() ): array {
+	public static function upcoming_events( int $limit, array $categories = array(), array $filters = array() ): array {
+		$query_args = self::upcoming_query_args( $limit, $categories, $filters );
+		$query      = new \WP_Query( $query_args );
+		$now        = time();
+		$upcoming   = array();
+
+		foreach ( $query->posts as $post ) {
+			$summary = self::summary( $post );
+			$end_ts  = self::iso_to_timestamp( (string) $summary['end'] );
+
+			if ( null !== $end_ts && $end_ts < $now ) {
+				continue;
+			}
+
+			$upcoming[] = $summary;
+		}
+
+		return $upcoming;
+	}
+
+	/**
+	 * Builds the WP_Query argument array shared by upcoming_events() and the
+	 * REST list_events() (5.5): upcoming window (end >= now OR no end), an
+	 * optional category tax_query, and the optional search / month / venue
+	 * filters.
+	 *
+	 * The meta_query shape: the base window is a nested two-clause OR
+	 * GROUP inside a top-level AND (WP_Query's default relation). The
+	 * month/venue clauses append at TOP level so they AND against the
+	 * window — appending under the OR relation would let a past event
+	 * match a venue filter alone.
+	 *
+	 * Every value is sanitized here; callers pass raw request input.
+	 *
+	 * @param int                 $limit      Max events.
+	 * @param array<int,string>   $categories Optional category slugs.
+	 * @param array<string,mixed> $filters    Optional search/month/venue.
+	 * @return array<string,mixed> WP_Query args.
+	 */
+	public static function upcoming_query_args( int $limit, array $categories = array(), array $filters = array() ): array {
 		$now_sql = current_time( 'mysql' );
 
 		$query_args = array(
@@ -1519,16 +1647,21 @@ final class Render_Blocks {
 			'no_found_rows'  => true,
 			// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- the upcoming filter IS the feature.
 			'meta_query'     => array(
-				'relation' => 'OR',
+				'relation' => 'AND',
+				// Windows group: end >= now OR no end (nested so later
+				// top-level clauses AND against the whole group).
 				array(
-					'key'     => 'eh_end',
-					'value'   => $now_sql,
-					'compare' => '>=',
-					'type'    => 'DATETIME',
-				),
-				array(
-					'key'     => 'eh_end',
-					'compare' => 'NOT EXISTS',
+					'relation' => 'OR',
+					array(
+						'key'     => 'eh_end',
+						'value'   => $now_sql,
+						'compare' => '>=',
+						'type'    => 'DATETIME',
+					),
+					array(
+						'key'     => 'eh_end',
+						'compare' => 'NOT EXISTS',
+					),
 				),
 			),
 		);
@@ -1544,22 +1677,69 @@ final class Render_Blocks {
 			);
 		}
 
-		$query    = new \WP_Query( $query_args );
-		$now      = time();
-		$upcoming = array();
+		$search = isset( $filters['search'] ) ? sanitize_text_field( (string) $filters['search'] ) : '';
 
-		foreach ( $query->posts as $post ) {
-			$summary = self::summary( $post );
-			$end_ts  = self::iso_to_timestamp( (string) $summary['end'] );
-
-			if ( null !== $end_ts && $end_ts < $now ) {
-				continue;
-			}
-
-			$upcoming[] = $summary;
+		if ( '' !== $search ) {
+			$query_args['s'] = $search;
 		}
 
-		return $upcoming;
+		$month = isset( $filters['month'] ) ? (string) $filters['month'] : '';
+
+		if ( 1 === preg_match( '/^\d{4}-(0[1-9]|1[0-2])$/', $month ) ) {
+			$window = self::month_window_sql( (int) substr( $month, 0, 4 ), (int) substr( $month, 5, 2 ) );
+
+			$query_args['meta_query'][] = array(
+				'key'     => 'eh_start',
+				'value'   => $window,
+				'compare' => 'BETWEEN',
+				'type'    => 'DATETIME',
+			);
+		}
+
+		$venue = isset( $filters['venue'] ) ? trim( (string) $filters['venue'] ) : '';
+
+		if ( '' !== $venue ) {
+			if ( ctype_digit( $venue ) ) {
+				// Linked venue: eh_venue_id is the digits-only contract path.
+				$query_args['meta_query'][] = array(
+					'key'   => 'eh_venue_id',
+					'value' => $venue,
+				);
+			} else {
+				// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_compare -- free-text venue filter is the feature.
+				$query_args['meta_query'][] = array(
+					'key'     => 'eh_venue',
+					'value'   => $venue,
+					'compare' => 'LIKE',
+				);
+			}
+		}
+
+		return $query_args;
+	}
+
+	/**
+	 * Site-local [first 00:00:00, last 23:59:59] BETWEEN bounds for a month,
+	 * shared by calendar_month_events() (grid) and the 5.5 month filter —
+	 * one definition of "which events start in month X".
+	 *
+	 * @param int $year  Year (4 digits).
+	 * @param int $month Month 1-12.
+	 * @return array{0:string,1:string} SQL datetime bounds.
+	 */
+	private static function month_window_sql( int $year, int $month ): array {
+		$window_start = gmmktime( 0, 0, 0, $month, 1, $year );
+		$window_end   = gmmktime( 0, 0, 0, 12 === $month ? 1 : $month + 1, 1, 12 === $month ? $year + 1 : $year );
+
+		$format = 'Y-m-d H:i:s';
+		$offset = (int) ( get_option( 'gmt_offset' ) * HOUR_IN_SECONDS );
+
+		// Site-local wall-clock of the window edges; the -1s trims
+		// next-month midnight, which BETWEEN's inclusive edge would capture.
+		return array(
+			gmdate( $format, $window_start + $offset ),
+			gmdate( $format, $window_end - 1 + $offset ),
+		);
 	}
 
 	/**

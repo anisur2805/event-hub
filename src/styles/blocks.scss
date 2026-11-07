@@ -77,6 +77,14 @@
 	font-size: var( --eh-font );
 }
 
+/* 5.5: keyword + month controls share the .__filter base sizing; the
+ * keyword field just needs to sit wider in the wrapped row (12rem reads
+ * cramped for free text). */
+.event-hub-event-list__search,
+.event-hub-event-list__month {
+	min-width: 14rem;
+}
+
 .event-hub-event-list__apply {
 	padding: 0.5rem 1.25rem;
 	border: 1px solid transparent;
