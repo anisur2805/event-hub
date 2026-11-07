@@ -970,6 +970,46 @@ final class Rsvp_Repository {
 	}
 
 	/**
+	 * The 1-based FIFO position of a waitlist row within its event (ROADMAP
+	 * 5A.2), counting queued rows in the same order delete_and_promote()
+	 * picks from (created_at ASC, id ASC — DECISIONS #31). Going rows and
+	 * missing rows return 0 (no position to display).
+	 *
+	 * One COUNT over the indexed event_id + status prefix; safe to call per
+	 * page render.
+	 *
+	 * @param int $id RSVP row ID.
+	 * @return int Position starting at 1, or 0 when not applicable.
+	 */
+	public function waitlist_position( int $id ): int {
+		global $wpdb;
+
+		$row = $this->get( $id );
+
+		if ( null === $row || 'waitlist' !== $row['status'] ) {
+			return 0;
+		}
+
+		$table = $this->table();
+
+		$position_query = "SELECT COUNT(*) + 1 FROM {$table}
+			WHERE event_id = %d AND status = 'waitlist'
+			  AND ( created_at < %s OR ( created_at = %s AND id < %d ) )";
+
+		$position = $wpdb->get_var(
+			$wpdb->prepare(
+				$position_query, // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $table interpolated at assignment; all values bound.
+				(int) $row['event_id'],
+				(string) $row['created_at'],
+				(string) $row['created_at'],
+				$id
+			)
+		);
+
+		return max( 0, (int) $position );
+	}
+
+	/**
 	 * Shapes a raw row into typed, camelCase keys.
 	 *
 	 * @param array<string,mixed> $row Raw row.

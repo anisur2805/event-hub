@@ -279,7 +279,7 @@ final class Admin_Page {
 									value="on"
 									<?php checked( $notifications ); ?>
 								/>
-								<?php esc_html_e( 'Email attendees a reminder before the event, a cancellation notice, and organizers each new RSVP', 'event-hub' ); ?>
+								<?php esc_html_e( 'Email attendees reminders, cancellation and waitlist-promotion notices, and organizers each new RSVP', 'event-hub' ); ?>
 							</label>
 						</td>
 					</tr>

@@ -439,6 +439,65 @@ final class Notifier {
 	}
 
 	/**
+	 * Sends the waitlist-promotion notice to the attendee (ROADMAP 5A.2).
+	 * Fired by `event_hub_rsvp_promoted` after delete_and_promote() flips a
+	 * waitlist row to going — the attendee learns their spot opened up
+	 * without watching the page. Same guards as the cancel notice: a valid
+	 * recipient and a live event; the row is re-read state from inside the
+	 * promotion lock, so no extra re-check here.
+	 *
+	 * @param array<string,mixed> $rsvp     Promoted row (name, email).
+	 * @param int                 $event_id Event post ID.
+	 * @return bool True when wp_mail accepted the message.
+	 */
+	public static function send_promotion_notice( array $rsvp, int $event_id ): bool {
+		$email = (string) ( $rsvp['email'] ?? '' );
+
+		if ( '' === $email || false === is_email( $email ) ) {
+			return false;
+		}
+
+		$event = get_post( $event_id );
+
+		if ( ! $event instanceof \WP_Post || 'eh_event' !== $event->post_type ) {
+			return false;
+		}
+
+		$event_title = html_entity_decode( get_the_title( $event ), ENT_QUOTES, 'UTF-8' );
+
+		$subject = sprintf(
+			/* translators: %s: event title. */
+			__( 'You are in: %s', 'event-hub' ),
+			$event_title
+		);
+
+		$message = implode(
+			"\r\n",
+			array(
+				sprintf( /* translators: %s: attendee name. */ __( 'Name: %s', 'event-hub' ), (string) ( $rsvp['name'] ?? '' ) ),
+				__( 'Status: Going', 'event-hub' ),
+				self::start_line( $event_id ),
+				'',
+				__( 'Good news — a spot opened up and your waitlisted RSVP is now a confirmed booking. No action needed.', 'event-hub' ),
+				'',
+				sprintf(
+					/* translators: %s: event page URL. */
+					__( 'Event page: %s', 'event-hub' ),
+					(string) get_permalink( $event )
+				),
+				'',
+				sprintf(
+					/* translators: %s: site name. */
+					__( '— %s', 'event-hub' ),
+					wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES )
+				),
+			)
+		);
+
+		return self::dispatch( $email, $subject, $message );
+	}
+
+	/**
 	 * Sends with the shared per-send SMTP timeout guard. Never throws.
 	 *
 	 * @param string $to      Recipient.

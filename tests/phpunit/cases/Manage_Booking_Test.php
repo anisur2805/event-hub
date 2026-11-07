@@ -429,4 +429,158 @@ class Manage_Booking_Test extends WP_UnitTestCase {
 		$this->assertTrue( $redirected, 'successful toggle must redirect' );
 		$this->assertTrue( Notifier::enabled() );
 	}
+
+	/* ---------------------------------------------------------------------
+	 * 5A.2: waitlist FIFO position + promotion notice.
+	 * ------------------------------------------------------------------- */
+
+	/**
+	 * Creates several RSVPs with distinct creation stamps (created_at has
+	 * second granularity, so this sleeps between inserts to make FIFO order
+	 * deterministic rather than id-tiebreak-dependent) and per-row emails
+	 * (UNIQUE(event_id,email) forbids reusing one address per event).
+	 *
+	 * @param array<int,string> $statuses Status per row, in queue order.
+	 * @return array<int,array{row:array<string,mixed>,token:string}> Created rows + raw tokens.
+	 */
+	private function make_rsvp_queue( array $statuses ): array {
+		$rows = array();
+
+		foreach ( array_values( $statuses ) as $index => $status ) {
+			if ( $index > 0 ) {
+				sleep( 1 ); // created_at second-granularity: guarantee distinct stamps.
+			}
+
+			$repo   = new Rsvp_Repository();
+			$result = $repo->create(
+				'queued' === $status ? "Queue {$index}" : 'Queue Going',
+				"queue{$index}+{$this->email_tag}@example.org",
+				$status,
+				$this->event_id
+			);
+
+			$this->assertNotInstanceOf( \WP_Error::class, $result );
+			$this->assertIsArray( $result );
+
+			$rows[] = array(
+				'row'   => $result['rsvp'],
+				'token' => (string) $result['manage_token'],
+			);
+		}
+
+		return $rows;
+	}
+
+	/**
+	 * FIFO positions: first waitlist row is #1, second is #2, a going row
+	 * has position 0, and a missing row id returns 0.
+	 *
+	 * @return void
+	 */
+	public function test_waitlist_position_fifo(): void {
+		$repo  = new Rsvp_Repository();
+		$queue = $this->make_rsvp_queue( array( 'waitlist', 'going', 'waitlist' ) );
+
+		$this->assertSame( 1, $repo->waitlist_position( (int) $queue[0]['row']['id'] ), 'first queued row is #1' );
+		$this->assertSame( 0, $repo->waitlist_position( (int) $queue[1]['row']['id'] ), 'going row has no position' );
+		$this->assertSame( 2, $repo->waitlist_position( (int) $queue[2]['row']['id'] ), 'second queued row is #2' );
+		$this->assertSame( 0, $repo->waitlist_position( 2147483000 ), 'missing row returns 0' );
+	}
+
+	/**
+	 * Promotion notice: gated by the notifications master switch (NOT the
+	 * confirmations toggle — 5A.2 decides promotions are notice mail).
+	 *
+	 * @return void
+	 */
+	public function test_promotion_notice_gated_by_notifications_switch(): void {
+		$captor = function ( $return, $atts ) {
+			$this->captured_mail[] = $atts;
+			return true;
+		};
+		add_filter( 'pre_wp_mail', $captor, 10, 2 );
+
+		$made = $this->make_rsvp( 'waitlist' );
+
+		// Default: notifications off => the fired hook sends nothing.
+		do_action( 'event_hub_rsvp_promoted', $made['row'], $this->event_id );
+		$this->assertCount( 0, $this->captured_mail, 'notifications off must send nothing' );
+
+		// The confirmations toggle alone must NOT unlock it either.
+		update_option( Notifier::OPTION, true );
+		do_action( 'event_hub_rsvp_promoted', $made['row'], $this->event_id );
+		$this->assertCount( 0, $this->captured_mail, 'confirmations on must not imply promotions' );
+
+		// Master switch on: the hook sends one mail to the promoted attendee.
+		update_option( Reminders::OPTION, true );
+		do_action( 'event_hub_rsvp_promoted', $made['row'], $this->event_id );
+		$this->assertCount( 1, $this->captured_mail );
+
+		$atts = $this->captured_mail[0];
+
+		$this->assertSame( "mana+{$this->email_tag}@example.org", $atts['to'] );
+		$this->assertStringContainsString( 'Manage Test Event', (string) $atts['subject'] );
+		$this->assertStringContainsString( 'confirmed booking', (string) $atts['message'] );
+		// The manage-token link never rides a promotion mail (only the 201 and
+		// the confirmation email carry the raw token).
+		$this->assertStringNotContainsString( 'eh_manage=', (string) $atts['message'] );
+	}
+
+	/**
+	 * Direct call guards: bad email or non-event IDs are a quiet false, and
+	 * a failed send (mail rejected) reports false without throwing.
+	 *
+	 * @return void
+	 */
+	public function test_promotion_notice_guards_and_failure(): void {
+		add_filter( 'pre_wp_mail', '__return_false' );
+		update_option( Reminders::OPTION, true );
+
+		$made = $this->make_rsvp( 'waitlist' );
+
+		// Bad email.
+		$bad         = $made['row'];
+		$bad['email'] = 'not-an-email';
+		$this->assertFalse( Notifier::send_promotion_notice( $bad, $this->event_id ) );
+
+		// Wrong post type.
+		$wrong_post = (int) self::factory()->post->create();
+		$this->assertFalse( Notifier::send_promotion_notice( $made['row'], $wrong_post ) );
+
+		// Rejected send: quiet false, no exception.
+		$this->assertFalse( Notifier::send_promotion_notice( $made['row'], $this->event_id ) );
+	}
+
+	/**
+	 * The manage page shows "Waitlist #N" for a queued row — specifically
+	 * THIS row's position, not the queue head's — and plain "Going" for a
+	 * going row.
+	 *
+	 * @return void
+	 */
+	public function test_manage_page_shows_waitlist_position(): void {
+		$page  = new Manage_Page();
+		$queue = $this->make_rsvp_queue( array( 'waitlist', 'waitlist', 'waitlist' ) );
+
+		// Third row's page: two queued rows precede it => #3.
+		$_GET['eh_manage'] = $queue[2]['token'];
+
+		ob_start();
+		$page->maybe_render( 'index.php' );
+		$out = (string) ob_get_clean();
+
+		$this->assertStringContainsString( 'Waitlist #3', $out, 'third queued row renders #3' );
+		$this->assertStringNotContainsString( 'Waitlist #1', $out, 'page shows this attendee, not the head of queue' );
+
+		// Going row: plain status, no position text at all.
+		$going = $this->make_rsvp( 'going' );
+		$_GET['eh_manage'] = $going['token'];
+
+		ob_start();
+		$page->maybe_render( 'index.php' );
+		$going_out = (string) ob_get_clean();
+
+		$this->assertStringContainsString( 'Going', $going_out );
+		$this->assertStringNotContainsString( 'Waitlist #', $going_out );
+	}
 }

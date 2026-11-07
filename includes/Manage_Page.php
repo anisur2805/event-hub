@@ -88,6 +88,12 @@ final class Manage_Page {
 
 		$event_hub_state = isset( $_GET['eh_state'] ) ? sanitize_key( wp_unslash( (string) $_GET['eh_state'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only display state, fixed whitelist in template.
 
+		// 5A.2: FIFO waitlist position for the status line (0 when the row is
+		// going or missing — the template shows the plain status then).
+		$event_hub_position = ( null !== $row && isset( $event_hub_row['id'] ) )
+			? ( new Rsvp_Repository() )->waitlist_position( (int) $event_hub_row['id'] )
+			: 0;
+
 		require EVENT_HUB_DIR . 'includes/templates/manage-rsvp.php';
 
 		return '';

@@ -174,6 +174,20 @@ final class Plugin {
 			2
 		);
 
+		add_action(
+			'event_hub_rsvp_promoted',
+			static function ( array $promoted, int $event_id ): void {
+				// Gated by the notifications master switch (5A.2): promotions
+				// are notice mail, not confirmations — one toggle controls
+				// everything the attendee did not directly request.
+				if ( Reminders::enabled() ) {
+					Notifier::send_promotion_notice( $promoted, $event_id );
+				}
+			},
+			10,
+			2
+		);
+
 		/*
 		 * Status transitions (ROADMAP 5.3). Both hooks, same shape: a FIRST
 		 * write on an event without the meta fires added_post_meta, every

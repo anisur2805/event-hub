@@ -3,9 +3,10 @@
  * Manage-booking template (Event Hub, ROADMAP §2.1).
  *
  * Consumes variables prepared by Manage_Page::maybe_render():
- * - $event_hub_row    : repository row or null
- * - $event_hub_event  : WP_Post eh_event or null
- * - $event_hub_state  : eh_state query arg, sanitized whitelist value or ''
+ * - $event_hub_row       : repository row or null
+ * - $event_hub_event     : WP_Post eh_event or null
+ * - $event_hub_state     : eh_state query arg, sanitized whitelist value or ''
+ * - $event_hub_position  : FIFO waitlist position (0 when row is going/missing)
  *
  * The token is the bearer credential; the template never echoes it back
  * except into this page's own form fields (needed to authenticate the
@@ -23,9 +24,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Template variables (from Manage_Page::maybe_render()).
  *
- * @var array<string,mixed>|null $event_hub_row    Repository row or null.
- * @var \WP_Post|null            $event_hub_event Event post or null.
- * @var string                   $event_hub_state Status arg or ''.
+ * @var array<string,mixed>|null $event_hub_row       Repository row or null.
+ * @var \WP_Post|null            $event_hub_event     Event post or null.
+ * @var string                   $event_hub_state     Status arg or ''.
+ * @var int                      $event_hub_position  Waitlist FIFO position (0 = n/a).
  */
 
 $event_hub_states = array(
@@ -63,13 +65,21 @@ get_header();
 			</p>
 			<p>
 				<strong><?php esc_html_e( 'Status:', 'event-hub' ); ?></strong>
-				<?php
-				echo esc_html(
-					'waitlist' === $event_hub_row['status']
-						? __( 'Waitlist', 'event-hub' )
-						: __( 'Going', 'event-hub' )
-				);
-				?>
+				<?php if ( 'waitlist' === $event_hub_row['status'] ) : ?>
+					<?php if ( (int) $event_hub_position >= 1 ) : ?>
+						<?php
+						printf(
+							/* translators: %d: FIFO waitlist position. */
+							esc_html__( 'Waitlist #%d', 'event-hub' ),
+							(int) $event_hub_position
+						);
+						?>
+					<?php else : ?>
+						<?php esc_html_e( 'Waitlist', 'event-hub' ); ?>
+					<?php endif; ?>
+				<?php else : ?>
+					<?php esc_html_e( 'Going', 'event-hub' ); ?>
+				<?php endif; ?>
 			</p>
 			<p>
 				<strong><?php esc_html_e( 'Seats:', 'event-hub' ); ?></strong>
