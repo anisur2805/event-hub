@@ -252,6 +252,13 @@ code).
   > exactly in PHP via the shared `summary_in_month()`. Editor zone select.
   > Tests: `Event_Timezone_Test` (11).
 - **5.7** Waitlist management + who's-in notices.
+  > **Shipped 2026-11-07 (DECISIONS #60).** The "who's-in notices" half
+  > predates the slice (5A.2 promotion email + Waitlist #N); 5.7 IS the
+  > manual per-person verb: `promote()` + `POST /rsvps/{id}/promote` +
+  > admin Promote button, sharing ONE guarded flip + per-event advisory
+  > lock with the auto FIFO path. FIFO is deliberately bypassed — that is
+  > the point of manual promotion. Tests: `Waitlist_Management_Test` (7).
+  > No DB bump.
 
 ### 5A. Review wave P1 (2026-11-07, second external review — verified against code)
 
@@ -344,4 +351,4 @@ code).
 2. §1.2 hardening — **done, Phase 1**.
 3. §1.3 waitlist promotion — **done, Phase 2**.
 4. §1.1 JSON-LD — **done (2026-11-04)**; was independent, slotted after Phase 2.
-5. Then pick by need: ~~2.1 (email flow; its cancellation now feeds §1.3's promotion)~~ **done (2026-11-04, DB 1.3.0)**; ~~2.2 (check-in)~~ **done (2026-11-04)**; ~~2.4 cutoffs~~ **done (2026-11-05)**; ~~2.3 seats~~ **done (2026-11-05, DB 1.4.0)**; ~~3.1 dashboard~~ **done (2026-11-05)**; ~~3.3 calendar block~~ **done (2026-11-05)**; ~~3.2 recurring events~~ **done (2026-11-05)**. ~~§4 WP-CLI extras~~ **done (2026-11-06)** + findings resolution **done (2026-11-06)**. ~~5.1 venue/organizer~~ **done (2026-11-06)**; ~~5.2 reminders~~ **done (2026-11-06, DB 1.5.0)**; ~~5.3 event status~~ **done (2026-11-07, DB 1.6.0)**; ~~5.4 GDPR~~ **done (2026-11-07)**. ~~§4 .pot/RTL + PCP re-baseline~~ **done (2026-11-07, DECISIONS #51)**; ~~§4 uninstall audit~~ **done (2026-11-07, DECISIONS #52 — caught a latent uninstall fatal)**. Tier 1 + §4 COMPLETE; §3.4 Woo stays parked. 6. **Review wave P1 (5A): ~~5A.1 success panel/token~~ **done (2026-11-07)** → ~~5A.2 promotion email + waitlist position~~ **done (2026-11-07)** → ~~5A.3 add-to-calendar~~ **done (2026-11-07)** → ~~5A.4 external URL~~ **done (2026-11-07)** — review wave P1 COMPLETE (approved 2026-11-07; both spirit-gaps verified against code before adoption). Then Tier 2 (5.5/5.6/5.7) by need: ~~5.5~~ **done (2026-11-07, #57)**; ~~5.6~~ **done (2026-11-07, #58)**; ~~per-event timezone~~ **done (2026-11-07, #59)**. Next: 5.7.
+5. Then pick by need: ~~2.1 (email flow; its cancellation now feeds §1.3's promotion)~~ **done (2026-11-04, DB 1.3.0)**; ~~2.2 (check-in)~~ **done (2026-11-04)**; ~~2.4 cutoffs~~ **done (2026-11-05)**; ~~2.3 seats~~ **done (2026-11-05, DB 1.4.0)**; ~~3.1 dashboard~~ **done (2026-11-05)**; ~~3.3 calendar block~~ **done (2026-11-05)**; ~~3.2 recurring events~~ **done (2026-11-05)**. ~~§4 WP-CLI extras~~ **done (2026-11-06)** + findings resolution **done (2026-11-06)**. ~~5.1 venue/organizer~~ **done (2026-11-06)**; ~~5.2 reminders~~ **done (2026-11-06, DB 1.5.0)**; ~~5.3 event status~~ **done (2026-11-07, DB 1.6.0)**; ~~5.4 GDPR~~ **done (2026-11-07)**. ~~§4 .pot/RTL + PCP re-baseline~~ **done (2026-11-07, DECISIONS #51)**; ~~§4 uninstall audit~~ **done (2026-11-07, DECISIONS #52 — caught a latent uninstall fatal)**. Tier 1 + §4 COMPLETE; §3.4 Woo stays parked. 6. **Review wave P1 (5A): ~~5A.1 success panel/token~~ **done (2026-11-07)** → ~~5A.2 promotion email + waitlist position~~ **done (2026-11-07)** → ~~5A.3 add-to-calendar~~ **done (2026-11-07)** → ~~5A.4 external URL~~ **done (2026-11-07)** — review wave P1 COMPLETE (approved 2026-11-07; both spirit-gaps verified against code before adoption). Then Tier 2 (5.5/5.6/5.7) by need: ~~5.5~~ **done (2026-11-07, #57)**; ~~5.6~~ **done (2026-11-07, #58)**; ~~per-event timezone~~ **done (2026-11-07, #59)**; ~~5.7 manual promotion~~ **done (2026-11-07, #60)** — Tier 2 COMPLETE. Next: review ROADMAP §5B deferred items, then Tier 3 (5.10–5.12).
