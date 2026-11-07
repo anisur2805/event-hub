@@ -24,6 +24,8 @@ Request `application/json` (or form-encoded):
 | email | string | `sanitize_email()` result must be valid, else `400` `eh_invalid_email` |
 | status | string | optional; `going` (default) or `waitlist`, else `400` `eh_invalid_status` |
 | guests | integer | optional (default 1); seats this row reserves, clamped into 1..10 (ROADMAP 2.3, `Rsvp_Repository::MAX_GUESTS`). Capacity counts SEATS — a party larger than the remaining seats books `going` only while booked seats < capacity, else it lands on the waitlist path the same as any full event |
+| phone | string | optional (default ''); attendee phone, `sanitize_text_field()`, no pattern gate (formats too varied — `Rsvp_Repository::MAX_PHONE` (32) is the gate; past it `400` `eh_invalid_phone`). Never echoed in the 201 body (PII rule); visible to organizers in the admin list and CSV |
+| note | string | optional (default ''); a note for the organizer, `sanitize_textarea_field()` (newlines kept); past `Rsvp_Repository::MAX_NOTE` (500) `400` `eh_invalid_note`. Same visibility rule as phone |
 | formToken | string | **required.** `{timestamp}.{hmac}` token rendered into the RSVP form (`event_hub_form_ts` hidden input, HMAC-signed with the nonce salt, bound to the event). Must be `3s..24h` old at submit, else `400` `eh_form_token` |
 | honeypot | string | must be empty/absent; any non-empty value = bot, `400` `eh_honeypot` (checked before formToken and before the rate meter) |
 
@@ -68,7 +70,7 @@ Response `200`: array of published, upcoming events (end >= now... see below), e
 
 Query: `eventId` (required), `page` >=1, `perPage` 1..100 (default 20), `status` (`going|waitlist`).
 
-Response `200`: `{ "rsvps": [ { "id", "eventId", "name", "email", "status", "createdAt", "checkedInAt": string|null } ], "total", "totalPages" }`. Emails allowed here (gated).
+Response `200`: `{ "rsvps": [ { "id", "eventId", "name", "email", "status", "phone", "note", "guests", "createdAt", "checkedInAt": string|null } ], "total", "totalPages" }`. Emails allowed here (gated); `phone`/`note` (DB 1.7.0) read '' when not given.
 
 Errors: `400 eh_missing_event` when eventId missing; `403 rest_forbidden` when lacking cap.
 
