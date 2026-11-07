@@ -578,6 +578,65 @@ final class Notifier {
 	}
 
 	/**
+	 * §5B admin compose: sends the organizer's message to ONE attendee row.
+	 * Called per row by Rest_Controller::send_event_email() — one wp_mail per
+	 * recipient, never a shared To/Cc/Bcc header (addresses must not leak
+	 * between attendees). The message is plain text like every other mail:
+	 * the organizer's body, then the standard event-start + event-page +
+	 * signature footer so the note reads as coming from the site.
+	 *
+	 * No persistence: the plugin keeps no record of broadcasts (attendee
+	 * inboxes are the record; storing bodies would grow PII surface).
+	 *
+	 * @param array<string,mixed> $rsvp     Recipient row (email required).
+	 * @param int                 $event_id Event post ID.
+	 * @param string              $subject  Sanitized organizer subject.
+	 * @param string              $body     Sanitized organizer body.
+	 * @return bool True when wp_mail accepted the message.
+	 */
+	public static function send_broadcast( array $rsvp, int $event_id, string $subject, string $body ): bool {
+		$email = (string) ( $rsvp['email'] ?? '' );
+
+		if ( '' === $email || false === is_email( $email ) ) {
+			return false;
+		}
+
+		$event = get_post( $event_id );
+
+		if ( ! $event instanceof \WP_Post || 'eh_event' !== $event->post_type ) {
+			return false;
+		}
+
+		// Normalize line endings (textarea submits \r\n); blank lines kept —
+		// they are the organizer's paragraph breaks.
+		$body = str_replace( array( "\r\n", "\r" ), "\n", $body );
+
+		$message = implode(
+			"\r\n",
+			array_merge(
+				explode( "\n", $body ),
+				array(
+					'',
+					self::start_line( $event_id ),
+					sprintf(
+						/* translators: %s: event page URL. */
+						__( 'Event page: %s', 'event-hub' ),
+						(string) get_permalink( $event )
+					),
+					'',
+					sprintf(
+						/* translators: %s: site name. */
+						__( '— %s', 'event-hub' ),
+						wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES )
+					),
+				)
+			)
+		);
+
+		return self::dispatch( $email, $subject, $message );
+	}
+
+	/**
 	 * The stored intro paragraph as body rows (§5B editable copy): a
 	 * one-element rows array when set (the implode turns it into a leading
 	 * body paragraph), else the empty array — the built-in body proceeds

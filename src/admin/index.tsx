@@ -7,7 +7,14 @@
  * CSV export link (admin-post.php, server-side nonce + capability).
  */
 import { createRoot, useEffect, useMemo, useState } from '@wordpress/element';
-import { Button, SelectControl, Spinner, Notice } from '@wordpress/components';
+import {
+	Button,
+	SelectControl,
+	Spinner,
+	Notice,
+	TextControl,
+	TextareaControl,
+} from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import type { ReactElement } from 'react';
 import {
@@ -43,6 +50,20 @@ function AdminApp(): ReactElement {
 	// Two-step confirm for manual promotion, separate from the delete
 	// confirm so the two destructive-ish verbs never render open at once.
 	const [ promotingId, setPromotingId ] = useState< number | null >( null );
+	// §5B admin compose: collapsed by default; sending is two-step like the
+	// destructive verbs (a broadcast cannot be unsent).
+	const [ composeOpen, setComposeOpen ] = useState( false );
+	const [ emailSubject, setEmailSubject ] = useState( '' );
+	const [ emailMessage, setEmailMessage ] = useState( '' );
+	const [ emailAudience, setEmailAudience ] = useState<
+		'all' | 'going' | 'waitlist'
+	>( 'all' );
+	const [ composeBusy, setComposeBusy ] = useState( false );
+	/** Last send outcome: null = none; ok distinguishes success from failure copy. */
+	const [ composeResult, setComposeResult ] = useState< {
+		ok: boolean;
+		text: string;
+	} | null >( null );
 
 	// No boot data: render a terminal error (PHP failed to inline it).
 	if ( ! boot ) {
@@ -298,6 +319,76 @@ function AdminApp(): ReactElement {
 		} ) ),
 	];
 
+	// §5B admin compose: POST /events/{id}/email; the server sends one mail
+	// per attendee and returns counts. Subject/message trim to empty = 400
+	// with the server's message (the client disables the button too).
+	const sendEmail = async (): Promise< void > => {
+		setError( null );
+		setComposeResult( null );
+		setComposeBusy( true );
+		try {
+			const response = await fetch(
+				`${ boot.restUrl }event-hub/v1/events/${ eventId }/email`,
+				{
+					method: 'POST',
+					headers: {
+						'X-WP-Nonce': boot.nonce,
+						'Content-Type': 'application/json',
+					},
+					body: JSON.stringify( {
+						subject: emailSubject.trim(),
+						message: emailMessage.trim(),
+						audience: emailAudience,
+					} ),
+				}
+			);
+			if ( ! response.ok ) {
+				const body = ( await response.json().catch( () => null ) ) as {
+					message?: string;
+				} | null;
+				setComposeResult( {
+					ok: false,
+					text:
+						body?.message && '' !== body.message
+							? body.message
+							: __(
+									'Could not send the email — please try again.',
+									'event-hub'
+								),
+				} );
+				return;
+			}
+			const data = ( await response.json() ) as {
+				sent?: number;
+				skipped?: number;
+			};
+			setComposeResult( {
+				ok: true,
+				text: sprintf(
+					/* translators: 1: number sent, 2: number skipped. */
+					__(
+						'Sent to %1$d attendee(s); %2$d could not be sent.',
+						'event-hub'
+					),
+					data.sent ?? 0,
+					data.skipped ?? 0
+				),
+			} );
+			setEmailSubject( '' );
+			setEmailMessage( '' );
+		} catch {
+			setComposeResult( {
+				ok: false,
+				text: __(
+					'Could not send the email — please try again.',
+					'event-hub'
+				),
+			} );
+		} finally {
+			setComposeBusy( false );
+		}
+	};
+
 	return (
 		<div className="wrap event-hub-admin">
 			<h1>{ __( 'Event Hub — RSVPs', 'event-hub' ) }</h1>
@@ -344,6 +435,116 @@ function AdminApp(): ReactElement {
 					{ __( 'Download CSV', 'event-hub' ) }
 				</Button>
 			</div>
+
+			{ eventId && (
+				<div className="event-hub-admin__compose">
+					<Button
+						variant="tertiary"
+						aria-expanded={ composeOpen }
+						onClick={ () => {
+							setComposeOpen( ! composeOpen );
+							setComposeResult( null );
+						} }
+					>
+						{ composeOpen
+							? __( 'Hide email form', 'event-hub' )
+							: __( 'Email attendees', 'event-hub' ) }
+					</Button>
+					{ composeOpen && (
+						<div className="event-hub-admin__compose-form">
+							<TextControl
+								label={ __( 'Subject', 'event-hub' ) }
+								value={ emailSubject }
+								onChange={ setEmailSubject }
+								maxLength={ 200 }
+							/>
+							<TextareaControl
+								label={ __( 'Message', 'event-hub' ) }
+								value={ emailMessage }
+								onChange={ setEmailMessage }
+								help={ __(
+									'Plain text only. The event date, event page link and site signature are added automatically.',
+									'event-hub'
+								) }
+								rows={ 6 }
+							/>
+							<SelectControl
+								label={ __( 'Send to', 'event-hub' ) }
+								value={ emailAudience }
+								onChange={ ( value ) =>
+									setEmailAudience(
+										(
+											[
+												'going',
+												'waitlist',
+												'all',
+											] as const
+										 ).includes(
+											value as typeof emailAudience
+										)
+											? ( value as typeof emailAudience )
+											: 'all'
+									)
+								}
+								options={ [
+									{
+										value: 'all',
+										label: __( 'Everyone', 'event-hub' ),
+									},
+									{
+										value: 'going',
+										label: __( 'Going only', 'event-hub' ),
+									},
+									{
+										value: 'waitlist',
+										label: __(
+											'Waitlist only',
+											'event-hub'
+										),
+									},
+								] }
+							/>
+							{ composeResult && (
+								<Notice
+									status={
+										composeResult.ok ? 'success' : 'error'
+									}
+									isDismissible
+									onRemove={ () => setComposeResult( null ) }
+								>
+									{ composeResult.text }
+								</Notice>
+							) }
+							<div className="event-hub-admin__compose-actions">
+								<Button
+									variant="primary"
+									disabled={
+										composeBusy ||
+										'' === emailSubject.trim() ||
+										'' === emailMessage.trim()
+									}
+									onClick={ () => sendEmail() }
+								>
+									{ composeBusy
+										? __( 'Sending…', 'event-hub' )
+										: __( 'Send', 'event-hub' ) }
+								</Button>
+								<Button
+									variant="tertiary"
+									disabled={ composeBusy }
+									onClick={ () => {
+										setEmailSubject( '' );
+										setEmailMessage( '' );
+										setComposeResult( null );
+									} }
+								>
+									{ __( 'Clear', 'event-hub' ) }
+								</Button>
+							</div>
+						</div>
+					) }
+				</div>
+			) }
 
 			{ loading ? (
 				<Spinner />

@@ -36,3 +36,22 @@
 	color: #646970;
 	font-style: italic;
 }
+
+/* §5B admin compose: the toggle stays a small tertiary button; the open
+ * form is a constrained column so long subjects/messages stay readable. */
+.event-hub-admin__compose {
+	margin-block: 1rem;
+}
+
+.event-hub-admin__compose-form {
+	max-width: 640px;
+	margin-block-start: 0.75rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+}
+
+.event-hub-admin__compose-actions {
+	display: flex;
+	gap: 0.5rem;
+}

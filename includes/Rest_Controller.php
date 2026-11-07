@@ -279,6 +279,43 @@ final class Rest_Controller {
 			)
 		);
 
+		// §5B admin compose: email the event's attendees. Organizer-gated
+		// (same capability as the list route). One wp_mail per recipient —
+		// no shared To/Bcc header, addresses never leak between attendees.
+		register_rest_route(
+			self::NAMESPACE_V1,
+			'/events/(?P<id>[0-9]+)/email',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( $this, 'send_event_email' ),
+				'permission_callback' => array( $this, 'admin_permission' ),
+				'args'                => array(
+					'id'       => array(
+						'required'          => true,
+						'type'              => 'integer',
+						'sanitize_callback' => static fn ( $value ): int => absint( $value ),
+					),
+					'subject'  => array(
+						'required'          => true,
+						'type'              => 'string',
+						'sanitize_callback' => static fn ( $value ): string => (string) sanitize_text_field( (string) $value ),
+					),
+					'message'  => array(
+						'required'          => true,
+						'type'              => 'string',
+						'sanitize_callback' => static fn ( $value ): string => (string) sanitize_textarea_field( (string) $value ),
+					),
+					'audience' => array(
+						'required'          => false,
+						'default'           => 'all',
+						'type'              => 'string',
+						'enum'              => array( 'going', 'waitlist', 'all' ),
+						'sanitize_callback' => static fn ( $value ): string => (string) sanitize_key( (string) $value ),
+					),
+				),
+			)
+		);
+
 		register_rest_route(
 			self::NAMESPACE_V1,
 			'/rsvps',
@@ -970,6 +1007,77 @@ final class Rest_Controller {
 				'rsvps'      => array_map( array( $this, 'serialize_private' ), $result['rsvps'] ),
 				'total'      => $result['total'],
 				'totalPages' => (int) ceil( $result['total'] / $per_page ),
+			),
+			200
+		);
+	}
+
+	/**
+	 * POST /events/{id}/email — the §5B admin compose. Sends the organizer's
+	 * message once per matching attendee row (one wp_mail each, never a
+	 * shared header), batching through list() exactly like the CSV stream.
+	 * Sends nothing without a non-empty subject AND body (the UI enforces
+	 * this too; the API mirrors it so a stray empty call is a 400, not a
+	 * silent no-op).
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function send_event_email( WP_REST_Request $request ) {
+		$params   = $this->request_params( $request );
+		$event_id = absint( $params['id'] ?? 0 );
+
+		$event = 0 !== $event_id ? get_post( $event_id ) : null;
+
+		if ( ! $event instanceof \WP_Post || 'eh_event' !== $event->post_type ) {
+			return new WP_Error( 'eh_event_not_found', __( 'No such published event.', 'event-hub' ), array( 'status' => 404 ) );
+		}
+
+		$subject = is_string( $params['subject'] ?? null ) ? trim( (string) $params['subject'] ) : '';
+		$body    = is_string( $params['message'] ?? null ) ? trim( (string) $params['message'] ) : '';
+
+		if ( '' === $subject || '' === $body ) {
+			return new WP_Error( 'eh_missing_message', __( 'Both a subject and a message are required.', 'event-hub' ), array( 'status' => 400 ) );
+		}
+
+		$audience = is_string( $params['audience'] ?? null ) ? (string) $params['audience'] : 'all';
+		$status   = in_array( $audience, array( 'going', 'waitlist' ), true ) ? $audience : '';
+
+		$per_page = 500;
+		$offset   = 0;
+		$sent     = 0;
+		$skipped  = 0;
+		$total    = 0;
+
+		while ( true ) {
+			$result = $this->repository->list( $event_id, $per_page, $offset, $status );
+
+			if ( array() === $result['rsvps'] ) {
+				break;
+			}
+
+			foreach ( $result['rsvps'] as $rsvp ) {
+				++$total;
+
+				if ( Notifier::send_broadcast( $rsvp, $event_id, $subject, $body ) ) {
+					++$sent;
+				} else {
+					++$skipped;
+				}
+			}
+
+			$offset += count( $result['rsvps'] );
+
+			if ( count( $result['rsvps'] ) < $per_page ) {
+				break;
+			}
+		}
+
+		return new WP_REST_Response(
+			array(
+				'sent'    => $sent,
+				'skipped' => $skipped,
+				'total'   => $total,
 			),
 			200
 		);
