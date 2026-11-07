@@ -337,6 +337,23 @@ final class Rest_Controller {
 
 		register_rest_route(
 			self::NAMESPACE_V1,
+			'/rsvps/(?P<id>[0-9]+)/promote',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( $this, 'promote_rsvp' ),
+				'permission_callback' => array( $this, 'admin_permission' ),
+				'args'                => array(
+					'id' => array(
+						'required'          => true,
+						'type'              => 'integer',
+						'sanitize_callback' => static fn ( $value ): int => absint( $value ),
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE_V1,
 			'/rsvp/cancel',
 			array(
 				'methods'             => WP_REST_Server::CREATABLE,
@@ -1005,6 +1022,36 @@ final class Rest_Controller {
 			array(
 				'updated' => true,
 				'rsvp'    => $this->serialize_private( $result ),
+			),
+			200
+		);
+	}
+
+	/**
+	 * POST /rsvps/{id}/promote (ROADMAP 5.7). Manual waitlist promotion: the
+	 * organizer's per-person "let them in" verb on top of the FIFO automatic
+	 * path. The single guarded flip (and its eh_busy / eh_db_error handling)
+	 * lives in the repository; the 5A.2 promotion notice rides the shared
+	 * event_hub_rsvp_promoted action fired there, so the attendee mail
+	 * behaves identically however the promotion happened.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function promote_rsvp( WP_REST_Request $request ) {
+		$params = $this->request_params( $request );
+		$id     = absint( $params['id'] ?? 0 );
+
+		$result = $this->repository->promote( $id );
+
+		if ( $result instanceof WP_Error ) {
+			return $result;
+		}
+
+		return new WP_REST_Response(
+			array(
+				'promoted' => true,
+				'rsvp'     => $this->serialize_private( $result ),
 			),
 			200
 		);

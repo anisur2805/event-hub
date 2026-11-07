@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-11-07T05:23:47+00:00\n"
+"POT-Creation-Date: 2026-11-07T05:34:26+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: event-hub\n"
@@ -335,10 +335,10 @@ msgstr ""
 #: includes/Manage_Page.php:112
 #: includes/Manage_Page.php:124
 #: includes/Manage_Page.php:130
-#: includes/Rest_Controller.php:670
-#: includes/Rest_Controller.php:674
-#: includes/Rest_Controller.php:696
-#: includes/Rest_Controller.php:708
+#: includes/Rest_Controller.php:687
+#: includes/Rest_Controller.php:691
+#: includes/Rest_Controller.php:713
+#: includes/Rest_Controller.php:725
 #: includes/templates/manage-rsvp.php:36
 #: includes/templates/manage-rsvp.php:53
 msgid "This management link is not valid."
@@ -751,6 +751,7 @@ msgstr ""
 #: includes/Render_Blocks.php:569
 #: includes/Render_Blocks.php:2017
 #: includes/Rsvp_Repository.php:93
+#: includes/Rsvp_Repository.php:526
 msgid "This event has been cancelled."
 msgstr ""
 
@@ -969,69 +970,69 @@ msgstr ""
 msgid "%s events found"
 msgstr ""
 
-#: includes/Rest_Controller.php:489
+#: includes/Rest_Controller.php:506
 msgid "Cookie check failed: a valid REST nonce is required."
 msgstr ""
 
-#: includes/Rest_Controller.php:506
+#: includes/Rest_Controller.php:523
 msgid "You are not allowed to manage RSVPs."
 msgstr ""
 
-#: includes/Rest_Controller.php:525
+#: includes/Rest_Controller.php:542
 msgid "You are not allowed to edit events."
 msgstr ""
 
-#: includes/Rest_Controller.php:545
+#: includes/Rest_Controller.php:562
 msgid "A valid eventId is required."
 msgstr ""
 
-#: includes/Rest_Controller.php:551
+#: includes/Rest_Controller.php:568
 msgid "Please provide a name of 1 to 100 characters."
 msgstr ""
 
-#: includes/Rest_Controller.php:557
+#: includes/Rest_Controller.php:574
 #: includes/Rsvp_Repository.php:80
 msgid "Please provide a valid email address."
 msgstr ""
 
-#: includes/Rest_Controller.php:563
+#: includes/Rest_Controller.php:580
 #: includes/Rsvp_Repository.php:68
 msgid "Status must be either going or waitlist."
 msgstr ""
 
-#: includes/Rest_Controller.php:569
+#: includes/Rest_Controller.php:586
 msgid "RSVP could not be saved."
 msgstr ""
 
-#: includes/Rest_Controller.php:791
-#: includes/Rest_Controller.php:835
-#: includes/Rest_Controller.php:865
-#: includes/Rest_Controller.php:898
-#: includes/Rest_Controller.php:1025
+#: includes/Rest_Controller.php:808
+#: includes/Rest_Controller.php:852
+#: includes/Rest_Controller.php:882
+#: includes/Rest_Controller.php:915
+#: includes/Rest_Controller.php:1072
 #: includes/Rsvp_Repository.php:86
 msgid "No such published event."
 msgstr ""
 
-#: includes/Rest_Controller.php:827
+#: includes/Rest_Controller.php:844
 msgid "The online joining details are only available to confirmed attendees."
 msgstr ""
 
-#: includes/Rest_Controller.php:921
+#: includes/Rest_Controller.php:938
 msgid "The eventId parameter is required."
 msgstr ""
 
-#: includes/Rest_Controller.php:961
-#: includes/Rest_Controller.php:989
-#: includes/Rest_Controller.php:997
+#: includes/Rest_Controller.php:978
+#: includes/Rest_Controller.php:1006
+#: includes/Rest_Controller.php:1014
 msgid "No RSVP found with that ID."
 msgstr ""
 
-#: includes/Rest_Controller.php:1034
+#: includes/Rest_Controller.php:1081
 #: includes/Rsvp_Repository.php:101
 msgid "This event has already ended."
 msgstr ""
 
-#: includes/Rest_Controller.php:1151
+#: includes/Rest_Controller.php:1198
 msgid "Too many RSVP attempts. Please try again later."
 msgstr ""
 
@@ -1049,6 +1050,7 @@ msgstr ""
 
 #: includes/Rsvp_Repository.php:126
 #: includes/Rsvp_Repository.php:386
+#: includes/Rsvp_Repository.php:536
 msgid "The event is busy processing another RSVP. Please retry."
 msgstr ""
 
@@ -1069,19 +1071,34 @@ msgstr ""
 msgid "The RSVP could not be deleted due to a database error."
 msgstr ""
 
-#: includes/Rsvp_Repository.php:471
+#: includes/Rsvp_Repository.php:445
+#: includes/Rsvp_Repository.php:559
 msgid "The waitlist promotion failed due to a database error."
 msgstr ""
 
-#: includes/Rsvp_Repository.php:561
+#: includes/Rsvp_Repository.php:513
+#: includes/Rsvp_Repository.php:547
+msgid "No RSVP found."
+msgstr ""
+
+#: includes/Rsvp_Repository.php:517
+#: includes/Rsvp_Repository.php:551
+msgid "Only waitlisted RSVPs can be promoted."
+msgstr ""
+
+#: includes/Rsvp_Repository.php:567
+msgid "No free seat — the event is at capacity."
+msgstr ""
+
+#: includes/Rsvp_Repository.php:693
 msgid "The check-in could not be saved due to a database error."
 msgstr ""
 
-#: includes/Rsvp_Repository.php:824
+#: includes/Rsvp_Repository.php:956
 msgid "The RSVP could not be anonymized due to a database error."
 msgstr ""
 
-#: includes/Rsvp_Repository.php:964
+#: includes/Rsvp_Repository.php:1096
 msgid "The name could not be saved due to a database error."
 msgstr ""
 
@@ -1414,6 +1431,22 @@ msgid "Select an event to see its RSVPs."
 msgstr ""
 
 #: build/admin/index.js:1
+msgid "Could not promote the RSVP — please try again."
+msgstr ""
+
+#: build/admin/index.js:1
+msgid "Confirm promote"
+msgstr ""
+
+#: build/admin/index.js:1
+msgid "Cancel"
+msgstr ""
+
+#: build/admin/index.js:1
+msgid "Promote"
+msgstr ""
+
+#: build/admin/index.js:1
 msgid "Could not save the check-in — please try again."
 msgstr ""
 
@@ -1431,10 +1464,6 @@ msgstr ""
 
 #: build/admin/index.js:1
 msgid "Confirm delete"
-msgstr ""
-
-#: build/admin/index.js:1
-msgid "Cancel"
 msgstr ""
 
 #: build/admin/index.js:1

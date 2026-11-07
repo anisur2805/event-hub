@@ -423,10 +423,9 @@ final class Rsvp_Repository {
 			$result['deleted'] = $previous;
 
 			// Pick the earliest waitlist row (FIFO, id tiebreak) and flip it
-			// in one guarded UPDATE: the capacity subquery is evaluated while
-			// the delete above already freed the seat, and the outer
-			// status re-check makes a concurrent steal impossible (no other
-			// event write can run under this event's advisory lock).
+			// in one guarded UPDATE (the shared guarded_promote helper):
+			// the capacity subquery is evaluated while the delete above
+			// already freed the seat.
 			$pick_query = "SELECT id FROM {$table} WHERE event_id = %d AND status = 'waitlist' ORDER BY created_at ASC, id ASC LIMIT 1";
 
 			$pick_id = absint(
@@ -436,36 +435,11 @@ final class Rsvp_Repository {
 			);
 
 			if ( $pick_id > 0 ) {
-				// The going-seats subquery targets the same table as the
-				// UPDATE — MySQL rejects that directly (error 1093), so the
-				// SUM lives inside a derived table, which materializes
-				// against the post-delete state before the update applies.
-				// The guard still re-checks SEATS (SUM(guests), §2.3) against
-				// capacity inside the statement, exactly like create()'s
-				// INSERT...SELECT predicate; a waitlist row holding guests
-				// promotes only when its own party size is NOT counted yet —
-				// the UPDATE flips the whole row, so the guard is seats-
-				// before-flip, same shape as before (row-based COUNT).
-				$promote_query = "UPDATE {$table} SET status = 'going'
-					WHERE id = %d AND status = 'waitlist'
-					  AND ( (SELECT gc.going FROM (SELECT COALESCE( SUM( guests ), 0 ) AS going FROM {$table} WHERE event_id = %d AND status = 'going') AS gc)
-					        < COALESCE( (SELECT CAST(m.meta_value AS UNSIGNED) FROM {$wpdb->postmeta} m
-					                     WHERE m.post_id = %d AND m.meta_key = 'eh_capacity'
-					                       AND m.meta_value REGEXP '^[0-9]+$'), 999999999 ) )";
+				$outcome = $this->guarded_promote( $pick_id, $event_id );
 
-				$promotion_error = '';
-
-				$updated = (int) $wpdb->query(
-					$wpdb->prepare( $promote_query, $pick_id, $event_id, $event_id ) // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $table derives from $wpdb->prefix.
-				);
-
-				$promotion_error = (string) $wpdb->last_error;
-
-				// rows_affected 0 has two meanings: the guard blocked the flip
-				// (legitimate), or the statement failed outright. Only
-				// $wpdb->last_error distinguishes them, so it was captured
-				// under suppress_errors before reset.
-				if ( 0 === $updated && '' !== $promotion_error ) {
+				// The shared flip saw a statement failure — same surfacing
+				// as the DELETE branch above (never masquerade as success).
+				if ( $outcome['db_error'] ) {
 					return new WP_Error(
 						'eh_db_error',
 						__( 'The waitlist promotion failed due to a database error.', 'event-hub' ),
@@ -473,9 +447,7 @@ final class Rsvp_Repository {
 					);
 				}
 
-				if ( $updated > 0 ) {
-					$result['promoted'] = $this->get( $pick_id );
-				}
+				$result['promoted'] = $outcome['row'];
 			}
 		} finally {
 			$wpdb->suppress_errors( $suppress );
@@ -509,6 +481,166 @@ final class Rsvp_Repository {
 		do_action( 'event_hub_rsvp_cancelled', $result['deleted'], $event_id );
 
 		return $result;
+	}
+
+	/**
+	 * Manual waitlist promotion (ROADMAP 5.7): flips ONE designated waitlist
+	 * row to going while seats remain, bypassing FIFO order — the organizer's
+	 * "let this person in" verb (a party moved up, an off-list guest). The
+	 * flip itself stays the SAME guarded single-statement UPDATE as the
+	 * automatic path (seats-before-flip against live eh_capacity inside the
+	 * statement's WHERE, under the same per-event advisory lock), so both
+	 * paths share one capacity contract and cannot race each other.
+	 *
+	 * Fires `event_hub_rsvp_promoted` (promoted row, event ID) after the lock
+	 * releases — the 5A.2 promotion notice flows to the attendee untouched,
+	 * exactly as for automatic promotions.
+	 *
+	 * @param int $id RSVP row ID (must be a waitlist row).
+	 * @return array<string,mixed>|WP_Error The re-read promoted row, or:
+	 *               eh_not_found 404 (unknown / already-gone row),
+	 *               eh_not_waitlist 409 (row is going — nothing to promote),
+	 *               eh_event_cancelled 409 (cancelled events promote no one),
+	 *               eh_capacity_full 409 (guard blocked: no free seat),
+	 *               eh_busy 409 (lock contention), eh_db_error 500.
+	 */
+	public function promote( int $id ) {
+		global $wpdb;
+
+		$previous = $this->get( $id );
+
+		if ( null === $previous ) {
+			return new WP_Error( 'eh_not_found', __( 'No RSVP found.', 'event-hub' ), array( 'status' => 404 ) );
+		}
+
+		if ( 'waitlist' !== ( $previous['status'] ?? '' ) ) {
+			return new WP_Error( 'eh_not_waitlist', __( 'Only waitlisted RSVPs can be promoted.', 'event-hub' ), array( 'status' => 409 ) );
+		}
+
+		$event_id = (int) $previous['event_id'];
+
+		// A cancelled event takes no new going rows (parity with create()):
+		// the surface stays honest about what attending means. Postponed
+		// stays allowed — parties carry over to the new date.
+		if ( Event_Status::blocked( $event_id ) ) {
+			return new WP_Error( 'eh_event_cancelled', __( 'This event has been cancelled.', 'event-hub' ), array( 'status' => 409 ) );
+		}
+
+		$lock = 'eh_rsvp_' . $event_id;
+
+		$acquired = $wpdb->get_var(
+			$wpdb->prepare( 'SELECT GET_LOCK( %s, 2 )', $lock )
+		);
+
+		if ( '1' !== (string) $acquired ) {
+			return new WP_Error( 'eh_busy', __( 'The event is busy processing another RSVP. Please retry.', 'event-hub' ), array( 'status' => 409 ) );
+		}
+
+		$suppress = $wpdb->suppress_errors( true );
+
+		try {
+			// Re-read inside the lock: the row may have been deleted or
+			// promoted outright between the pre-check and lock acquisition.
+			$fresh = $this->get( $id );
+
+			if ( null === $fresh ) {
+				return new WP_Error( 'eh_not_found', __( 'No RSVP found.', 'event-hub' ), array( 'status' => 404 ) );
+			}
+
+			if ( 'waitlist' !== ( $fresh['status'] ?? '' ) ) {
+				return new WP_Error( 'eh_not_waitlist', __( 'Only waitlisted RSVPs can be promoted.', 'event-hub' ), array( 'status' => 409 ) );
+			}
+
+			$outcome = $this->guarded_promote( $id, $event_id );
+
+			if ( $outcome['db_error'] ) {
+				return new WP_Error(
+					'eh_db_error',
+					__( 'The waitlist promotion failed due to a database error.', 'event-hub' ),
+					array( 'status' => 500 )
+				);
+			}
+
+			// A clean statement with 0 affected rows is the capacity guard
+			// saying no — the event is full.
+			if ( null === $outcome['row'] ) {
+				return new WP_Error( 'eh_capacity_full', __( 'No free seat — the event is at capacity.', 'event-hub' ), array( 'status' => 409 ) );
+			}
+
+			$promoted = $outcome['row'];
+		} finally {
+			$wpdb->suppress_errors( $suppress );
+			$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK( %s )', $lock ) );
+		}
+
+		/**
+		 * The same promotion contract as the automatic path.
+		 *
+		 * @param array<string,mixed> $promoted Promoted RSVP row.
+		 * @param int                 $event_id Event post ID.
+		 */
+		do_action( 'event_hub_rsvp_promoted', $promoted, $event_id );
+
+		return $promoted;
+	}
+
+	/**
+	 * THE guarded flip, shared by the automatic (delete_and_promote) and
+	 * manual (promote) paths. Single-statement UPDATE whose WHERE re-checks
+	 * going SEATS (SUM(guests), §2.3) against live eh_capacity — exactly
+	 * create()'s INSERT predicate — plus a status re-check so a concurrent
+	 * steal is impossible (no other event write runs under the lock). MUST
+	 * be called under the event's advisory lock.
+	 *
+	 * The going-seats subquery targets the same table as the UPDATE — MySQL
+	 * rejects that directly (error 1093), so the SUM lives inside a derived
+	 * table, which materializes against the pre-flip state before the
+	 * update applies. A waitlist row's own guests therefore promote only
+	 * when its party size is NOT yet counted (seats-before-flip, same
+	 * shape as create()).
+	 *
+	 * @param int $row_id   Row to flip.
+	 * @param int $event_id Owning event.
+	 * @return array{row:array<string,mixed>|null,db_error:bool} `row` is the
+	 *                                  re-read promoted row; null means the
+	 *                                  guard blocked (no free seat) or the
+	 *                                  row vanished. `db_error` true marks a
+	 *                                  statement failure — callers surface
+	 *                                  eh_db_error and must ignore `row`.
+	 */
+	private function guarded_promote( int $row_id, int $event_id ): array {
+		global $wpdb;
+
+		$table = $this->table();
+
+		$promote_query = "UPDATE {$table} SET status = 'going'
+			WHERE id = %d AND status = 'waitlist'
+			  AND ( (SELECT gc.going FROM (SELECT COALESCE( SUM( guests ), 0 ) AS going FROM {$table} WHERE event_id = %d AND status = 'going') AS gc)
+			        < COALESCE( (SELECT CAST(m.meta_value AS UNSIGNED) FROM {$wpdb->postmeta} m
+			                     WHERE m.post_id = %d AND m.meta_key = 'eh_capacity'
+			                       AND m.meta_value REGEXP '^[0-9]+$'), 999999999 ) )";
+
+		$updated = (int) $wpdb->query(
+			$wpdb->prepare( $promote_query, $row_id, $event_id, $event_id ) // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $table derives from $wpdb->prefix.
+		);
+
+		$promotion_error = (string) $wpdb->last_error;
+
+		// rows_affected 0 has two meanings: the guard blocked the flip
+		// (legitimate), or the statement failed outright. Only
+		// $wpdb->last_error distinguishes them, so it was captured
+		// under suppress_errors before reset.
+		if ( 0 === $updated && '' !== $promotion_error ) {
+			return array(
+				'row'      => null,
+				'db_error' => true,
+			);
+		}
+
+		return array(
+			'row'      => $updated > 0 ? $this->get( $row_id ) : null,
+			'db_error' => false,
+		);
 	}
 
 	/**

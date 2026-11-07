@@ -40,6 +40,9 @@ function AdminApp(): ReactElement {
 	const [ loading, setLoading ] = useState( true );
 	const [ error, setError ] = useState< ErrorState >( null );
 	const [ confirmingId, setConfirmingId ] = useState< number | null >( null );
+	// Two-step confirm for manual promotion, separate from the delete
+	// confirm so the two destructive-ish verbs never render open at once.
+	const [ promotingId, setPromotingId ] = useState< number | null >( null );
 
 	// No boot data: render a terminal error (PHP failed to inline it).
 	if ( ! boot ) {
@@ -63,6 +66,7 @@ function AdminApp(): ReactElement {
 			setTotalPages( 1 );
 			setError( null );
 			setConfirmingId( null );
+			setPromotingId( null );
 			setLoading( false );
 			return;
 		}
@@ -71,6 +75,7 @@ function AdminApp(): ReactElement {
 		setLoading( true );
 		setError( null );
 		setConfirmingId( null );
+		setPromotingId( null );
 
 		const params = new URLSearchParams( {
 			eventId: String( eventId ),
@@ -226,6 +231,65 @@ function AdminApp(): ReactElement {
 		}
 	};
 
+	// Manual waitlist promotion (ROADMAP 5.7): the organizer's per-person
+	// "let them in" verb. On success the row's status flips server-side;
+	// under a status-filtered list the row no longer matches, so dropping
+	// it here keeps the view honest without a refetch. In the All view the
+	// row stays visible with its new status (no refetch needed either —
+	// the list is not status-sorted beyond the server's ASC id order).
+	const promoteRsvp = async ( id: number ): Promise< void > => {
+		setError( null );
+		try {
+			const response = await fetch(
+				`${ boot.restUrl }event-hub/v1/rsvps/${ id }/promote`,
+				{
+					method: 'POST',
+					headers: { 'X-WP-Nonce': boot.nonce },
+				}
+			);
+			if ( response.status === 404 ) {
+				// Row vanished under us — drop it from the list.
+				setRows( ( current ) =>
+					current.filter( ( row ) => row.id !== id )
+				);
+				setTotal( ( current ) => Math.max( 0, current - 1 ) );
+				return;
+			}
+			if ( ! response.ok ) {
+				// eh_capacity_full ("No free seat…") and eh_busy carry the
+				// server's exact message; prefer it over a generic string.
+				const body = ( await response.json().catch( () => null ) ) as {
+					message?: string;
+				} | null;
+				setError(
+					body?.message && '' !== body.message
+						? body.message
+						: __(
+								'Could not promote the RSVP — please try again.',
+								'event-hub'
+							)
+				);
+				return;
+			}
+			setConfirmingId( null );
+			setPromotingId( null );
+			// Status-filtered view: the row left the waitlist set.
+			if ( 'waitlist' === status ) {
+				setRows( ( current ) =>
+					current.filter( ( row ) => row.id !== id )
+				);
+				setTotal( ( current ) => Math.max( 0, current - 1 ) );
+			}
+		} catch {
+			setError(
+				__(
+					'Could not promote the RSVP — please try again.',
+					'event-hub'
+				)
+			);
+		}
+	};
+
 	const eventOptions = [
 		{ value: '0', label: __( 'Select an event', 'event-hub' ) },
 		...boot.events.map( ( event ) => ( {
@@ -340,25 +404,73 @@ function AdminApp(): ReactElement {
 										).toLocaleString() }
 									</td>
 									<td>
-										<Button
-											variant="tertiary"
-											onClick={ () =>
-												setCheckIn(
-													row.id,
-													! row.checkedInAt
-												)
-											}
-										>
-											{ row.checkedInAt
-												? __(
-														'Undo check-in',
-														'event-hub'
-													)
-												: __(
-														'Check in',
+										{ 'waitlist' === row.status &&
+											( promotingId === row.id ? (
+												<span className="event-hub-admin__confirm">
+													<Button
+														variant="primary"
+														onClick={ () =>
+															promoteRsvp(
+																row.id
+															)
+														}
+													>
+														{ __(
+															'Confirm promote',
+															'event-hub'
+														) }
+													</Button>
+													<Button
+														variant="tertiary"
+														onClick={ () =>
+															setPromotingId(
+																null
+															)
+														}
+													>
+														{ __(
+															'Cancel',
+															'event-hub'
+														) }
+													</Button>
+												</span>
+											) : (
+												<Button
+													variant="tertiary"
+													onClick={ () => {
+														setConfirmingId( null );
+														setPromotingId(
+															row.id
+														);
+													} }
+												>
+													{ __(
+														'Promote',
 														'event-hub'
 													) }
-										</Button>
+												</Button>
+											) ) }
+										{ 'waitlist' !== row.status && (
+											<Button
+												variant="tertiary"
+												onClick={ () =>
+													setCheckIn(
+														row.id,
+														! row.checkedInAt
+													)
+												}
+											>
+												{ row.checkedInAt
+													? __(
+															'Undo check-in',
+															'event-hub'
+														)
+													: __(
+															'Check in',
+															'event-hub'
+														) }
+											</Button>
+										) }
 										{ confirmingId === row.id ? (
 											<span className="event-hub-admin__confirm">
 												<Button
@@ -389,9 +501,10 @@ function AdminApp(): ReactElement {
 											<Button
 												isDestructive
 												variant="tertiary"
-												onClick={ () =>
-													setConfirmingId( row.id )
-												}
+												onClick={ () => {
+													setPromotingId( null );
+													setConfirmingId( row.id );
+												} }
 											>
 												{ __( 'Delete', 'event-hub' ) }
 											</Button>
