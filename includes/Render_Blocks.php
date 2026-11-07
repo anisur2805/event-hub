@@ -614,6 +614,10 @@ final class Render_Blocks {
 			'name'         => 0 !== $user->ID ? $user->display_name : '',
 			'email'        => 0 !== $user->ID ? $user->user_email : '',
 			'guests'       => 1,
+			// DB 1.7.0 optional fields: SSR defaults resolve the binds in PHP
+			// (#30 rule); the store carries the typed values.
+			'phone'        => '',
+			'note'         => '',
 			// 5A.1: PHP NEVER pre-renders a token; the store fills this from
 			// the 201 body client-side. Server default '' keeps the SSR
 			// region directive-safe (every bind target resolves in PHP, #30).
@@ -757,6 +761,32 @@ final class Render_Blocks {
 								<option value="<?php echo esc_attr( (string) $seat ); ?>"><?php echo esc_html( (string) number_format_i18n( $seat ) ); ?></option>
 							<?php endfor; ?>
 						</select>
+						<?php
+						// DB 1.7.0 optional attendee fields: both bind the same
+						// way as name/email; empty submits as '' (repository
+						// stores NULL). No required-ness, no pattern gate.
+						?>
+						<label class="event-hub-rsvp__label" for="event-hub-phone-<?php echo esc_attr( (string) $event_id ); ?>"><?php esc_html_e( 'Phone (optional)', 'event-hub' ); ?></label>
+						<input
+							id="event-hub-phone-<?php echo esc_attr( (string) $event_id ); ?>"
+							class="event-hub-rsvp__input"
+							type="tel"
+							name="event_hub_phone"
+							autocomplete="tel"
+							maxlength="32"
+							data-wp-bind--value="context.phone"
+							data-wp-on--input="actions.setPhone"
+						/>
+						<label class="event-hub-rsvp__label" for="event-hub-note-<?php echo esc_attr( (string) $event_id ); ?>"><?php esc_html_e( 'Note for the organizer (optional)', 'event-hub' ); ?></label>
+						<textarea
+							id="event-hub-note-<?php echo esc_attr( (string) $event_id ); ?>"
+							class="event-hub-rsvp__input"
+							name="event_hub_note"
+							maxlength="500"
+							rows="3"
+							data-wp-bind--value="context.note"
+							data-wp-on--input="actions.setNote"
+						></textarea>
 						<?php
 						// Honeypot + time-trap token (T15, Form_Guard). The trap
 						// field is visually hidden (CSS clip); the token is opaque.

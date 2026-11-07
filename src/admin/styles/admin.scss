@@ -24,3 +24,15 @@
 	align-items: center;
 	margin-block: 1rem;
 }
+
+/* DB 1.7.0: the optional phone rides the name cell as muted text; the note
+ * breaks onto its own muted line beneath it. */
+.event-hub-admin__phone {
+	color: #646970;
+}
+
+.event-hub-admin__note {
+	display: block;
+	color: #646970;
+	font-style: italic;
+}

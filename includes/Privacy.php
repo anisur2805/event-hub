@@ -125,6 +125,27 @@ final class Privacy {
 					? self::display_datetime( $checked_in )
 					: __( 'No', 'event-hub' ),
 			);
+
+			// DB 1.7.0 pairing: the optional PII the attendee gave rides the
+			// export too. Emitted only when set so clean rows keep clean
+			// exports.
+			$phone = (string) ( $row['phone'] ?? '' );
+
+			if ( '' !== $phone ) {
+				$item_data[] = array(
+					'name'  => __( 'Phone', 'event-hub' ),
+					'value' => $phone,
+				);
+			}
+
+			$note = (string) ( $row['attendee_note'] ?? '' );
+
+			if ( '' !== $note ) {
+				$item_data[] = array(
+					'name'  => __( 'Note', 'event-hub' ),
+					'value' => $note,
+				);
+			}
 		}
 
 		return array(

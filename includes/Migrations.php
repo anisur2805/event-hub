@@ -77,6 +77,8 @@ final class Migrations {
 	manage_token CHAR(64) NULL DEFAULT NULL,
 	reminded_at DATETIME NULL DEFAULT NULL,
 	status_notified_gen BIGINT UNSIGNED NOT NULL DEFAULT 0,
+	phone VARCHAR(32) NULL DEFAULT NULL,
+	attendee_note VARCHAR(500) NULL DEFAULT NULL,
 	PRIMARY KEY  (id),
 	UNIQUE KEY uniq_event_email (event_id, email),
 	KEY manage_token (manage_token)

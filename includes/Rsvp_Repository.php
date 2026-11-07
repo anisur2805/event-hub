@@ -35,6 +35,22 @@ final class Rsvp_Repository {
 	public const MAX_GUESTS = 10;
 
 	/**
+	 * Storage cap of the optional attendee phone value (DB 1.7.0 — the column
+	 * is VARCHAR(32)). Shared by the repository guard and the REST schema.
+	 *
+	 * @var int
+	 */
+	public const MAX_PHONE = 32;
+
+	/**
+	 * Storage cap of the optional attendee note value (DB 1.7.0 — the column
+	 * is VARCHAR(500)). Shared by the repository guard and the REST schema.
+	 *
+	 * @var int
+	 */
+	public const MAX_NOTE = 500;
+
+	/**
 	 * Full table name, resolved lazily from $wpdb.
 	 *
 	 * @return string
@@ -59,9 +75,15 @@ final class Rsvp_Repository {
 	 * @param string $status   Either 'going' or 'waitlist'.
 	 * @param int    $event_id Event post ID.
 	 * @param int    $guests   Seats this row reserves (1..MAX_GUESTS, ROADMAP §2.3).
+	 * @param string $phone    Optional sanitized attendee phone (DB 1.7.0; ''
+	 *                         = none; rejected past MAX_PHONE so MySQL never
+	 *                         truncates while the API answers 201 — the BUG 4
+	 *                         rule).
+	 * @param string $note     Optional sanitized attendee note (DB 1.7.0; ''
+	 *                         = none; rejected past MAX_NOTE, same rule).
 	 * @return array{rsvp:array<string,mixed>,counts:array{going:int,waitlist:int},manage_token:string}|WP_Error
 	 */
-	public function create( string $name, string $email, string $status, int $event_id, int $guests = 1 ) {
+	public function create( string $name, string $email, string $status, int $event_id, int $guests = 1, string $phone = '', string $note = '' ) {
 		global $wpdb;
 
 		if ( 'waitlist' !== $status && 'going' !== $status ) {
@@ -78,6 +100,16 @@ final class Rsvp_Repository {
 		// the INSERT so no data is corrupted.
 		if ( strlen( $email ) > 190 ) {
 			return new WP_Error( 'eh_invalid_email', __( 'Please provide a valid email address.', 'event-hub' ), array( 'status' => 400 ) );
+		}
+
+		// DB 1.7.0 storage caps, same BUG 4 rule as the email cap above:
+		// reject before the INSERT rather than let MySQL truncate silently.
+		if ( strlen( $phone ) > self::MAX_PHONE ) {
+			return new WP_Error( 'eh_invalid_phone', __( 'Please provide a shorter phone number.', 'event-hub' ), array( 'status' => 400 ) );
+		}
+
+		if ( strlen( $note ) > self::MAX_NOTE ) {
+			return new WP_Error( 'eh_invalid_note', __( 'Please provide a shorter note.', 'event-hub' ), array( 'status' => 400 ) );
 		}
 
 		$event = get_post( $event_id );
@@ -165,8 +197,8 @@ final class Rsvp_Repository {
 		// Assemble the statement first; phpcs:ignore below sits on the query
 		// line that holds the $table variable (value from $wpdb->prefix, never
 		// user input). All values remain placeholders.
-		$insert_query = 'INSERT INTO ' . $table . " (event_id, name, email, status, guests, created_at, manage_token)
-			SELECT %d, %s, %s, %s, %d, %s, %s FROM DUAL
+		$insert_query = 'INSERT INTO ' . $table . " (event_id, name, email, status, guests, created_at, manage_token, phone, attendee_note)
+			SELECT %d, %s, %s, %s, %d, %s, %s, NULLIF( %s, '' ), NULLIF( %s, '' ) FROM DUAL
 			WHERE %s = 'waitlist'
 			   OR ( (SELECT COALESCE( SUM( guests ), 0 ) FROM " . $table . " WHERE event_id = %d AND status = 'going')
 			        < COALESCE( (SELECT CAST(m.meta_value AS UNSIGNED) FROM {$wpdb->postmeta} m
@@ -182,6 +214,8 @@ final class Rsvp_Repository {
 			$guests,
 			current_time( 'mysql' ),
 			$token_hash,
+			$phone,
+			$note,
 			$status,
 			$event_id,
 			$event_id
@@ -910,9 +944,10 @@ final class Rsvp_Repository {
 	 * UNIQUE-key safe; deliberately NO @ so is_email() rejects it — the
 	 * mail sweeps' self-healing guard stamps such rows never to be
 	 * re-examined), manage_token → NULL (kills the emailed manage link),
-	 * reminder/status stamps maximized (the hourly sweeps never target a
-	 * dead row). Capacity math is untouched — deleting would free seats
-	 * and skew every count surface.
+	 * phone + note → NULL (DB 1.7.0 privacy pairing — PII/free text must
+	 * not outlive the erasure), reminder/status stamps maximized (the
+	 * hourly sweeps never target a dead row). Capacity math is untouched —
+	 * deleting would free seats and skew every count surface.
 	 *
 	 * @param int $id RSVP row ID.
 	 * @return true|WP_Error True on success (including an already-anonymized
@@ -927,6 +962,8 @@ final class Rsvp_Repository {
 			SET name = %s,
 				email = %s,
 				manage_token = NULL,
+				phone = NULL,
+				attendee_note = NULL,
 				reminded_at = COALESCE( reminded_at, %s ),
 				status_notified_gen = GREATEST( status_notified_gen, %d )
 			WHERE id = %d";
@@ -1142,7 +1179,9 @@ final class Rsvp_Repository {
 	}
 
 	/**
-	 * Shapes a raw row into typed, camelCase keys.
+	 * Shapes a raw row into typed keys for every consumer (admin list, CSV,
+	 * privacy, REST serializer). NULL phone/note collapse to '' — "not
+	 * given" reads as the empty string on every surface.
 	 *
 	 * @param array<string,mixed> $row Raw row.
 	 * @return array<string,mixed>
@@ -1155,6 +1194,9 @@ final class Rsvp_Repository {
 			'email'         => (string) ( $row['email'] ?? '' ),
 			'status'        => (string) ( $row['status'] ?? '' ),
 			'guests'        => isset( $row['guests'] ) ? max( 1, (int) $row['guests'] ) : 1,
+			// DB 1.7.0: NULL = not given; consumers read ''.
+			'phone'         => (string) ( $row['phone'] ?? '' ),
+			'attendee_note' => (string) ( $row['attendee_note'] ?? '' ),
 			'created_at'    => (string) ( $row['created_at'] ?? '' ),
 			'checked_in_at' => isset( $row['checked_in_at'] )
 				? (string) $row['checked_in_at']

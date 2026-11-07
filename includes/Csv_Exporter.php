@@ -148,6 +148,8 @@ final class Csv_Exporter {
 		'Seats',
 		'Registered At',
 		'Checked In At',
+		'Phone',
+		'Note',
 	);
 
 	/**
@@ -174,6 +176,9 @@ final class Csv_Exporter {
 			$this->neutralize( (string) ( isset( $rsvp['guests'] ) ? max( 1, (int) $rsvp['guests'] ) : 1 ) ),
 			$this->neutralize( Rest_Controller::to_iso8601( (string) ( $rsvp['created_at'] ?? '' ) ) ),
 			$this->neutralize( $checked_in_at ),
+			// DB 1.7.0: NULL and '' collapse to the same empty cell.
+			$this->neutralize( (string) ( $rsvp['phone'] ?? '' ) ),
+			$this->neutralize( (string) ( $rsvp['attendee_note'] ?? '' ) ),
 		);
 	}
 

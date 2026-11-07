@@ -27,6 +27,10 @@ export interface RsvpRow {
 	status: 'going' | 'waitlist';
 	/** Seats this row reserves (2.3); always >= 1. */
 	guests: number;
+	/** Optional attendee phone (DB 1.7.0); '' = not given. */
+	phone: string;
+	/** Optional attendee note for the organizer (DB 1.7.0); '' = not given. */
+	note: string;
 	createdAt: string;
 	/** ISO 8601 check-in stamp; null until the organizer checks the row in. */
 	checkedInAt: string | null;

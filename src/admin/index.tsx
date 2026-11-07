@@ -387,7 +387,21 @@ function AdminApp(): ReactElement {
 						{ eventId &&
 							rows.map( ( row ) => (
 								<tr key={ row.id }>
-									<td>{ row.name }</td>
+									<td>
+										{ row.name }
+										{ row.phone && (
+											<span className="event-hub-admin__phone">
+												{ ' · ' }
+												{ row.phone }
+											</span>
+										) }
+										{ row.note && (
+											<span className="event-hub-admin__note">
+												<br />
+												{ row.note }
+											</span>
+										) }
+									</td>
 									<td>{ row.email }</td>
 									<td>{ row.status }</td>
 									<td>{ row.guests }</td>

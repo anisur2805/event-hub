@@ -92,6 +92,28 @@ const { state } = store< EventHubStore >( 'event-hub', {
 			getContext< RsvpContext >().guests =
 				parseInt( select.value, 10 ) || 1;
 		},
+		/**
+		 * Keep the optional phone in context as they type (DB 1.7.0).
+		 * @param event
+		 */
+		setPhone( event: Event ) {
+			const input = event.target as HTMLInputElement | null;
+			if ( ! input ) {
+				return;
+			}
+			getContext< RsvpContext >().phone = input.value;
+		},
+		/**
+		 * Keep the optional note in context as they type (DB 1.7.0).
+		 * @param event
+		 */
+		setNote( event: Event ) {
+			const input = event.target as HTMLTextAreaElement | null;
+			if ( ! input ) {
+				return;
+			}
+			getContext< RsvpContext >().note = input.value;
+		},
 		*rsvpGoing( event: Event ): Generator< unknown, void, unknown > {
 			const el =
 				event?.currentTarget instanceof Element
@@ -170,6 +192,8 @@ function* rsvp(
 				email,
 				status,
 				guests: ctx.guests ?? 1,
+				phone: ( ctx.phone ?? '' ).trim(),
+				note: ( ctx.note ?? '' ).trim(),
 				...guardFields( triggerEl ),
 			} ),
 		} ) ) as Response;

@@ -62,6 +62,10 @@ export interface RsvpContext {
 	name: string;
 	/** Email typed by the visitor; kept in context via actions.setEmail. */
 	email: string;
+	/** Optional phone typed by the visitor (DB 1.7.0); via actions.setPhone. */
+	phone: string;
+	/** Optional note typed by the visitor (DB 1.7.0); via actions.setNote. */
+	note: string;
 	/** Seats this RSVP reserves (2.3); 1..10, kept in context via actions.setGuests. */
 	guests: number;
 	/**
@@ -159,6 +163,8 @@ export interface EventHubStore {
 		setName: ( event: Event ) => void;
 		setEmail: ( event: Event ) => void;
 		setGuests: ( event: Event ) => void;
+		setPhone: ( event: Event ) => void;
+		setNote: ( event: Event ) => void;
 		rsvpGoing: () => Generator< unknown, void, unknown >;
 		rsvpWaitlist: () => Generator< unknown, void, unknown >;
 		copyManageLink: ( event: Event ) => Promise< void >;

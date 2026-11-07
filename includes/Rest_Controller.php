@@ -121,6 +121,25 @@ final class Rest_Controller {
 						 */
 						'sanitize_callback' => static fn ( $value ): int => min( Rsvp_Repository::MAX_GUESTS, max( 1, absint( $value ) ) ),
 					),
+
+					/*
+					 * DB 1.7.0 optional attendee fields: plain contact/value
+					 * strings — no phone-pattern gate (legitimate formats are
+					 * too varied; the storage caps are the gate, repository
+					 * side 400s past them).
+					 */
+					'phone'   => array(
+						'required'          => false,
+						'default'           => '',
+						'type'              => 'string',
+						'sanitize_callback' => static fn ( $value ): string => (string) sanitize_text_field( (string) $value ),
+					),
+					'note'    => array(
+						'required'          => false,
+						'default'           => '',
+						'type'              => 'string',
+						'sanitize_callback' => static fn ( $value ): string => (string) sanitize_textarea_field( (string) $value ),
+					),
 				),
 			)
 		);
@@ -604,7 +623,9 @@ final class Rest_Controller {
 			(string) sanitize_email( $raw_email ),
 			$status,
 			$event_id,
-			isset( $params['guests'] ) ? absint( $params['guests'] ) : 1
+			isset( $params['guests'] ) ? absint( $params['guests'] ) : 1,
+			is_string( $params['phone'] ?? null ) ? (string) $params['phone'] : '',
+			is_string( $params['note'] ?? null ) ? (string) $params['note'] : ''
 		);
 
 		if ( is_wp_error( $result ) ) {
@@ -1253,6 +1274,9 @@ final class Rest_Controller {
 			'email'       => (string) ( $row['email'] ?? '' ),
 			'status'      => (string) ( $row['status'] ?? '' ),
 			'guests'      => isset( $row['guests'] ) ? max( 1, (int) $row['guests'] ) : 1,
+			// DB 1.7.0: null = not given ('' never stores).
+			'phone'       => (string) ( $row['phone'] ?? '' ),
+			'note'        => (string) ( $row['attendee_note'] ?? '' ),
 			'createdAt'   => self::to_iso8601( (string) ( $row['created_at'] ?? '' ) ),
 			'checkedInAt' => isset( $row['checked_in_at'] )
 				? self::to_iso8601( (string) $row['checked_in_at'] )
