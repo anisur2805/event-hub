@@ -145,6 +145,51 @@ final class Plugin {
 		$admin_columns = new Admin_Columns();
 		$admin_columns->boot();
 
+		$duplicator = new Event_Duplicator();
+		$duplicator->boot();
+
+		// Copy-success notice (ROADMAP §5B): the duplicator redirects back
+		// to the Events list with eh_copied=<id>; this renders the one-shot
+		// confirmation whose link opens the draft for editing.
+		add_action(
+			'admin_notices',
+			static function (): void {
+				$screen = get_current_screen();
+
+				if ( ! $screen || 'edit-eh_event' !== (string) $screen->id ) {
+					return;
+				}
+
+				// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only notice flag, no state change.
+				$copied = isset( $_GET['eh_copied'] ) ? absint( wp_unslash( $_GET['eh_copied'] ) ) : 0;
+
+				if ( $copied <= 0 || 'draft' !== (string) get_post_status( $copied ) ) {
+					return;
+				}
+
+				$edit_link = get_edit_post_link( $copied );
+
+				if ( ! is_string( $edit_link ) || '' === $edit_link ) {
+					return;
+				}
+
+				printf(
+					'<div class="notice notice-success is-dismissible"><p>%s</p></div>',
+					esc_html(
+						sprintf(
+							/* translators: %s: draft event edit link. */
+							__( 'Event copied as a draft. %s', 'event-hub' ),
+							sprintf(
+								'<a href="%s">%s</a>',
+								esc_url( $edit_link ),
+								esc_html__( 'Edit the copy', 'event-hub' )
+							)
+						)
+					)
+				);
+			}
+		);
+
 		$this->series_engine->boot();
 		$this->reminders->boot();
 

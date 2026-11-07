@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-11-07T05:34:26+00:00\n"
+"POT-Creation-Date: 2026-11-07T05:42:52+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: event-hub\n"
@@ -19,7 +19,7 @@ msgstr ""
 #: event-hub.php
 #: includes/Admin_Page.php:40
 #: includes/Dashboard_Widget.php:61
-#: includes/Plugin.php:791
+#: includes/Plugin.php:836
 msgid "Event Hub"
 msgstr ""
 
@@ -36,7 +36,7 @@ msgstr ""
 
 #: includes/Admin_Columns.php:56
 #: includes/Admin_Columns.php:65
-#: includes/Plugin.php:361
+#: includes/Plugin.php:406
 #: includes/Render_Blocks.php:890
 #: build/admin/event-details.js:1
 msgid "Venue"
@@ -54,9 +54,9 @@ msgid "Series"
 msgstr ""
 
 #: includes/Admin_Columns.php:101
-#: includes/Admin_Columns.php:216
-#: includes/Admin_Columns.php:293
-#: includes/Admin_Columns.php:305
+#: includes/Admin_Columns.php:225
+#: includes/Admin_Columns.php:302
+#: includes/Admin_Columns.php:314
 #: includes/Dashboard_Widget.php:212
 #: includes/Dashboard_Widget.php:222
 #: includes/Dashboard_Widget.php:267
@@ -91,45 +91,49 @@ msgstr ""
 msgid "Export CSV"
 msgstr ""
 
+#: includes/Admin_Columns.php:206
+msgid "Copy"
+msgstr ""
+
 #. translators: %s: series seed event title.
-#: includes/Admin_Columns.php:229
+#: includes/Admin_Columns.php:238
 #, php-format
 msgid "↳ %s"
 msgstr ""
 
-#: includes/Admin_Columns.php:232
+#: includes/Admin_Columns.php:241
 msgid "↳ (deleted series)"
 msgstr ""
 
-#: includes/Admin_Columns.php:240
+#: includes/Admin_Columns.php:249
 #: build/admin/event-details.js:1
 msgid "Daily"
 msgstr ""
 
-#: includes/Admin_Columns.php:241
+#: includes/Admin_Columns.php:250
 #: build/admin/event-details.js:1
 msgid "Weekly"
 msgstr ""
 
-#: includes/Admin_Columns.php:242
+#: includes/Admin_Columns.php:251
 #: build/admin/event-details.js:1
 msgid "Monthly"
 msgstr ""
 
 #. translators: %s: invalid stored frequency value.
-#: includes/Admin_Columns.php:254
+#: includes/Admin_Columns.php:263
 #, php-format
 msgid "Invalid (%s) — treated as one-off"
 msgstr ""
 
 #. translators: %d: interval (every N days/weeks/months).
-#: includes/Admin_Columns.php:267
+#: includes/Admin_Columns.php:276
 #, php-format
 msgid " ×%d"
 msgstr ""
 
 #. translators: %s: last occurrence date (Y-m-d).
-#: includes/Admin_Columns.php:276
+#: includes/Admin_Columns.php:285
 #, php-format
 msgid ", until %s"
 msgstr ""
@@ -144,6 +148,7 @@ msgstr ""
 
 #: includes/Admin_Page.php:69
 #: includes/Csv_Exporter.php:96
+#: includes/Event_Duplicator.php:118
 msgid "Forbidden"
 msgstr ""
 
@@ -194,7 +199,7 @@ msgstr ""
 
 #: includes/Admin_Page.php:348
 #: includes/Admin_Page.php:385
-#: includes/Plugin.php:294
+#: includes/Plugin.php:339
 #: includes/Privacy.php:94
 #: build/admin/index.js:1
 #: build/blocks/event-card/index.js:2
@@ -271,10 +276,13 @@ msgid "You are not allowed to export RSVPs."
 msgstr ""
 
 #: includes/Csv_Exporter.php:108
+#: includes/Event_Duplicator.php:130
+#: includes/Event_Duplicator.php:166
 msgid "Unknown event."
 msgstr ""
 
 #: includes/Csv_Exporter.php:109
+#: includes/Event_Duplicator.php:131
 msgid "Not found"
 msgstr ""
 
@@ -326,6 +334,24 @@ msgstr ""
 #: includes/Dashboard_Widget.php:274
 #, php-format
 msgid "%s ago"
+msgstr ""
+
+#: includes/Event_Duplicator.php:117
+msgid "You are not allowed to duplicate events."
+msgstr ""
+
+#: includes/Event_Duplicator.php:141
+msgid "Copy failed"
+msgstr ""
+
+#. translators: %s: source event title.
+#: includes/Event_Duplicator.php:175
+#, php-format
+msgid "Copy of %s"
+msgstr ""
+
+#: includes/Event_Duplicator.php:190
+msgid "The event copy could not be created."
 msgstr ""
 
 #: includes/Form_Guard.php:145
@@ -506,171 +532,181 @@ msgstr ""
 msgid "Good news — a spot opened up and your waitlisted RSVP is now a confirmed booking. No action needed."
 msgstr ""
 
-#: includes/Plugin.php:293
-#: includes/Plugin.php:302
+#. translators: %s: draft event edit link.
+#: includes/Plugin.php:181
+#, php-format
+msgid "Event copied as a draft. %s"
+msgstr ""
+
+#: includes/Plugin.php:185
+msgid "Edit the copy"
+msgstr ""
+
+#: includes/Plugin.php:338
+#: includes/Plugin.php:347
 msgid "Events"
 msgstr ""
 
-#: includes/Plugin.php:295
+#: includes/Plugin.php:340
 msgid "Add New Event"
 msgstr ""
 
-#: includes/Plugin.php:296
+#: includes/Plugin.php:341
 msgid "Edit Event"
 msgstr ""
 
-#: includes/Plugin.php:297
+#: includes/Plugin.php:342
 msgid "New Event"
 msgstr ""
 
-#: includes/Plugin.php:298
+#: includes/Plugin.php:343
 msgid "View Event"
 msgstr ""
 
-#: includes/Plugin.php:299
+#: includes/Plugin.php:344
 msgid "Search Events"
 msgstr ""
 
-#: includes/Plugin.php:300
+#: includes/Plugin.php:345
 msgid "No events found"
 msgstr ""
 
-#: includes/Plugin.php:301
+#: includes/Plugin.php:346
 msgid "All Events"
 msgstr ""
 
-#: includes/Plugin.php:335
+#: includes/Plugin.php:380
 msgid "Event Categories"
 msgstr ""
 
-#: includes/Plugin.php:336
+#: includes/Plugin.php:381
 msgid "Event Category"
 msgstr ""
 
-#: includes/Plugin.php:360
-#: includes/Plugin.php:367
+#: includes/Plugin.php:405
+#: includes/Plugin.php:412
 msgid "Venues"
 msgstr ""
 
-#: includes/Plugin.php:362
+#: includes/Plugin.php:407
 msgid "Add New Venue"
 msgstr ""
 
-#: includes/Plugin.php:363
+#: includes/Plugin.php:408
 msgid "Edit Venue"
 msgstr ""
 
-#: includes/Plugin.php:364
+#: includes/Plugin.php:409
 msgid "Search Venues"
 msgstr ""
 
-#: includes/Plugin.php:365
+#: includes/Plugin.php:410
 msgid "No venues found"
 msgstr ""
 
-#: includes/Plugin.php:366
+#: includes/Plugin.php:411
 msgid "All Venues"
 msgstr ""
 
-#: includes/Plugin.php:385
-#: includes/Plugin.php:392
+#: includes/Plugin.php:430
+#: includes/Plugin.php:437
 msgid "Organizers"
 msgstr ""
 
-#: includes/Plugin.php:386
+#: includes/Plugin.php:431
 #: build/admin/event-details.js:1
 msgid "Organizer"
 msgstr ""
 
-#: includes/Plugin.php:387
+#: includes/Plugin.php:432
 msgid "Add New Organizer"
 msgstr ""
 
-#: includes/Plugin.php:388
+#: includes/Plugin.php:433
 msgid "Edit Organizer"
 msgstr ""
 
-#: includes/Plugin.php:389
+#: includes/Plugin.php:434
 msgid "Search Organizers"
 msgstr ""
 
-#: includes/Plugin.php:390
+#: includes/Plugin.php:435
 msgid "No organizers found"
 msgstr ""
 
-#: includes/Plugin.php:391
+#: includes/Plugin.php:436
 msgid "All Organizers"
 msgstr ""
 
-#: includes/Plugin.php:421
+#: includes/Plugin.php:466
 msgid "Start datetime (event timezone, Y-m-d H:i:s)."
 msgstr ""
 
-#: includes/Plugin.php:422
+#: includes/Plugin.php:467
 msgid "End datetime (event timezone, Y-m-d H:i:s)."
 msgstr ""
 
-#: includes/Plugin.php:423
+#: includes/Plugin.php:468
 msgid "Venue name."
 msgstr ""
 
-#: includes/Plugin.php:440
+#: includes/Plugin.php:485
 msgid "Event IANA timezone identifier. Empty = site timezone."
 msgstr ""
 
-#: includes/Plugin.php:461
+#: includes/Plugin.php:506
 msgid "Linked venue or organizer post ID. Empty = not linked. (ROADMAP 5.1)"
 msgstr ""
 
-#: includes/Plugin.php:480
+#: includes/Plugin.php:525
 msgid "Street address of the venue (schema.org location address). (ROADMAP 5.1)"
 msgstr ""
 
-#: includes/Plugin.php:503
+#: includes/Plugin.php:548
 msgid "Hours before start when reminder emails go out. Empty = 24. Zero = no reminders. (ROADMAP 5.2)"
 msgstr ""
 
-#: includes/Plugin.php:521
+#: includes/Plugin.php:566
 msgid "Going capacity. Empty = unlimited (docs/ARCHITECTURE.md)."
 msgstr ""
 
-#: includes/Plugin.php:556
+#: includes/Plugin.php:601
 msgid "Hours before start when RSVPs open or close. Empty = no boundary. (ROADMAP 2.4)"
 msgstr ""
 
-#: includes/Plugin.php:583
+#: includes/Plugin.php:628
 msgid "Recurrence frequency. Empty = one-off event; daily, weekly or monthly = series seed. (ROADMAP 3.2)"
 msgstr ""
 
-#: includes/Plugin.php:612
+#: includes/Plugin.php:657
 msgid "External registration URL. Empty = internal RSVP form. (ROADMAP 5A.4)"
 msgstr ""
 
-#: includes/Plugin.php:629
+#: includes/Plugin.php:674
 msgid "Recurrence interval (every N days/weeks/months). Empty = 1. (ROADMAP 3.2)"
 msgstr ""
 
-#: includes/Plugin.php:647
+#: includes/Plugin.php:692
 msgid "Weekly recurrence weekdays, 0=Sunday..6=Saturday, comma-separated. Empty = the start weekday. (ROADMAP 3.2)"
 msgstr ""
 
-#: includes/Plugin.php:665
+#: includes/Plugin.php:710
 msgid "Last date occurrences are generated (Y-m-d, inclusive). Empty = rolling 6-month horizon. (ROADMAP 3.2)"
 msgstr ""
 
-#: includes/Plugin.php:689
+#: includes/Plugin.php:734
 msgid "Event status. Empty = scheduled; cancelled or postponed. (ROADMAP 5.3)"
 msgstr ""
 
-#: includes/Plugin.php:711
+#: includes/Plugin.php:756
 msgid "Internal: attendee status-notice generation counter. (ROADMAP 5.3)"
 msgstr ""
 
-#: includes/Plugin.php:798
+#: includes/Plugin.php:843
 msgid "Events grid"
 msgstr ""
 
-#: includes/Plugin.php:802
+#: includes/Plugin.php:847
 msgid "Featured event hero"
 msgstr ""
 

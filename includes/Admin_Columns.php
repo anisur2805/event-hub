@@ -197,6 +197,15 @@ final class Admin_Columns {
 			esc_html__( 'Export CSV', 'event-hub' )
 		);
 
+		// Copy (ROADMAP §5B): nonced admin-post link to the duplicator —
+		// same handler-gated verb pattern as Export CSV. Sits last so the
+		// primary verbs (edit/RSVPs) stay adjacent.
+		$actions['eh_duplicate'] = sprintf(
+			'<a href="%s">%s</a>',
+			esc_url( Event_Duplicator::duplicate_url( (int) $post->ID ) ),
+			esc_html__( 'Copy', 'event-hub' )
+		);
+
 		return $actions;
 	}
 
