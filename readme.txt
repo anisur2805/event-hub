@@ -40,7 +40,9 @@ Features:
 * Settings screen with email copy overrides — rewrite the subject and
   opening paragraph of all five attendee emails; empty fields keep the
   built-in copy.
-* Admin RSVP manager with check-in tracking, CSV export, and WP-CLI export.
+* Admin RSVP manager with check-in tracking, email-the-attendees compose
+  (one private email per attendee — never a shared recipient header),
+  CSV export, and WP-CLI export.
 * ICS calendar feed; per-event CSV export.
 * Privacy: WP personal-data exporter and eraser (anonymize in place).
 * Abuse hardening — honeypot + HMAC time-trap token, per-IP rate limiting.

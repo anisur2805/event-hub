@@ -127,6 +127,24 @@ waitlist promotion (§1.3) and `event_hub_rsvp_promoted` behave identically.
 Errors: `400 eh_manage_missing` (token absent), `404 eh_manage_invalid`
 (unknown/garbage token, or the row vanished mid-request), `500 eh_db_error`.
 
+### POST `/event-hub/v1/events/{id}/email` — capability `edit_others_posts` (§5B admin compose)
+
+Body: `{ "subject": string (required, non-empty), "message": string (required, non-empty), "audience": "going"|"waitlist"|"all" (default "all") }`.
+
+Sends ONE `wp_mail` per matching attendee row (never a shared To/Cc/Bcc —
+addresses never leak between attendees), batching through the list query in
+500s like the CSV stream. The plain-text body is the organizer's message
++CRLF-normalized, blank lines kept) followed by the start line, event page
+URL and site signature; no manage token (not a per-attendee stateful mail).
+Nothing is persisted — attendee inboxes are the record.
+
+Success `200`: `{ "sent": int, "skipped": int, "total": int }` — `skipped`
+counts unaccepted `wp_mail` calls and rows with undeliverable stored
+addresses (honest counts).
+
+Errors: `400 eh_missing_message` (empty/whitespace subject or body); `404
+eh_event_not_found`; `403 rest_forbidden`.
+
 ## Manage-booking page (front end, non-REST)
 
 `GET /?eh_manage=<token>` renders the token-gated manage page
