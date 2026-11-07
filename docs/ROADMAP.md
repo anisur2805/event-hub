@@ -261,12 +261,12 @@ code).
   (`calendar_links()`; provider-native UTC datetime forms, per-value
   rawurlencode, entity-decoded title/venue, permalink in details; hidden for
   past/unparseable/no-start events). No API keys, no new deps, no DB change.
-- **5A.4 External registration URL** — per-event `eh_external_url` meta (save-time
-  esc_url_raw schema, show_in_rest); when set and parseable, `summary()` exposes it
-  and the RSVP form/button folds to a single outbound "Register" button
-  (target=_blank rel="nofollow noopener"); capacity pill still renders from counts;
-  the write guard is bypassed (no internal RSVP is created). Editor panel + REST
-  serialization + series meta_copy carry it.
+- ~~**5A.4 External registration URL**~~ **done (2026-11-07, DECISIONS #56)** —
+  per-event `eh_external_url` (plain string meta, read-side gate
+  `Render_Blocks::external_url()`: http/https + host or ''); when valid, the
+  RSVP region folds to one outbound Register link (no iAPI region, count line
+  stays); past/cancelled/cutoff notices outrank it; summary() exposes it;
+  series meta_copy carries it; editor commits only plausible absolute URLs.
 
 ### 5B. Deferred from the review (not adopted now)
 - Email attendees (admin compose), duplicate-event row action, phone check-in screen,
@@ -327,4 +327,4 @@ code).
 2. §1.2 hardening — **done, Phase 1**.
 3. §1.3 waitlist promotion — **done, Phase 2**.
 4. §1.1 JSON-LD — **done (2026-11-04)**; was independent, slotted after Phase 2.
-5. Then pick by need: ~~2.1 (email flow; its cancellation now feeds §1.3's promotion)~~ **done (2026-11-04, DB 1.3.0)**; ~~2.2 (check-in)~~ **done (2026-11-04)**; ~~2.4 cutoffs~~ **done (2026-11-05)**; ~~2.3 seats~~ **done (2026-11-05, DB 1.4.0)**; ~~3.1 dashboard~~ **done (2026-11-05)**; ~~3.3 calendar block~~ **done (2026-11-05)**; ~~3.2 recurring events~~ **done (2026-11-05)**. ~~§4 WP-CLI extras~~ **done (2026-11-06)** + findings resolution **done (2026-11-06)**. ~~5.1 venue/organizer~~ **done (2026-11-06)**; ~~5.2 reminders~~ **done (2026-11-06, DB 1.5.0)**; ~~5.3 event status~~ **done (2026-11-07, DB 1.6.0)**; ~~5.4 GDPR~~ **done (2026-11-07)**. ~~§4 .pot/RTL + PCP re-baseline~~ **done (2026-11-07, DECISIONS #51)**; ~~§4 uninstall audit~~ **done (2026-11-07, DECISIONS #52 — caught a latent uninstall fatal)**. Tier 1 + §4 COMPLETE; §3.4 Woo stays parked. 6. **Review wave P1 (5A): ~~5A.1 success panel/token~~ **done (2026-11-07)** → ~~5A.2 promotion email + waitlist position~~ **done (2026-11-07)** → ~~5A.3 add-to-calendar~~ **done (2026-11-07)** → 5A.4 external URL** (approved 2026-11-07; both spirit-gaps verified against code before adoption). Then Tier 2 (5.5/5.6/5.7) by need.
+5. Then pick by need: ~~2.1 (email flow; its cancellation now feeds §1.3's promotion)~~ **done (2026-11-04, DB 1.3.0)**; ~~2.2 (check-in)~~ **done (2026-11-04)**; ~~2.4 cutoffs~~ **done (2026-11-05)**; ~~2.3 seats~~ **done (2026-11-05, DB 1.4.0)**; ~~3.1 dashboard~~ **done (2026-11-05)**; ~~3.3 calendar block~~ **done (2026-11-05)**; ~~3.2 recurring events~~ **done (2026-11-05)**. ~~§4 WP-CLI extras~~ **done (2026-11-06)** + findings resolution **done (2026-11-06)**. ~~5.1 venue/organizer~~ **done (2026-11-06)**; ~~5.2 reminders~~ **done (2026-11-06, DB 1.5.0)**; ~~5.3 event status~~ **done (2026-11-07, DB 1.6.0)**; ~~5.4 GDPR~~ **done (2026-11-07)**. ~~§4 .pot/RTL + PCP re-baseline~~ **done (2026-11-07, DECISIONS #51)**; ~~§4 uninstall audit~~ **done (2026-11-07, DECISIONS #52 — caught a latent uninstall fatal)**. Tier 1 + §4 COMPLETE; §3.4 Woo stays parked. 6. **Review wave P1 (5A): ~~5A.1 success panel/token~~ **done (2026-11-07)** → ~~5A.2 promotion email + waitlist position~~ **done (2026-11-07)** → ~~5A.3 add-to-calendar~~ **done (2026-11-07)** → ~~5A.4 external URL~~ **done (2026-11-07)** — review wave P1 COMPLETE (approved 2026-11-07; both spirit-gaps verified against code before adoption). Then Tier 2 (5.5/5.6/5.7) by need.
