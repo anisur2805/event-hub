@@ -1138,6 +1138,10 @@ final class Render_Blocks {
 	public static function render_calendar_block( array $attributes ): string {
 		$month_iso = isset( $attributes['initialMonth'] ) ? sanitize_text_field( (string) $attributes['initialMonth'] ) : '';
 
+		// View selector (§5B list view): junk forges fall back to the grid —
+		// the pre-list look.
+		$view = isset( $attributes['view'] ) && 'list' === $attributes['view'] ? 'list' : 'grid';
+
 		$month  = self::calendar_month( $month_iso );
 		$events = self::calendar_month_events( $month );
 
@@ -1194,7 +1198,7 @@ final class Render_Blocks {
 		ob_start();
 		?>
 		<div
-			<?php echo get_block_wrapper_attributes( array( 'class' => 'event-hub-event-calendar' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- core helper output. ?>
+			<?php echo get_block_wrapper_attributes( array( 'class' => 'event-hub-event-calendar' . ( 'list' === $view ? ' event-hub-event-calendar--view-list' : '' ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- core helper output. ?>
 			data-wp-interactive="event-hub"
 			data-wp-router-region="event-hub-calendar"
 			data-wp-class--is-busy="context.busy"
@@ -1216,6 +1220,25 @@ final class Render_Blocks {
 			<div class="event-hub-calendar__body">
 				<p class="event-hub-calendar__label" aria-live="polite"><?php echo esc_html( $month_label ); ?></p>
 
+				<?php if ( 'list' === $view ) : ?>
+					<?php
+					// List view (§5B): the month's events as compact rows —
+					// the SAME render_row() the Event List list layout uses,
+					// so a month boundary swap keeps one visual language.
+					// Start-ASC from calendar_month_events; the month GET/attr
+					// navigation rides the identical head/region as the grid.
+					foreach ( $events as $month_summary ) {
+						echo self::render_row( $month_summary ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- render_row escapes internally.
+					}
+
+					if ( array() === $events ) {
+						printf(
+							'<p class="event-hub-calendar__empty">%s</p>',
+							esc_html__( 'No events this month.', 'event-hub' )
+						);
+					}
+					?>
+				<?php else : ?>
 				<table class="event-hub-calendar__grid" role="grid">
 					<thead>
 						<tr>
@@ -1286,6 +1309,7 @@ final class Render_Blocks {
 						?>
 					</tbody>
 				</table>
+				<?php endif; ?>
 
 				<p class="event-hub-calendar__count"><?php echo esc_html( self::calendar_count_text( $event_count ) ); ?></p>
 

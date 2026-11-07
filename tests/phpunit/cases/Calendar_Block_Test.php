@@ -258,4 +258,83 @@ class Calendar_Block_Test extends WP_UnitTestCase {
 		$this->assertStringNotContainsString( 'event-hub-calendar__events', $html );
 		$this->assertStringContainsString( '0 events this month', $html );
 	}
+
+	/**
+	 * List view (§5B): view=list renders the modifier class and one compact
+	 * row per month event (render_row markup) INSTEAD of the day grid —
+	 * while the month label, navigation hrefs and count line stay.
+	 *
+	 * @return void
+	 */
+	public function test_list_view_renders_rows(): void {
+		$this->make_event_at( '2026-11-05 18:00:00', 'List View Event' );
+
+		$html = Render_Blocks::render_calendar_block(
+			array(
+				'initialMonth' => '2026-11',
+				'view'         => 'list',
+			)
+		);
+
+		$this->assertStringContainsString( 'event-hub-event-calendar--view-list', $html );
+		$this->assertStringContainsString( 'event-hub-row__title', $html );
+		$this->assertStringContainsString( 'List View Event', $html );
+		// Nav + label + count survive the view switch.
+		$this->assertStringContainsString( 'eh_month=2026-12', $html );
+		$this->assertStringContainsString( 'eh_month=2026-10', $html );
+		$this->assertStringContainsString( 'event-hub-calendar__count', $html );
+		// No day grid leaks into the list view.
+		$this->assertStringNotContainsString( 'event-hub-calendar__grid', $html );
+		$this->assertStringNotContainsString( 'event-hub-calendar__event"', $html );
+	}
+
+	/**
+	 * Default (and junk view values) keep the month grid — a forged attribute
+	 * cannot produce an unknown render mode, and existing blocks without the
+	 * attribute render exactly as before.
+	 *
+	 * @return void
+	 */
+	public function test_grid_view_default_and_junk_fallback(): void {
+		$this->make_event_at( '2026-11-05 18:00:00', 'Grid View Event' );
+
+		// No view attribute at all (pre-#63 markup).
+		$html = Render_Blocks::render_calendar_block( array( 'initialMonth' => '2026-11' ) );
+
+		$this->assertStringNotContainsString( 'event-hub-event-calendar--view-list', $html );
+		$this->assertStringContainsString( 'event-hub-calendar__grid', $html );
+		$this->assertStringContainsString( 'Grid View Event', $html );
+
+		// Junk view falls back to the grid.
+		$html_junk = Render_Blocks::render_calendar_block(
+			array(
+				'initialMonth' => '2026-11',
+				'view'         => 'nonsense',
+			)
+		);
+
+		$this->assertStringNotContainsString( 'event-hub-event-calendar--view-list', $html_junk );
+		$this->assertStringContainsString( 'event-hub-calendar__grid', $html_junk );
+	}
+
+	/**
+	 * List view honours the month filter: an event in another month never
+	 * appears, and an empty month renders the empty line.
+	 *
+	 * @return void
+	 */
+	public function test_list_view_month_filtering(): void {
+		$this->make_event_at( '2026-12-20 10:00:00', 'December Only' );
+
+		$html = Render_Blocks::render_calendar_block(
+			array(
+				'initialMonth' => '2026-11',
+				'view'         => 'list',
+			)
+		);
+
+		$this->assertStringNotContainsString( 'December Only', $html );
+		$this->assertStringContainsString( 'event-hub-calendar__empty', $html );
+		$this->assertStringContainsString( 'No events this month', $html );
+	}
 }

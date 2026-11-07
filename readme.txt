@@ -24,9 +24,9 @@ Features:
 * Capacity-aware RSVP — atomic `INSERT … SELECT … WHERE going < capacity`.
 * Waitlist auto-promotion on every removal path.
 * Blocks — Event List (grid of cards or compact list), Event Card, Event
-  Categories, Calendar, RSVP Button — built on the WordPress Interactivity
-  API (server-rendered, progressive enhancement; counts and forms work
-  without JavaScript).
+  Categories, Calendar (month grid or compact list), RSVP Button — built on
+  the WordPress Interactivity API (server-rendered, progressive enhancement;
+  counts and forms work without JavaScript).
 * Recurring events (daily/weekly/monthly) as real child posts.
 * Per-event timezone override on top of the site timezone.
 * Event status (cancelled / postponed) with attendee notices and JSON-LD.

@@ -5,7 +5,12 @@
  */
 import { registerBlockType } from '@wordpress/blocks';
 import { InspectorControls, useBlockProps } from '@wordpress/block-editor';
-import { PanelBody, TextControl, Placeholder } from '@wordpress/components';
+import {
+	PanelBody,
+	TextControl,
+	SelectControl,
+	Placeholder,
+} from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import type { ReactElement } from 'react';
 import metadata from './block.json';
@@ -13,6 +18,7 @@ import metadata from './block.json';
 /** Block attributes per block.json. */
 type Attributes = {
 	initialMonth: string;
+	view: 'grid' | 'list';
 };
 
 type EditProps = {
@@ -49,6 +55,29 @@ function Edit( { attributes, setAttributes }: EditProps ): ReactElement {
 										: attributes.initialMonth,
 							} )
 						}
+					/>
+					<SelectControl
+						label={ __( 'View', 'event-hub' ) }
+						value={ attributes.view ?? 'grid' }
+						onChange={ ( value ) =>
+							setAttributes( {
+								view: 'list' === value ? 'list' : 'grid',
+							} )
+						}
+						options={ [
+							{
+								value: 'grid',
+								label: __( 'Month grid', 'event-hub' ),
+							},
+							{
+								value: 'list',
+								label: __( 'Compact list', 'event-hub' ),
+							},
+						] }
+						help={ __(
+							'Grid shows a month calendar; list shows the month’s events as compact rows with the same month navigation.',
+							'event-hub'
+						) }
 					/>
 				</PanelBody>
 			</InspectorControls>

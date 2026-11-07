@@ -255,6 +255,25 @@
 }
 
 /* --------------------------------------------------------------------------
+ * 2c. Event calendar — compact list view (§5B)
+ * ----------------------------------------------------------------------- */
+
+/* The calendar's list view reuses .event-hub-row wholesale (one visual
+ * language with the Event List list layout); only the wrapper context
+ * differs — spacing around the month label and the shared count footer. */
+.event-hub-event-calendar--view-list .event-hub-calendar__label {
+	margin-block-end: 0.75rem;
+}
+
+.event-hub-event-calendar--view-list .event-hub-calendar__empty {
+	margin: var( --eh-gap ) 0;
+}
+
+.event-hub-event-calendar--view-list .event-hub-calendar__count {
+	margin-block-start: var( --eh-gap );
+}
+
+/* --------------------------------------------------------------------------
  * 3. Card
  * ----------------------------------------------------------------------- */
 
