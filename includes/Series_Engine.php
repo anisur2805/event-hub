@@ -665,6 +665,8 @@ final class Series_Engine {
 			'eh_capacity'         => (string) get_post_meta( $seed_id, 'eh_capacity', true ),
 			'eh_rsvp_open_hours'  => (string) get_post_meta( $seed_id, 'eh_rsvp_open_hours', true ),
 			'eh_rsvp_close_hours' => (string) get_post_meta( $seed_id, 'eh_rsvp_close_hours', true ),
+			// 5A.4: every occurrence registers through the same external page.
+			'eh_external_url'     => (string) get_post_meta( $seed_id, 'eh_external_url', true ),
 			// Status (5.3): a cancelled/postponed seed's remaining spawns carry
 			// the state (their attendees must see it too). Spawning is paused
 			// while cancelled — this copy covers spawns already in flight.

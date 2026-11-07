@@ -570,6 +570,34 @@ final class Plugin {
 			)
 		);
 
+		/*
+		 * External registration URL (ROADMAP 5A.4): when set (and parseable on
+		 * read), the RSVP form folds to a single outbound Register button and
+		 * no internal RSVP rows are created for the event. URLs are messy — a
+		 * REST pattern would 400 legitimate links — so the schema stays a
+		 * plain string and validation lives on the READ side (Render_Blocks::
+		 * external_url(): esc_url_raw + scheme/host check; junk degrades to ''
+		 * like linked_entity()). Owns-its-input discipline: only edit_post
+		 * users may write it (auth_callback), and everything rendered goes
+		 * through esc_url().
+		 */
+		register_post_meta(
+			'eh_event',
+			'eh_external_url',
+			array(
+				'type'          => 'string',
+				'single'        => true,
+				'description'   => __( 'External registration URL. Empty = internal RSVP form. (ROADMAP 5A.4)', 'event-hub' ),
+				'auth_callback' => static fn ( bool $allowed, string $meta_key, int $post_id ): bool => current_user_can( 'edit_post', $post_id ),
+				'show_in_rest'  => array(
+					'schema' => array(
+						'type'    => 'string',
+						'default' => '',
+					),
+				),
+			)
+		);
+
 		register_post_meta(
 			'eh_event',
 			'eh_series_interval',

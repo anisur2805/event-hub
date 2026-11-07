@@ -353,4 +353,155 @@ class Render_Blocks_Card_Test extends WP_UnitTestCase {
 		$permalink = (string) get_permalink( $id );
 		$this->assertStringContainsString( rawurlencode( $permalink ), $out );
 	}
+
+	/* ---------------------------------------------------------------------
+	 * 5A.4: external registration URL.
+	 * ------------------------------------------------------------------- */
+
+	/**
+	 * external_url() accepts absolute http(s) URLs, and degrades everything
+	 * else to '' (the event keeps its internal form).
+	 *
+	 * @return void
+	 */
+	public function test_external_url_validation(): void {
+		$event = $this->make_event( '2099-05-01 18:00:00' );
+
+		update_post_meta( $event, 'eh_external_url', 'https://tickets.example.org/launch' );
+		$this->assertSame( 'https://tickets.example.org/launch', Render_Blocks::external_url( $event ) );
+
+		// http passes.
+		update_post_meta( $event, 'eh_external_url', 'http://events.example.org/r' );
+		$this->assertSame( 'http://events.example.org/r', Render_Blocks::external_url( $event ) );
+
+		// Relative, scheme-relative, non-http scheme, no host: all ''.
+		update_post_meta( $event, 'eh_external_url', '/internal/path' );
+		$this->assertSame( '', Render_Blocks::external_url( $event ) );
+
+		update_post_meta( $event, 'eh_external_url', '//cdn.example.org/x' );
+		$this->assertSame( '', Render_Blocks::external_url( $event ) );
+
+		update_post_meta( $event, 'eh_external_url', 'javascript:alert(1)' );
+		$this->assertSame( '', Render_Blocks::external_url( $event ) );
+
+		update_post_meta( $event, 'eh_external_url', '   ' );
+		$this->assertSame( '', Render_Blocks::external_url( $event ) );
+
+		// Absent meta: ''.
+		$this->assertSame( '', Render_Blocks::external_url( 2147483000 ) );
+	}
+
+	/**
+	 * A validated external URL folds the RSVP region to one outbound
+	 * Register link: no interactive region, no form inputs, no directives;
+	 * the count line still renders.
+	 *
+	 * @return void
+	 */
+	public function test_external_url_folds_rsvp_region(): void {
+		$event = $this->make_event(
+			'2099-05-01 18:00:00',
+			'2099-05-01 20:00:00',
+			'10',
+			array(
+				'going'    => 3,
+				'waitlist' => 0,
+			)
+		);
+
+		update_post_meta( $event, 'eh_external_url', 'https://tickets.example.org/launch' );
+
+		$out = Render_Blocks::render_rsvp_button( $event );
+
+		$this->assertStringContainsString( 'event-hub-rsvp--external', $out );
+		$this->assertStringContainsString( 'href="https://tickets.example.org/launch"', $out );
+		$this->assertStringContainsString( 'rel="nofollow noopener noreferrer"', $out );
+		$this->assertStringContainsString( '>Register</a>', $out );
+		$this->assertStringContainsString( 'event-hub-rsvp__count', $out );
+
+		// The interactive machinery is fully absent.
+		$this->assertStringNotContainsString( 'data-wp-interactive', $out );
+		$this->assertStringNotContainsString( 'event_hub_form_ts', $out );
+		$this->assertStringNotContainsString( 'event_hub_website', $out );
+		$this->assertStringNotContainsString( 'data-wp-on--click', $out );
+	}
+
+	/**
+	 * Past/cutoff honesty outranks the external URL: a past event with an
+	 * external URL shows the past notice, not a Register link.
+	 *
+	 * @return void
+	 */
+	public function test_external_url_respects_past_and_cutoff_gates(): void {
+		$past = $this->make_event( '2020-01-01 18:00:00', '2020-01-01 20:00:00' );
+		update_post_meta( $past, 'eh_external_url', 'https://tickets.example.org/launch' );
+
+		$out = Render_Blocks::render_rsvp_button( $past );
+
+		$this->assertStringContainsString( 'already taken place', $out );
+		$this->assertStringNotContainsString( 'event-hub-rsvp--external', $out );
+	}
+
+	/**
+	 * Without the meta the region stays the interactive form (no fold).
+	 *
+	 * @return void
+	 */
+	public function test_no_fold_without_external_url(): void {
+		$event = $this->make_event( '2099-05-01 18:00:00', '2099-05-01 20:00:00' );
+
+		$out = Render_Blocks::render_rsvp_button( $event );
+
+		$this->assertStringContainsString( 'data-wp-interactive', $out );
+		$this->assertStringNotContainsString( 'event-hub-rsvp--external', $out );
+	}
+
+	/**
+	 * The meta is editable through /wp/v2 by editors (auth_callback), and
+	 * summary() exposes the validated URL so every surface shares one read.
+	 *
+	 * Core's run_teardown() unregisters ALL meta keys after every test, so
+	 * /wp/v2 meta requests must re-register first (Event_Status_Test note).
+	 *
+	 * @return void
+	 */
+	public function test_rest_meta_round_trip_and_summary_exposure(): void {
+		Plugin::instance()->register_meta();
+
+		$event   = $this->make_event( '2099-05-01 18:00:00' );
+		$user_id = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		wp_set_current_user( $user_id );
+
+		$request = new \WP_REST_Request( 'POST', "/wp/v2/events-cpt/{$event}" );
+		$request->set_body_params(
+			array(
+				'meta' => array( 'eh_external_url' => 'https://tickets.example.org/launch' ),
+			)
+		);
+		$response = rest_get_server()->dispatch( $request );
+
+		$this->assertSame( 200, $response->get_status() );
+		$this->assertSame( 'https://tickets.example.org/launch', get_post_meta( $event, 'eh_external_url', true ) );
+
+		wp_set_current_user( 0 );
+
+		$summary = Render_Blocks::summary( $event );
+		$this->assertSame( 'https://tickets.example.org/launch', $summary['externalUrl'] );
+
+		// A subscriber cannot write it (auth_callback by capability).
+		$subscriber = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+		wp_set_current_user( $subscriber );
+
+		$request2 = new \WP_REST_Request( 'POST', "/wp/v2/events-cpt/{$event}" );
+		$request2->set_body_params(
+			array(
+				'meta' => array( 'eh_external_url' => 'https://evil.example.org' ),
+			)
+		);
+		$response2 = rest_get_server()->dispatch( $request2 );
+
+		$this->assertNotSame( 'https://evil.example.org', get_post_meta( $event, 'eh_external_url', true ) );
+
+		wp_set_current_user( 0 );
+	}
 }

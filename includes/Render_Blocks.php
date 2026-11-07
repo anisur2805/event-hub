@@ -27,7 +27,7 @@ final class Render_Blocks {
 	 * Builds the normalized event summary. Accepts a post ID or WP_Post.
 	 *
 	 * @param int|WP_Post $event Event post ID or object.
-	 * @return array{id:int,title:string,permalink:string,excerpt:string,start:string,end:string,venue:string,capacity:int|null,counts:array{going:int,waitlist:int},rsvpOpen:bool,status:string,cutoffClosed:bool,cutoffNotOpen:bool,categories:string[],category_names:string[]}
+	 * @return array{id:int,title:string,permalink:string,excerpt:string,start:string,end:string,venue:string,externalUrl:string,capacity:int|null,counts:array{going:int,waitlist:int},rsvpOpen:bool,status:string,cutoffClosed:bool,cutoffNotOpen:bool,categories:string[],category_names:string[]}
 	 */
 	public static function summary( int|WP_Post $event ): array {
 		$post = get_post( $event );
@@ -41,6 +41,7 @@ final class Render_Blocks {
 				'start'          => '',
 				'end'            => '',
 				'venue'          => '',
+				'externalUrl'    => '',
 				'capacity'       => null,
 				'counts'         => array(
 					'going'    => 0,
@@ -104,6 +105,7 @@ final class Render_Blocks {
 			'start'          => self::meta_iso( $post->ID, 'eh_start' ),
 			'end'            => self::meta_iso( $post->ID, 'eh_end' ),
 			'venue'          => $venue,
+			'externalUrl'    => self::external_url( $post->ID ),
 			'capacity'       => $capacity,
 			'counts'         => $counts,
 			'rsvpOpen'       => $rsvp_open,
@@ -128,6 +130,42 @@ final class Render_Blocks {
 		$linked = self::linked_entity( $event_id, 'eh_venue_id', 'eh_venue' );
 
 		return '' !== $linked['title'] ? $linked['title'] : (string) get_post_meta( $event_id, 'eh_venue', true );
+	}
+
+	/**
+	 * The validated external registration URL for an event (ROADMAP 5A.4),
+	 * or '' when the event uses the internal RSVP form. One read path so the
+	 * front-end fold, REST surfaces and admin columns can never drift. The
+	 * meta schema holds no URL pattern (legitimate links are too varied for
+	 * a save-time regex), so THIS is the gate: esc_url_raw + a scheme/host
+	 * requirement — junk, relative or non-http values degrade to '' and the
+	 * event simply keeps its internal form (same read-side-twin shape as
+	 * linked_entity()).
+	 *
+	 * @param int $event_id Event post ID.
+	 * @return string Absolute http(s) URL, or '' when unset/invalid.
+	 */
+	public static function external_url( int $event_id ): string {
+		$raw = trim( (string) get_post_meta( $event_id, 'eh_external_url', true ) );
+
+		if ( '' === $raw ) {
+			return '';
+		}
+
+		$url = esc_url_raw( $raw );
+
+		if ( '' === $url ) {
+			return '';
+		}
+
+		$scheme = (string) wp_parse_url( $url, PHP_URL_SCHEME );
+		$host   = (string) wp_parse_url( $url, PHP_URL_HOST );
+
+		if ( ! in_array( $scheme, array( 'http', 'https' ), true ) || '' === $host ) {
+			return '';
+		}
+
+		return $url;
 	}
 
 	/**
@@ -492,6 +530,35 @@ final class Render_Blocks {
 			<p class="event-hub-rsvp__closed">
 				<?php echo $not_open ? esc_html__( 'RSVPs have not opened yet.', 'event-hub' ) : esc_html__( 'RSVPs are closed.', 'event-hub' ); ?>
 			</p>
+			<?php
+			return (string) ob_get_clean();
+		}
+
+		/*
+		 * 5A.4 external registration: a validated eh_external_url folds the
+		 * whole interactive region to ONE outbound link — no iAPI context,
+		 * no directives, no form, so a third-party page can never fight the
+		 * store and #30 has no bind targets to satisfy. Count line still
+		 * renders (social proof); capacity math stays server-side but no
+		 * internal RSVP can be created (the REST route is unreachable from
+		 * this markup and create() remains the only write path for rows).
+		 */
+		$external_url = (string) ( $summary['externalUrl'] ?? '' );
+
+		if ( '' !== $external_url ) {
+			ob_start();
+			?>
+			<div class="event-hub-rsvp event-hub-rsvp--external">
+				<?php if ( '' !== $going_text ) : ?>
+					<p class="event-hub-rsvp__count"><?php echo esc_html( $going_text ); ?></p>
+				<?php endif; ?>
+				<a
+					class="event-hub-rsvp__button event-hub-rsvp__register"
+					href="<?php echo esc_url( $external_url ); ?>"
+					target="_blank"
+					rel="nofollow noopener noreferrer"
+				><?php esc_html_e( 'Register', 'event-hub' ); ?></a>
+			</div>
 			<?php
 			return (string) ob_get_clean();
 		}

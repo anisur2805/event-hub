@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-11-07T04:21:20+00:00\n"
+"POT-Creation-Date: 2026-11-07T04:25:15+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: event-hub\n"
@@ -19,7 +19,7 @@ msgstr ""
 #: event-hub.php
 #: includes/Admin_Page.php:40
 #: includes/Dashboard_Widget.php:61
-#: includes/Plugin.php:741
+#: includes/Plugin.php:769
 msgid "Event Hub"
 msgstr ""
 
@@ -187,7 +187,7 @@ msgstr ""
 
 #: includes/Admin_Page.php:343
 #: includes/Dashboard_Widget.php:90
-#: includes/Render_Blocks.php:718
+#: includes/Render_Blocks.php:785
 msgid "No upcoming events."
 msgstr ""
 
@@ -216,8 +216,8 @@ msgstr ""
 #: includes/Notifier.php:193
 #: includes/Notifier.php:310
 #: includes/Privacy.php:108
-#: includes/Render_Blocks.php:317
-#: includes/Render_Blocks.php:1648
+#: includes/Render_Blocks.php:355
+#: includes/Render_Blocks.php:1715
 #: includes/templates/manage-rsvp.php:78
 #: build/admin/index.js:1
 msgid "Waitlist"
@@ -236,7 +236,7 @@ msgstr ""
 
 #: includes/Admin_Page.php:381
 #: includes/Privacy.php:98
-#: includes/Render_Blocks.php:513
+#: includes/Render_Blocks.php:580
 #: includes/templates/manage-rsvp.php:98
 #: build/admin/index.js:1
 #: build/blocks/rsvp-button/index.js:1
@@ -245,7 +245,7 @@ msgstr ""
 
 #: includes/Admin_Page.php:382
 #: includes/Privacy.php:102
-#: includes/Render_Blocks.php:523
+#: includes/Render_Blocks.php:590
 #: build/admin/index.js:1
 #: build/blocks/rsvp-button/index.js:1
 msgid "Email"
@@ -253,7 +253,7 @@ msgstr ""
 
 #: includes/Admin_Page.php:383
 #: includes/Privacy.php:112
-#: includes/Render_Blocks.php:538
+#: includes/Render_Blocks.php:605
 #: build/admin/index.js:1
 msgid "Seats"
 msgstr ""
@@ -622,31 +622,35 @@ msgstr ""
 msgid "Recurrence frequency. Empty = one-off event; daily, weekly or monthly = series seed. (ROADMAP 3.2)"
 msgstr ""
 
-#: includes/Plugin.php:579
+#: includes/Plugin.php:590
+msgid "External registration URL. Empty = internal RSVP form. (ROADMAP 5A.4)"
+msgstr ""
+
+#: includes/Plugin.php:607
 msgid "Recurrence interval (every N days/weeks/months). Empty = 1. (ROADMAP 3.2)"
 msgstr ""
 
-#: includes/Plugin.php:597
+#: includes/Plugin.php:625
 msgid "Weekly recurrence weekdays, 0=Sunday..6=Saturday, comma-separated. Empty = the start weekday. (ROADMAP 3.2)"
 msgstr ""
 
-#: includes/Plugin.php:615
+#: includes/Plugin.php:643
 msgid "Last date occurrences are generated (Y-m-d, inclusive). Empty = rolling 6-month horizon. (ROADMAP 3.2)"
 msgstr ""
 
-#: includes/Plugin.php:639
+#: includes/Plugin.php:667
 msgid "Event status. Empty = scheduled; cancelled or postponed. (ROADMAP 5.3)"
 msgstr ""
 
-#: includes/Plugin.php:661
+#: includes/Plugin.php:689
 msgid "Internal: attendee status-notice generation counter. (ROADMAP 5.3)"
 msgstr ""
 
-#: includes/Plugin.php:748
+#: includes/Plugin.php:776
 msgid "Events grid"
 msgstr ""
 
-#: includes/Plugin.php:752
+#: includes/Plugin.php:780
 msgid "Featured event hero"
 msgstr ""
 
@@ -678,171 +682,175 @@ msgstr ""
 msgid "RSVP #%d could not be anonymized due to a database error and was retained."
 msgstr ""
 
-#: includes/Render_Blocks.php:284
-#: includes/Render_Blocks.php:1643
+#: includes/Render_Blocks.php:322
+#: includes/Render_Blocks.php:1710
 #: build/admin/event-details.js:1
 msgid "Cancelled"
 msgstr ""
 
-#: includes/Render_Blocks.php:285
-#: includes/Render_Blocks.php:1644
+#: includes/Render_Blocks.php:323
+#: includes/Render_Blocks.php:1711
 #: build/admin/event-details.js:1
 msgid "Postponed"
 msgstr ""
 
-#: includes/Render_Blocks.php:293
-#: includes/Render_Blocks.php:1650
+#: includes/Render_Blocks.php:331
+#: includes/Render_Blocks.php:1717
 msgid "Past"
 msgstr ""
 
-#: includes/Render_Blocks.php:303
-#: includes/Render_Blocks.php:1642
+#: includes/Render_Blocks.php:341
+#: includes/Render_Blocks.php:1709
 msgid "Closed"
 msgstr ""
 
-#: includes/Render_Blocks.php:324
-#: includes/Render_Blocks.php:1649
+#: includes/Render_Blocks.php:362
+#: includes/Render_Blocks.php:1716
 msgid "Sold out"
 msgstr ""
 
-#: includes/Render_Blocks.php:332
-#: includes/Render_Blocks.php:1647
+#: includes/Render_Blocks.php:370
+#: includes/Render_Blocks.php:1714
 msgid "Few spots left"
 msgstr ""
 
-#: includes/Render_Blocks.php:339
-#: includes/Render_Blocks.php:1641
+#: includes/Render_Blocks.php:377
+#: includes/Render_Blocks.php:1708
 msgid "Open"
 msgstr ""
 
-#: includes/Render_Blocks.php:457
-#: includes/Render_Blocks.php:1617
+#: includes/Render_Blocks.php:495
+#: includes/Render_Blocks.php:1684
 msgid "This event has already taken place."
 msgstr ""
 
-#: includes/Render_Blocks.php:475
-#: includes/Render_Blocks.php:1645
+#: includes/Render_Blocks.php:513
+#: includes/Render_Blocks.php:1712
 #: includes/Rsvp_Repository.php:93
 msgid "This event has been cancelled."
 msgstr ""
 
-#: includes/Render_Blocks.php:476
-#: includes/Render_Blocks.php:1646
+#: includes/Render_Blocks.php:514
+#: includes/Render_Blocks.php:1713
 msgid "This event has been postponed — the new date will be announced."
 msgstr ""
 
-#: includes/Render_Blocks.php:493
-#: includes/Render_Blocks.php:1652
+#: includes/Render_Blocks.php:531
+#: includes/Render_Blocks.php:1719
 msgid "RSVPs have not opened yet."
 msgstr ""
 
-#: includes/Render_Blocks.php:493
-#: includes/Render_Blocks.php:1651
+#: includes/Render_Blocks.php:531
+#: includes/Render_Blocks.php:1718
 msgid "RSVPs are closed."
 msgstr ""
 
-#: includes/Render_Blocks.php:575
+#: includes/Render_Blocks.php:560
+msgid "Register"
+msgstr ""
+
+#: includes/Render_Blocks.php:642
 msgid "Join waitlist"
 msgstr ""
 
-#: includes/Render_Blocks.php:582
+#: includes/Render_Blocks.php:649
 #: build/blocks/rsvp-button/index.js:1
 msgid "RSVP"
 msgstr ""
 
-#: includes/Render_Blocks.php:601
-#: includes/Render_Blocks.php:1653
+#: includes/Render_Blocks.php:668
+#: includes/Render_Blocks.php:1720
 msgid "Keep this link — it manages your booking."
 msgstr ""
 
-#: includes/Render_Blocks.php:610
-#: includes/Render_Blocks.php:1655
+#: includes/Render_Blocks.php:677
+#: includes/Render_Blocks.php:1722
 msgid "Copied!"
 msgstr ""
 
-#: includes/Render_Blocks.php:610
-#: includes/Render_Blocks.php:611
-#: includes/Render_Blocks.php:1654
+#: includes/Render_Blocks.php:677
+#: includes/Render_Blocks.php:678
+#: includes/Render_Blocks.php:1721
 msgid "Copy link"
 msgstr ""
 
-#: includes/Render_Blocks.php:613
-#: includes/Render_Blocks.php:1656
+#: includes/Render_Blocks.php:680
+#: includes/Render_Blocks.php:1723
 msgid "You can also cancel or rename from the link at any time."
 msgstr ""
 
-#: includes/Render_Blocks.php:616
+#: includes/Render_Blocks.php:683
 msgid "Enable JavaScript to RSVP."
 msgstr ""
 
 #. translators: %s: number of events found.
-#: includes/Render_Blocks.php:657
-#: includes/Render_Blocks.php:1638
+#: includes/Render_Blocks.php:724
+#: includes/Render_Blocks.php:1705
 #, php-format
 msgid "%s event found"
 msgid_plural "%s events found"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/Render_Blocks.php:697
+#: includes/Render_Blocks.php:764
 #: build/blocks/event-list/index.js:1
 msgid "Filter by category"
 msgstr ""
 
-#: includes/Render_Blocks.php:704
+#: includes/Render_Blocks.php:771
 #: build/blocks/event-list/index.js:1
 msgid "All categories"
 msgstr ""
 
-#: includes/Render_Blocks.php:709
+#: includes/Render_Blocks.php:776
 msgid "Apply"
 msgstr ""
 
-#: includes/Render_Blocks.php:746
+#: includes/Render_Blocks.php:813
 msgid "View details"
 msgstr ""
 
-#: includes/Render_Blocks.php:1020
+#: includes/Render_Blocks.php:1087
 msgid "Use the month links to browse other months."
 msgstr ""
 
 #. translators: %s: number of events.
-#: includes/Render_Blocks.php:1037
+#: includes/Render_Blocks.php:1104
 #, php-format
 msgid "%s event this month"
 msgid_plural "%s events this month"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/Render_Blocks.php:1144
+#: includes/Render_Blocks.php:1211
 msgid "Add to Google Calendar"
 msgstr ""
 
-#: includes/Render_Blocks.php:1145
+#: includes/Render_Blocks.php:1212
 msgid "Add to Outlook"
 msgstr ""
 
 #. translators: %s: number of events.
-#: includes/Render_Blocks.php:1301
+#: includes/Render_Blocks.php:1368
 #: build/blocks/event-categories/index.js:2
 msgid "No categories yet."
 msgstr ""
 
 #. translators: %s: number of events in the category.
-#: includes/Render_Blocks.php:1314
+#: includes/Render_Blocks.php:1381
 #, php-format
 msgctxt "category count wrapper"
 msgid "(%s)"
 msgstr ""
 
-#: includes/Render_Blocks.php:1383
-#: includes/Render_Blocks.php:1632
+#: includes/Render_Blocks.php:1450
+#: includes/Render_Blocks.php:1699
 msgid "Be the first to RSVP."
 msgstr ""
 
 #. translators: 1: number going, 2: number of waitlisted seats.
-#: includes/Render_Blocks.php:1391
-#: includes/Render_Blocks.php:1621
+#: includes/Render_Blocks.php:1458
+#: includes/Render_Blocks.php:1688
 #, php-format
 msgctxt "event count line"
 msgid "%1$s going · %2$s seat waitlisted"
@@ -851,69 +859,69 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: 1: number going, 2: total capacity.
-#: includes/Render_Blocks.php:1580
-#: includes/Render_Blocks.php:1658
+#: includes/Render_Blocks.php:1647
+#: includes/Render_Blocks.php:1725
 #, php-format
 msgid "%1$s of %2$s spots filled"
 msgstr ""
 
-#: includes/Render_Blocks.php:1610
+#: includes/Render_Blocks.php:1677
 msgid "Please enter your name."
 msgstr ""
 
-#: includes/Render_Blocks.php:1611
+#: includes/Render_Blocks.php:1678
 msgid "Please enter a valid email address."
 msgstr ""
 
-#: includes/Render_Blocks.php:1612
+#: includes/Render_Blocks.php:1679
 msgid "You're already registered."
 msgstr ""
 
-#: includes/Render_Blocks.php:1613
+#: includes/Render_Blocks.php:1680
 msgid "You are registered."
 msgstr ""
 
-#: includes/Render_Blocks.php:1614
+#: includes/Render_Blocks.php:1681
 msgid "You are on the waitlist."
 msgstr ""
 
-#: includes/Render_Blocks.php:1615
+#: includes/Render_Blocks.php:1682
 msgid "This event is full — join the waitlist."
 msgstr ""
 
-#: includes/Render_Blocks.php:1616
+#: includes/Render_Blocks.php:1683
 msgid "Too many attempts — try again in a few minutes."
 msgstr ""
 
-#: includes/Render_Blocks.php:1618
+#: includes/Render_Blocks.php:1685
 msgid "Something went wrong — please try again."
 msgstr ""
 
-#: includes/Render_Blocks.php:1619
+#: includes/Render_Blocks.php:1686
 msgid "Could not load events — please try again."
 msgstr ""
 
 #. translators: 1: number going, 2: number of waitlisted seats.
-#: includes/Render_Blocks.php:1627
+#: includes/Render_Blocks.php:1694
 #, php-format
 msgctxt "event count line"
 msgid "%1$s going · %2$s seats waitlisted"
 msgstr ""
 
 #. translators: %s: number of attendees.
-#: includes/Render_Blocks.php:1634
+#: includes/Render_Blocks.php:1701
 #, php-format
 msgid "%s person going"
 msgstr ""
 
 #. translators: %s: number of attendees.
-#: includes/Render_Blocks.php:1636
+#: includes/Render_Blocks.php:1703
 #, php-format
 msgid "%s people going"
 msgstr ""
 
 #. translators: %s: number of events.
-#: includes/Render_Blocks.php:1640
+#: includes/Render_Blocks.php:1707
 #, php-format
 msgid "%s events found"
 msgstr ""
@@ -1177,6 +1185,22 @@ msgstr ""
 
 #: build/admin/event-details.js:1
 msgid "Attendees get a reminder email this many hours before the start. Empty = 24. 0 = no reminder."
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "External registration URL"
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "https://…"
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Replaces the RSVP form with a Register button linking here. Leave empty to use the built-in RSVP form."
+msgstr ""
+
+#: build/admin/event-details.js:1
+msgid "Optional. Use an external ticketing page instead of the built-in RSVP form."
 msgstr ""
 
 #: build/admin/event-details.js:1

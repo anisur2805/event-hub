@@ -44,6 +44,7 @@ interface EventHubEventMeta {
 	eh_rsvp_open_hours?: string;
 	eh_rsvp_close_hours?: string;
 	eh_status?: string;
+	eh_external_url?: string;
 	eh_series_freq?: string;
 	eh_series_interval?: string;
 	eh_series_byweekday?: string;
@@ -295,6 +296,8 @@ function EventDetailsFields(): ReactElement {
 		typeof meta.eh_reminder_hours === 'string'
 			? meta.eh_reminder_hours
 			: '';
+	const externalUrlRaw =
+		typeof meta.eh_external_url === 'string' ? meta.eh_external_url : '';
 
 	const limited = CAPACITY_PATTERN.test( capacityRaw );
 
@@ -465,6 +468,38 @@ function EventDetailsFields(): ReactElement {
 						'Attendees get a reminder email this many hours before the start. Empty = 24. 0 = no reminder.',
 						'event-hub'
 					) }
+				/>
+			</PanelRow>
+			<PanelRow>
+				<TextControl
+					label={ __( 'External registration URL', 'event-hub' ) }
+					type="url"
+					value={ externalUrlRaw }
+					placeholder={ __( 'https://…', 'event-hub' ) }
+					help={
+						'' !== externalUrlRaw.trim()
+							? __(
+									'Replaces the RSVP form with a Register button linking here. Leave empty to use the built-in RSVP form.',
+									'event-hub'
+								)
+							: __(
+									'Optional. Use an external ticketing page instead of the built-in RSVP form.',
+									'event-hub'
+								)
+					}
+					onChange={ ( next ) => {
+						// Commit only plausible absolute http(s) URLs; intermediate
+						// keystrokes leave the stored value untouched (the same
+						// commit-only-valid discipline as capacity/cutoffs).
+						const value = next.trim();
+
+						if (
+							'' === value ||
+							/^https?:\/\/.+\..+/.test( value )
+						) {
+							update( 'eh_external_url', value );
+						}
+					} }
 				/>
 			</PanelRow>
 			<PanelRow>
