@@ -145,6 +145,24 @@ addresses (honest counts).
 Errors: `400 eh_missing_message` (empty/whitespace subject or body); `404
 eh_event_not_found`; `403 rest_forbidden`.
 
+### POST `/event-hub/v1/events/{id}/check-in` — capability `edit_others_posts` (§5B phone check-in desk)
+
+Body: `{ "phone": string (required, non-empty) }`. Resolves the number
+against the event's GOING rows digit-for-digit (all non-digits strip, both
+sides); a shorter run that is the tail of the longer one counts as the same
+number (country code on either side), with both runs floored at 7 digits
+(`Rsvp_Repository::MIN_PHONE_DIGITS` — a fragment identifies nobody).
+
+Exactly one match → `200 { "checkedIn": true, "rsvp": { …admin-gated row
+shape, checkedInAt set… } }` — stamped through the same `set_checked_in()`
+contract as the table button; idempotent (re-typing the phone returns the
+row, the stamp is not rewritten).
+
+Errors: `400 eh_missing_phone` (blank); `404 eh_phone_not_found` (no going
+row matches — includes sub-floor input); `409 eh_phone_ambiguous` with
+`data.count` (shared number — nobody is stamped; pick in the RSVP table);
+`404 eh_event_not_found`; `403 rest_forbidden`.
+
 ## Manage-booking page (front end, non-REST)
 
 `GET /?eh_manage=<token>` renders the token-gated manage page
